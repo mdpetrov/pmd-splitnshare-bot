@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 splitnshare = "splitnshare.__main__:main"
+splitnshare-db-smoke = "splitnshare.infrastructure.database_health:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/splitnshare"]
@@ -46,4 +47,4 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["src/splitnshare"]
+files = ["src/splitnshare"]
