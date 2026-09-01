@@ -44,3 +44,8 @@ class TransferStatus(StrEnum):
 class Language(StrEnum):
     ENGLISH = "en"
     RUSSIAN = "ru"
+
+
+class FriendSource(StrEnum):
+    DIRECT = "direct"
+    EXPENSE = "expense"

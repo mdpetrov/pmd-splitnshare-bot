@@ -6,6 +6,7 @@ from splitnshare.application.dto import (
     CreateExpenseCommand,
     ExpenseDTO,
     ExpensePage,
+    FriendDTO,
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
@@ -19,7 +20,7 @@ from splitnshare.application.dto import (
 )
 from splitnshare.application.ports import UnitOfWorkFactory
 from splitnshare.domain.contexts import ExpenseContext
-from splitnshare.domain.enums import Language, SplitMethod
+from splitnshare.domain.enums import FriendSource, Language, SplitMethod
 from splitnshare.domain.errors import NotFoundError, ValidationError
 from splitnshare.domain.splitting import EqualSplitStrategy, ExactSplitStrategy
 
@@ -133,6 +134,44 @@ class GuestService:
             return result
 
 
+class FriendService:
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self._uow_factory = uow_factory
+
+    async def add_shared_user(
+        self, owner_person_id: UUID, shared: SharedTelegramUser
+    ) -> FriendDTO:
+        async with self._uow_factory() as uow:
+            person = await uow.users.find_registered_by_telegram_id(shared.telegram_user_id)
+            if person is None:
+                person = await uow.guests.get_or_create_telegram_guest(
+                    owner_person_id, shared
+                )
+            friend = await uow.friends.add(
+                owner_person_id, person.id, FriendSource.DIRECT
+            )
+            await uow.commit()
+            return friend
+
+    async def add_manual_guest(
+        self, owner_person_id: UUID, display_name: str
+    ) -> FriendDTO:
+        display_name = " ".join(display_name.split())
+        if not 1 <= len(display_name) <= 160:
+            raise ValidationError("Guest name must contain between 1 and 160 characters.")
+        async with self._uow_factory() as uow:
+            guest = await uow.guests.create_manual_guest(owner_person_id, display_name)
+            friend = await uow.friends.add(
+                owner_person_id, guest.id, FriendSource.DIRECT
+            )
+            await uow.commit()
+            return friend
+
+    async def list_friends(self, owner_person_id: UUID) -> Sequence[FriendDTO]:
+        async with self._uow_factory() as uow:
+            return await uow.friends.list_active(owner_person_id)
+
+
 class ExpenseService:
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
@@ -177,6 +216,13 @@ class ExpenseService:
         )
         async with self._uow_factory() as uow:
             expense = await uow.expenses.create(record)
+            for participant_id in command.participant_ids:
+                if participant_id != command.creator_person_id:
+                    await uow.friends.add(
+                        command.creator_person_id,
+                        participant_id,
+                        FriendSource.EXPENSE,
+                    )
             await uow.commit()
             return expense
 

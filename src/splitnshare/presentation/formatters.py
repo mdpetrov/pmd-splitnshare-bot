@@ -39,6 +39,9 @@ def transfer_preview_text(
             "",
             translate(language, "expenses_count", count=preview.expense_count),
             translate(language, "groups_count", count=preview.group_count),
+            translate(
+                language, "friendships_count", count=preview.friendship_count
+            ),
             translate(language, "debt_amounts", amounts=debts),
             "",
             translate(language, "transfer_warning"),

@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from splitnshare.domain.enums import (
+    FriendSource,
     GroupRole,
     GroupStatus,
     GuestCreationMethod,
@@ -95,6 +96,27 @@ class UserSettingsModel(TimestampMixin, Base):
     language: Mapped[Language] = mapped_column(
         enum_type(Language, "language"), default=Language.ENGLISH, nullable=False
     )
+
+
+class FriendshipModel(TimestampMixin, Base):
+    __tablename__ = "friendships"
+    __table_args__ = (
+        CheckConstraint(
+            "owner_person_id <> friend_person_id", name="ck_friendship_not_self"
+        ),
+        Index("ix_friendships_friend_person_id", "friend_person_id"),
+    )
+
+    owner_person_id: Mapped[UUID] = mapped_column(
+        ForeignKey("user_accounts.person_id", ondelete="CASCADE"), primary_key=True
+    )
+    friend_person_id: Mapped[UUID] = mapped_column(
+        ForeignKey("persons.id", ondelete="RESTRICT"), primary_key=True
+    )
+    source: Mapped[FriendSource] = mapped_column(
+        enum_type(FriendSource, "friend_source"), nullable=False
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class GuestProfileModel(Base):

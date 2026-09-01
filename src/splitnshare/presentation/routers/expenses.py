@@ -29,10 +29,10 @@ from splitnshare.presentation.keyboards import (
     delete_confirm_keyboard,
     expense_confirm_keyboard,
     expense_details_keyboard,
+    expense_friends_keyboard,
     expense_list_keyboard,
     main_menu,
     participant_keyboard,
-    recent_people_keyboard,
     remove_participant_keyboard,
     split_method_keyboard,
 )
@@ -153,23 +153,26 @@ async def request_manual_name(
     )
 
 
-@router.message(AddExpenseStates.participants, F.text.in_(button_values("add_recent")))
-async def choose_recent_person(
+@router.message(
+    AddExpenseStates.participants,
+    F.text.in_(button_values("add_from_friends")),
+)
+async def choose_friend(
     message: Message, services: Services, language: Language
 ) -> None:
     owner = await current_person(message, services)
-    people = list(await services.expense_queries.list_recent_people(owner.id))
-    if not people:
-        await message.answer(translate(language, "no_recent"))
+    friends = list(await services.friends.list_friends(owner.id))
+    if not friends:
+        await message.answer(translate(language, "no_friends"))
         return
     await message.answer(
-        translate(language, "choose_recent"),
-        reply_markup=recent_people_keyboard(people),
+        translate(language, "choose_friend"),
+        reply_markup=expense_friends_keyboard(friends),
     )
 
 
-@router.callback_query(F.data.startswith("expense:addperson:"))
-async def add_recent_person(
+@router.callback_query(F.data.startswith("expense:addfriend:"))
+async def add_friend_participant(
     callback: CallbackQuery,
     state: FSMContext,
     services: Services,
@@ -186,21 +189,23 @@ async def add_recent_person(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     person_id = UUID(payload.rsplit(":", 1)[1])
-    recent = {
-        person.id: person
-        for person in await services.expense_queries.list_recent_people(owner.id)
+    available = {
+        friend.person_id: friend
+        for friend in await services.friends.list_friends(owner.id)
     }
-    person = recent.get(person_id)
-    if person is None:
+    friend = available.get(person_id)
+    if friend is None:
         await callback.answer(translate(language, "person_unavailable"), show_alert=True)
         return
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
-    if str(person.id) not in {item["id"] for item in participants}:
+    if str(friend.person_id) not in {item["id"] for item in participants}:
         if len(participants) >= 10:
             await callback.answer(translate(language, "participant_limit"), show_alert=True)
             return
-        participants.append({"id": str(person.id), "name": person.display_name})
+        participants.append(
+            {"id": str(friend.person_id), "name": friend.display_name}
+        )
         await state.update_data(participants=participants)
     settings = await services.user_settings.get_or_create(owner.id)
     await target_message.answer(

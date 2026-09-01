@@ -9,6 +9,7 @@ from splitnshare.application.dto import (
     BalanceDTO,
     ExpenseDTO,
     ExpensePage,
+    FriendDTO,
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
@@ -19,6 +20,7 @@ from splitnshare.application.dto import (
     UserSettingsDTO,
 )
 from splitnshare.domain.contexts import ExpenseContext
+from splitnshare.domain.enums import FriendSource
 
 
 class UserRepository(Protocol):
@@ -65,6 +67,14 @@ class GuestRepository(Protocol):
     ) -> TransferResultDTO: ...
 
 
+class FriendRepository(Protocol):
+    async def add(
+        self, owner_person_id: UUID, friend_person_id: UUID, source: FriendSource
+    ) -> FriendDTO: ...
+
+    async def list_active(self, owner_person_id: UUID) -> Sequence[FriendDTO]: ...
+
+
 class ExpenseRepository(Protocol):
     async def create(self, record: NewExpenseRecord) -> ExpenseDTO: ...
 
@@ -91,6 +101,7 @@ class UnitOfWork(Protocol):
     users: UserRepository
     user_settings: UserSettingsRepository
     guests: GuestRepository
+    friends: FriendRepository
     expenses: ExpenseRepository
 
     async def __aenter__(self) -> UnitOfWork: ...

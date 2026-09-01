@@ -30,7 +30,18 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 - Guests belonging to different owners remain separate, even when they reference the same
   Telegram user.
 - Guest names are never used for automatic matching or merging.
-- Recent co-participants can be selected while creating another expense.
+- Existing friends can be selected while creating another expense.
+
+### Friends
+
+- **Friends** is a private, owner-scoped contact list containing registered users and guests.
+- Adding someone does not automatically add the owner to the other user's Friends list.
+- Confirming an expense automatically adds its co-participants to the creator's Friends list.
+- Friends can also be added directly by selecting a Telegram user or creating a named guest.
+- Repeated additions and repeated expenses never create duplicate friendships.
+- **Guests** and the explicit guest-transfer flow are nested under **Friends**.
+- Guest transfer redirects friendship references to the registered target and safely combines
+  duplicates.
 
 ### Expense creation
 
@@ -62,7 +73,7 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 
 ### Explicit guest transfer
 
-- **People** lists active guests owned by the current user.
+- **Friends → Guests** lists active guests owned by the current user.
 - A guest can be transferred only by its owner and only to a user who has already registered
   with the bot.
 - The confirmation preview shows affected expenses, groups, and recorded debt amounts by
