@@ -8,6 +8,7 @@ from splitnshare.application.services import (
     BalanceQueryService,
     ExpenseQueryService,
     ExpenseService,
+    FriendService,
     GuestService,
     UserService,
     UserSettingsService,
@@ -35,6 +36,7 @@ def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]
         user_settings=user_settings,
         guests=GuestService(uow_factory),
         expenses=ExpenseService(uow_factory),
+        friends=FriendService(uow_factory),
         expense_queries=ExpenseQueryService(uow_factory),
         balances=BalanceQueryService(uow_factory),
     )

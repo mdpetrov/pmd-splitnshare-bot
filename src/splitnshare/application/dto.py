@@ -4,7 +4,13 @@ from typing import Any
 from uuid import UUID
 
 from splitnshare.domain.contexts import ExpenseContext
-from splitnshare.domain.enums import GuestCreationMethod, Language, PersonKind, SplitMethod
+from splitnshare.domain.enums import (
+    FriendSource,
+    GuestCreationMethod,
+    Language,
+    PersonKind,
+    SplitMethod,
+)
 from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import Allocation
 
@@ -50,6 +56,17 @@ class GuestDTO:
     display_name: str
     creation_method: GuestCreationMethod
     suggested_telegram_user_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class FriendDTO:
+    person_id: UUID
+    display_name: str
+    kind: PersonKind
+    registered: bool
+    source: FriendSource
+    username: str | None = None
+    telegram_user_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +124,7 @@ class TransferPreviewDTO:
     target_name: str
     expense_count: int
     group_count: int
+    friendship_count: int
     debt_totals: dict[str, int]
 
 

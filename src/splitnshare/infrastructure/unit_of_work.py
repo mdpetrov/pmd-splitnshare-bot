@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from splitnshare.application.ports import UnitOfWork, UnitOfWorkFactory
 from splitnshare.infrastructure.repositories import (
     SqlAlchemyExpenseRepository,
+    SqlAlchemyFriendRepository,
     SqlAlchemyGuestRepository,
     SqlAlchemyUserRepository,
     SqlAlchemyUserSettingsRepository,
@@ -16,6 +17,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
     user_settings: SqlAlchemyUserSettingsRepository
     guests: SqlAlchemyGuestRepository
     expenses: SqlAlchemyExpenseRepository
+    friends: SqlAlchemyFriendRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -27,6 +29,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.user_settings = SqlAlchemyUserSettingsRepository(self._session)
         self.guests = SqlAlchemyGuestRepository(self._session)
         self.expenses = SqlAlchemyExpenseRepository(self._session)
+        self.friends = SqlAlchemyFriendRepository(self._session)
         return self
 
     async def __aexit__(

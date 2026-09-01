@@ -17,3 +17,8 @@ class TransferGuestStates(StatesGroup):
 
 class UserSettingsStates(StatesGroup):
     custom_currency = State()
+
+
+class FriendStates(StatesGroup):
+    choosing = State()
+    manual_name = State()

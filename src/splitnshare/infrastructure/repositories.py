@@ -7,6 +7,8 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
@@ -15,6 +17,7 @@ from splitnshare.application.dto import (
     ExpenseDTO,
     ExpensePage,
     ExpenseSplitDTO,
+    FriendDTO,
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
@@ -26,6 +29,7 @@ from splitnshare.application.dto import (
 )
 from splitnshare.domain.contexts import DirectExpenseContext, ExpenseContext, GroupExpenseContext
 from splitnshare.domain.enums import (
+    FriendSource,
     GroupRole,
     GuestCreationMethod,
     GuestTransferStatus,
@@ -45,6 +49,7 @@ from splitnshare.infrastructure.models import (
     DebtModel,
     ExpenseModel,
     ExpenseSplitModel,
+    FriendshipModel,
     GroupMembershipModel,
     GroupModel,
     GuestProfileModel,
@@ -161,6 +166,91 @@ class SqlAlchemyUserSettingsRepository:
         return _settings_dto(model)
 
 
+class SqlAlchemyFriendRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(
+        self,
+        owner_person_id: UUID,
+        friend_person_id: UUID,
+        source: FriendSource,
+    ) -> FriendDTO:
+        await _require_registered(self._session, owner_person_id)
+        if owner_person_id == friend_person_id:
+            raise ValidationError("A user cannot add themselves as a friend.")
+        friend = await self._session.get(PersonModel, friend_person_id)
+        if friend is None or friend.inactive_at is not None:
+            raise NotFoundError("Active friend not found.")
+
+        values = {
+            "owner_person_id": owner_person_id,
+            "friend_person_id": friend_person_id,
+            "source": source,
+            "archived_at": None,
+        }
+        bind = self._session.get_bind()
+        if bind.dialect.name == "postgresql":
+            postgresql_statement = postgresql_insert(FriendshipModel).values(**values)
+            postgresql_statement = postgresql_statement.on_conflict_do_update(
+                index_elements=["owner_person_id", "friend_person_id"],
+                set_={"archived_at": None, "updated_at": func.now()},
+            )
+            await self._session.execute(postgresql_statement)
+        elif bind.dialect.name == "sqlite":
+            sqlite_statement = sqlite_insert(FriendshipModel).values(**values)
+            sqlite_statement = sqlite_statement.on_conflict_do_update(
+                index_elements=["owner_person_id", "friend_person_id"],
+                set_={"archived_at": None, "updated_at": func.now()},
+            )
+            await self._session.execute(sqlite_statement)
+        else:
+            relationship = await self._session.get(
+                FriendshipModel, (owner_person_id, friend_person_id)
+            )
+            if relationship is None:
+                self._session.add(FriendshipModel(**values))
+            else:
+                relationship.archived_at = None
+        await self._session.flush()
+        return await self._get_dto(owner_person_id, friend_person_id)
+
+    async def list_active(self, owner_person_id: UUID) -> Sequence[FriendDTO]:
+        await _require_registered(self._session, owner_person_id)
+        rows = (
+            await self._session.execute(
+                select(FriendshipModel, PersonModel, UserAccountModel)
+                .join(PersonModel, PersonModel.id == FriendshipModel.friend_person_id)
+                .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                .where(
+                    FriendshipModel.owner_person_id == owner_person_id,
+                    FriendshipModel.archived_at.is_(None),
+                    PersonModel.inactive_at.is_(None),
+                )
+                .order_by(PersonModel.display_name, PersonModel.id)
+            )
+        ).all()
+        return tuple(
+            _friend_dto(relationship, person, account)
+            for relationship, person, account in rows
+        )
+
+    async def _get_dto(
+        self, owner_person_id: UUID, friend_person_id: UUID
+    ) -> FriendDTO:
+        row = (
+            await self._session.execute(
+                select(FriendshipModel, PersonModel, UserAccountModel)
+                .join(PersonModel, PersonModel.id == FriendshipModel.friend_person_id)
+                .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                .where(
+                    FriendshipModel.owner_person_id == owner_person_id,
+                    FriendshipModel.friend_person_id == friend_person_id,
+                )
+            )
+        ).one()
+        return _friend_dto(row[0], row[1], row[2])
+
 class SqlAlchemyGuestRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -255,6 +345,14 @@ class SqlAlchemyGuestRepository:
             )
             or 0
         )
+        friendship_count = int(
+            await self._session.scalar(
+                select(func.count())
+                .select_from(FriendshipModel)
+                .where(FriendshipModel.friend_person_id == guest_person_id)
+            )
+            or 0
+        )
         totals: dict[str, int] = defaultdict(int)
         if expense_ids:
             rows = (
@@ -277,6 +375,7 @@ class SqlAlchemyGuestRepository:
             target_name=target_person.display_name,
             expense_count=len(expense_ids),
             group_count=group_count,
+            friendship_count=friendship_count,
             debt_totals=dict(totals),
         )
 
@@ -340,6 +439,35 @@ class SqlAlchemyGuestRepository:
                 source_membership.role = GroupRole.MEMBER
         await self._session.flush()
 
+        friendship_rows = (
+            await self._session.execute(
+                select(FriendshipModel)
+                .where(FriendshipModel.friend_person_id == guest_person_id)
+                .with_for_update()
+            )
+        ).scalars().all()
+        friendship_count = len(friendship_rows)
+        duplicate_friendships = 0
+        self_friendships = 0
+        for source_friendship in friendship_rows:
+            if source_friendship.owner_person_id == target_person_id:
+                self_friendships += 1
+                await self._session.delete(source_friendship)
+                continue
+            target_friendship = await self._session.get(
+                FriendshipModel,
+                (source_friendship.owner_person_id, target_person_id),
+                with_for_update=True,
+            )
+            if target_friendship is not None:
+                duplicate_friendships += 1
+                if source_friendship.archived_at is None:
+                    target_friendship.archived_at = None
+                await self._session.delete(source_friendship)
+            else:
+                source_friendship.friend_person_id = target_person_id
+        await self._session.flush()
+
         now = datetime.now(UTC)
         guest.status = GuestTransferStatus.TRANSFERRED
         guest.transferred_to_person_id = target_person_id
@@ -349,6 +477,9 @@ class SqlAlchemyGuestRepository:
             "overlapping_splits": overlap_count,
             "group_memberships": membership_count,
             "duplicate_memberships": duplicate_memberships,
+            "friendships": friendship_count,
+            "duplicate_friendships": duplicate_friendships,
+            "self_friendships": self_friendships,
         }
         transfer = GuestTransferModel(
             source_guest_person_id=guest_person_id,
@@ -756,6 +887,22 @@ def _settings_dto(model: UserSettingsModel) -> UserSettingsDTO:
         person_id=model.person_id,
         default_currency=model.default_currency,
         language=model.language,
+    )
+
+
+def _friend_dto(
+    relationship: FriendshipModel,
+    person: PersonModel,
+    account: UserAccountModel | None,
+) -> FriendDTO:
+    return FriendDTO(
+        person_id=person.id,
+        display_name=person.display_name,
+        kind=person.kind,
+        registered=account is not None,
+        source=relationship.source,
+        username=account.username if account else None,
+        telegram_user_id=account.telegram_user_id if account else None,
     )
 
 

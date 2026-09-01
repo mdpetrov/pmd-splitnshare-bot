@@ -9,13 +9,12 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
-from splitnshare.application.dto import ExpenseDTO, ExpensePage, GuestDTO, PersonDTO
+from splitnshare.application.dto import ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
 from splitnshare.domain.enums import Language
 from splitnshare.presentation.i18n import translate
 
 ADD_EXPENSE = "➕ Add expense"
 TRANSACTIONS = "📋 Transactions"
-PEOPLE = "👥 People"
 SETTINGS = "⚙️ Settings"
 CANCEL = "Cancel"
 BACK = "Back"
@@ -33,7 +32,7 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=translate(language, "transactions")),
             ],
             [
-                KeyboardButton(text=translate(language, "people")),
+                KeyboardButton(text=translate(language, "friends")),
                 KeyboardButton(text=translate(language, "settings")),
             ],
         ],
@@ -66,7 +65,7 @@ def participant_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboard
             ],
             [
                 KeyboardButton(text=translate(language, "add_manual")),
-                KeyboardButton(text=translate(language, "add_recent")),
+                KeyboardButton(text=translate(language, "add_from_friends")),
             ],
             [
                 KeyboardButton(text=translate(language, "remove_participant")),
@@ -98,16 +97,16 @@ def split_method_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboa
     )
 
 
-def recent_people_keyboard(people: Sequence[PersonDTO]) -> InlineKeyboardMarkup:
+def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=person.display_name,
-                    callback_data=f"expense:addperson:{person.id}",
+                    text=friend.display_name,
+                    callback_data=f"expense:addfriend:{friend.person_id}",
                 )
             ]
-            for person in people
+            for friend in friends
         ]
     )
 
@@ -229,6 +228,74 @@ def guests_keyboard(
             ]
             for guest in guests
         ]
+        + [
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back_friends"),
+                    callback_data="friends:show",
+                )
+            ]
+        ]
+    )
+
+
+def friends_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "registered_friends"),
+                    callback_data="friends:registered",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "guests"), callback_data="friends:guests"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "add_friend"),
+                    callback_data="friends:add",
+                )
+            ],
+        ]
+    )
+
+
+def back_to_friends_keyboard(language: Language) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back_friends"),
+                    callback_data="friends:show",
+                )
+            ]
+        ]
+    )
+
+
+def add_friend_keyboard(language: Language) -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(
+                    text=translate(language, "choose_friend_telegram"),
+                    request_users=KeyboardButtonRequestUsers(
+                        request_id=3001,
+                        user_is_bot=False,
+                        max_quantity=1,
+                        request_name=True,
+                        request_username=True,
+                    ),
+                )
+            ],
+            [KeyboardButton(text=translate(language, "add_named_guest"))],
+            [
+                KeyboardButton(text=translate(language, "back")),
+                KeyboardButton(text=translate(language, "cancel")),
+            ],
+        ],
+        resize_keyboard=True,
     )
 
 

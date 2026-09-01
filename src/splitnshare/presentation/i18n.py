@@ -8,12 +8,12 @@ _TEXTS: dict[Language, dict[str, str]] = {
     Language.ENGLISH: {
         "add_expense": "➕ Add expense",
         "transactions": "📋 Transactions",
-        "people": "👥 People",
+        "friends": "👥 Friends",
         "settings": "⚙️ Settings",
         "cancel": "Cancel",
         "back": "Back",
         "add_manual": "Add person by name",
-        "add_recent": "Add recent person",
+        "add_from_friends": "Add from friends",
         "remove_participant": "Remove participant",
         "done": "Done selecting",
         "choose_telegram_users": "Choose Telegram users",
@@ -112,16 +112,34 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "transfer_warning": (
             "Everything will move atomically. This cannot be reversed in the bot."
         ),
+        "friendships_count": "Friend-list entries: {count}",
+        "friends_title": (
+            "<b>Friends</b>\nRegistered friends: <b>{registered}</b>\n"
+            "Active guests: <b>{guests}</b>"
+        ),
+        "registered_friends": "Registered friends",
+        "guests": "Guests",
+        "add_friend": "Add friend",
+        "no_registered_friends": "You have no registered friends yet.",
+        "registered_friends_intro": "Your registered friends:",
+        "choose_friend": "Choose a friend:",
+        "no_friends": "Your Friends list is empty.",
+        "add_friend_prompt": "Choose a Telegram user or create a named guest.",
+        "choose_friend_telegram": "Choose a Telegram user",
+        "add_named_guest": "Add named guest",
+        "friend_name": "Enter the guest's display name.",
+        "friend_added": "{name} is now in your Friends list.",
+        "back_friends": "Back to Friends",
     },
     Language.RUSSIAN: {
         "add_expense": "➕ Добавить расход",
         "transactions": "📋 Транзакции",
-        "people": "👥 Люди",
+        "friends": "👥 Друзья",
         "settings": "⚙️ Настройки",
         "cancel": "Отмена",
         "back": "Назад",
         "add_manual": "Добавить человека по имени",
-        "add_recent": "Добавить недавнего участника",
+        "add_from_friends": "Добавить из друзей",
         "remove_participant": "Удалить участника",
         "done": "Закончить выбор",
         "choose_telegram_users": "Выбрать пользователей Telegram",
@@ -216,6 +234,24 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "debt_amounts": "Учтённые суммы долгов: {amounts}",
         "none": "нет",
         "transfer_warning": "Всё будет перенесено атомарно. Отменить это в боте нельзя.",
+        "friendships_count": "Записи в списках друзей: {count}",
+        "friends_title": (
+            "<b>Друзья</b>\nЗарегистрированные друзья: <b>{registered}</b>\n"
+            "Активные гости: <b>{guests}</b>"
+        ),
+        "registered_friends": "Зарегистрированные друзья",
+        "guests": "Гости",
+        "add_friend": "Добавить друга",
+        "no_registered_friends": "У вас пока нет зарегистрированных друзей.",
+        "registered_friends_intro": "Ваши зарегистрированные друзья:",
+        "choose_friend": "Выберите друга:",
+        "no_friends": "Ваш список друзей пуст.",
+        "add_friend_prompt": "Выберите пользователя Telegram или создайте гостя по имени.",
+        "choose_friend_telegram": "Выбрать пользователя Telegram",
+        "add_named_guest": "Добавить гостя по имени",
+        "friend_name": "Введите отображаемое имя гостя.",
+        "friend_added": "{name} добавлен(а) в ваш список друзей.",
+        "back_friends": "Назад к друзьям",
     },
 }
 
