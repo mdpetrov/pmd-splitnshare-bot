@@ -14,6 +14,7 @@ def telegram_identity(user: User) -> TelegramIdentity:
         first_name=user.first_name,
         last_name=user.last_name,
         username=user.username,
+        language_code=user.language_code,
     )
 
 

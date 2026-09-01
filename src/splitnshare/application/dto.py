@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from splitnshare.domain.contexts import ExpenseContext
-from splitnshare.domain.enums import GuestCreationMethod, PersonKind, SplitMethod
+from splitnshare.domain.enums import GuestCreationMethod, Language, PersonKind, SplitMethod
 from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import Allocation
 
@@ -15,6 +15,7 @@ class TelegramIdentity:
     first_name: str
     last_name: str | None = None
     username: str | None = None
+    language_code: str | None = None
 
     @property
     def display_name(self) -> str:
@@ -126,6 +127,20 @@ class BalanceDTO:
 
 
 @dataclass(frozen=True, slots=True)
+class UserSettingsDTO:
+    person_id: UUID
+    default_currency: str
+    language: Language
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateUserSettingsCommand:
+    person_id: UUID
+    default_currency: str | None = None
+    language: Language | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class NewExpenseRecord:
     command: CreateExpenseCommand
     payer_person_id: UUID
@@ -133,4 +148,3 @@ class NewExpenseRecord:
 
 
 JsonDict = dict[str, Any]
-

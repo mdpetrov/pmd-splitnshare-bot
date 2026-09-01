@@ -14,11 +14,13 @@ from splitnshare.application.dto import (
     TransferGuestCommand,
     TransferPreviewDTO,
     TransferResultDTO,
+    UpdateUserSettingsCommand,
+    UserSettingsDTO,
 )
 from splitnshare.application.ports import UnitOfWorkFactory
 from splitnshare.domain.contexts import ExpenseContext
-from splitnshare.domain.enums import SplitMethod
-from splitnshare.domain.errors import ValidationError
+from splitnshare.domain.enums import Language, SplitMethod
+from splitnshare.domain.errors import NotFoundError, ValidationError
 from splitnshare.domain.splitting import EqualSplitStrategy, ExactSplitStrategy
 
 
@@ -36,6 +38,56 @@ class UserService:
     async def find_registered_target(self, telegram_user_id: int) -> PersonDTO | None:
         async with self._uow_factory() as uow:
             return await uow.users.find_registered_by_telegram_id(telegram_user_id)
+
+
+class UserSettingsService:
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        *,
+        default_currency: str = "USD",
+        default_language: Language = Language.ENGLISH,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._default_currency = _normalize_currency(default_currency)
+        self._default_language = default_language
+
+    async def get_or_create(
+        self, person_id: UUID, *, preferred_language: str | None = None
+    ) -> UserSettingsDTO:
+        async with self._uow_factory() as uow:
+            current = await uow.user_settings.get(person_id)
+            if current is not None:
+                return current
+            language = _supported_language(preferred_language) or self._default_language
+            created = await uow.user_settings.create(
+                person_id, self._default_currency, language.value
+            )
+            await uow.commit()
+            return created
+
+    async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None:
+        async with self._uow_factory() as uow:
+            return await uow.user_settings.find_by_telegram_id(telegram_user_id)
+
+    async def update(self, command: UpdateUserSettingsCommand) -> UserSettingsDTO:
+        if command.default_currency is None and command.language is None:
+            raise ValidationError("At least one setting must be changed.")
+        currency = (
+            _normalize_currency(command.default_currency)
+            if command.default_currency is not None
+            else None
+        )
+        async with self._uow_factory() as uow:
+            if await uow.user_settings.get(command.person_id) is None:
+                raise NotFoundError("User settings not found.")
+            updated = await uow.user_settings.update(
+                command.person_id,
+                default_currency=currency,
+                language=command.language.value if command.language is not None else None,
+            )
+            await uow.commit()
+            return updated
 
 
 class GuestService:
@@ -171,3 +223,20 @@ class BalanceQueryService:
     ) -> Sequence[BalanceDTO]:
         async with self._uow_factory() as uow:
             return await uow.expenses.balances(person_id, context)
+
+
+def _normalize_currency(value: str) -> str:
+    currency = value.strip().upper()
+    if len(currency) != 3 or not currency.isalpha() or not currency.isascii():
+        raise ValidationError("Currency must be a three-letter ISO code.")
+    return currency
+
+
+def _supported_language(value: str | None) -> Language | None:
+    if not value:
+        return None
+    normalized = value.split("-", 1)[0].split("_", 1)[0].lower()
+    try:
+        return Language(normalized)
+    except ValueError:
+        return None

@@ -7,11 +7,13 @@ from splitnshare.infrastructure.repositories import (
     SqlAlchemyExpenseRepository,
     SqlAlchemyGuestRepository,
     SqlAlchemyUserRepository,
+    SqlAlchemyUserSettingsRepository,
 )
 
 
 class SqlAlchemyUnitOfWork(UnitOfWork):
     users: SqlAlchemyUserRepository
+    user_settings: SqlAlchemyUserSettingsRepository
     guests: SqlAlchemyGuestRepository
     expenses: SqlAlchemyExpenseRepository
 
@@ -22,6 +24,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
     async def __aenter__(self) -> "SqlAlchemyUnitOfWork":
         self._session = self._session_factory()
         self.users = SqlAlchemyUserRepository(self._session)
+        self.user_settings = SqlAlchemyUserSettingsRepository(self._session)
         self.guests = SqlAlchemyGuestRepository(self._session)
         self.expenses = SqlAlchemyExpenseRepository(self._session)
         return self

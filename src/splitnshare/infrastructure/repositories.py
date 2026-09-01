@@ -22,12 +22,14 @@ from splitnshare.application.dto import (
     TelegramIdentity,
     TransferPreviewDTO,
     TransferResultDTO,
+    UserSettingsDTO,
 )
 from splitnshare.domain.contexts import DirectExpenseContext, ExpenseContext, GroupExpenseContext
 from splitnshare.domain.enums import (
     GroupRole,
     GuestCreationMethod,
     GuestTransferStatus,
+    Language,
     MembershipStatus,
     PersonKind,
     TransferStatus,
@@ -49,6 +51,7 @@ from splitnshare.infrastructure.models import (
     GuestTransferModel,
     PersonModel,
     UserAccountModel,
+    UserSettingsModel,
 )
 
 
@@ -109,6 +112,53 @@ class SqlAlchemyUserRepository:
         if row is None:
             raise NotFoundError("Registered user not found.")
         return _person_dto(row[1], row[0])
+
+
+class SqlAlchemyUserSettingsRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get(self, person_id: UUID) -> UserSettingsDTO | None:
+        model = await self._session.get(UserSettingsModel, person_id)
+        return _settings_dto(model) if model is not None else None
+
+    async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None:
+        model = await self._session.scalar(
+            select(UserSettingsModel)
+            .join(UserAccountModel, UserAccountModel.person_id == UserSettingsModel.person_id)
+            .where(UserAccountModel.telegram_user_id == telegram_user_id)
+        )
+        return _settings_dto(model) if model is not None else None
+
+    async def create(
+        self, person_id: UUID, default_currency: str, language: str
+    ) -> UserSettingsDTO:
+        await _require_registered(self._session, person_id)
+        model = UserSettingsModel(
+            person_id=person_id,
+            default_currency=default_currency,
+            language=Language(language),
+        )
+        self._session.add(model)
+        await self._session.flush()
+        return _settings_dto(model)
+
+    async def update(
+        self,
+        person_id: UUID,
+        *,
+        default_currency: str | None,
+        language: str | None,
+    ) -> UserSettingsDTO:
+        model = await self._session.get(UserSettingsModel, person_id, with_for_update=True)
+        if model is None:
+            raise NotFoundError("User settings not found.")
+        if default_currency is not None:
+            model.default_currency = default_currency
+        if language is not None:
+            model.language = Language(language)
+        await self._session.flush()
+        return _settings_dto(model)
 
 
 class SqlAlchemyGuestRepository:
@@ -698,6 +748,14 @@ def _person_dto(
         registered=account is not None,
         username=account.username if account else None,
         telegram_user_id=account.telegram_user_id if account else telegram_user_id,
+    )
+
+
+def _settings_dto(model: UserSettingsModel) -> UserSettingsDTO:
+    return UserSettingsDTO(
+        person_id=model.person_id,
+        default_currency=model.default_currency,
+        language=model.language,
     )
 
 
