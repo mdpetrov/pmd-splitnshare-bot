@@ -33,7 +33,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "cancelled": "Cancelled.",
         "settings_title": (
             "<b>Settings</b>\nDefault currency: <b>{currency}</b>\n"
-            "Language: <b>{language}</b>\n\n"
+            "Language: <b>{language}</b>\nTimezone: <b>{timezone}</b>\n\n"
             "The currency is used only when a new expense has no explicit currency."
         ),
         "choose_currency": "Choose your default currency or enter another ISO code.",
@@ -47,17 +47,47 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "main_menu": "Main menu",
         "currency": "💱 Currency",
         "language": "🌐 Language",
+        "timezone": "🕒 Timezone",
+        "choose_timezone": (
+            "<b>Choose your timezone</b>\n\n"
+            "The UTC offsets are familiar reference offsets. The bot stores the city-based "
+            "timezone, so daylight-saving changes are applied automatically where relevant."
+        ),
+        "timezone_saved": "Timezone changed to <b>{timezone}</b>.",
+        "timezone_not_selected": "not selected",
+        "timezone_invalid": "That timezone option is no longer available. Choose again.",
+        "onboarding_welcome": (
+            "Welcome, {name}. Before opening the main menu, choose your timezone.\n\n"
+            "Your default currency is <b>{currency}</b> and your interface language is "
+            "<b>{language}</b>. Currency and language can be changed later in Settings."
+        ),
+        "onboarding_timezone_required": (
+            "Please choose your timezone before continuing to the main menu."
+        ),
+        "onboarding_complete": (
+            "Setup complete. You can change timezone, currency, and language in Settings."
+        ),
+        "timezone_los_angeles": "UTC-8 (Los Angeles, Vancouver)",
+        "timezone_new_york": "UTC-5 (New York, Toronto)",
+        "timezone_utc": "UTC+0 (UTC, Reykjavik)",
+        "timezone_london": "UTC+0 (London, Lisbon)",
+        "timezone_madrid": "UTC+1 (Madrid, Paris, Berlin)",
+        "timezone_athens": "UTC+2 (Athens, Kyiv)",
+        "timezone_moscow": "UTC+3 (Moscow, Istanbul)",
+        "timezone_dubai": "UTC+4 (Dubai, Baku)",
+        "timezone_kolkata": "UTC+5:30 (Delhi, Mumbai)",
+        "timezone_bangkok": "UTC+7 (Bangkok, Jakarta)",
+        "timezone_singapore": "UTC+8 (Singapore, Beijing)",
+        "timezone_tokyo": "UTC+9 (Tokyo, Seoul)",
+        "timezone_sydney": "UTC+10 (Sydney, Melbourne)",
         "invalid_currency": "Enter exactly three Latin letters, for example CAD.",
         "expense_for": "What is this expense for?",
         "back_main": "Back at the main menu.",
         "description_invalid": "Enter a description between 1 and 240 characters.",
         "enter_total": "Enter the total, for example 12.50 or 12.50 USD.",
-        "add_people": (
-            "Add up to nine other people. They may be registered users, Telegram guests, "
-            "or named guests."
-        ),
+        "add_people": "Add up to nine registered or unregistered friends.",
         "participants": "Participants:",
-        "guest_name": "Enter the guest's display name.",
+        "guest_name": "Enter the friend's display name.",
         "no_recent": "No recent co-participants yet.",
         "choose_recent": "Choose a recent person:",
         "draft_expired": "The expense draft expired.",
@@ -137,6 +167,13 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "<b>Friends</b>\nRegistered friends: <b>{registered}</b>\n"
             "Active guests: <b>{guests}</b>"
         ),
+        "friends_list_title": "<b>Friends</b>\nChoose a friend to view available actions.",
+        "friend_details": "<b>{name}</b>\nStatus: {status}",
+        "friend_registered": "registered",
+        "friend_unregistered": "not registered",
+        "rename_friend": "Rename",
+        "rename_friend_prompt": "Enter a new private name for this friend.",
+        "friend_renamed": "Friend renamed to {name}.",
         "registered_friends": "Registered friends",
         "guests": "Guests",
         "add_friend": "Add friend",
@@ -144,10 +181,10 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "registered_friends_intro": "Your registered friends:",
         "choose_friend": "Choose a friend:",
         "no_friends": "Your Friends list is empty.",
-        "add_friend_prompt": "Choose a Telegram user or create a named guest.",
+        "add_friend_prompt": "Choose a Telegram user or create a friend by name.",
         "choose_friend_telegram": "Choose a Telegram user",
-        "add_named_guest": "Add named guest",
-        "friend_name": "Enter the guest's display name.",
+        "add_named_guest": "Add friend by name",
+        "friend_name": "Enter the friend's display name.",
         "friend_added": "{name} is now in your Friends list.",
         "remove_friend": "Remove {name}",
         "remove_friend_short": "Remove",
@@ -190,7 +227,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "cancelled": "Отменено.",
         "settings_title": (
             "<b>Настройки</b>\nВалюта по умолчанию: <b>{currency}</b>\n"
-            "Язык: <b>{language}</b>\n\n"
+            "Язык: <b>{language}</b>\nЧасовой пояс: <b>{timezone}</b>\n\n"
             "Валюта используется только для новых расходов без явно указанной валюты."
         ),
         "choose_currency": "Выберите валюту по умолчанию или введите другой код ISO.",
@@ -204,17 +241,47 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "main_menu": "Главное меню",
         "currency": "💱 Валюта",
         "language": "🌐 Язык",
+        "timezone": "🕒 Часовой пояс",
+        "choose_timezone": (
+            "<b>Выберите часовой пояс</b>\n\n"
+            "Смещения UTC указаны как привычный ориентир. Бот сохраняет городской часовой "
+            "пояс, поэтому переходы на летнее время учитываются автоматически, где применимо."
+        ),
+        "timezone_saved": "Часовой пояс изменён на <b>{timezone}</b>.",
+        "timezone_not_selected": "не выбран",
+        "timezone_invalid": "Этот вариант часового пояса больше недоступен. Выберите снова.",
+        "onboarding_welcome": (
+            "Добро пожаловать, {name}. Перед открытием главного меню выберите часовой пояс.\n\n"
+            "Валюта по умолчанию — <b>{currency}</b>, язык интерфейса — <b>{language}</b>. "
+            "Валюту и язык позже можно изменить в Настройках."
+        ),
+        "onboarding_timezone_required": (
+            "Выберите часовой пояс, чтобы продолжить и открыть главное меню."
+        ),
+        "onboarding_complete": (
+            "Настройка завершена. Часовой пояс, валюту и язык можно изменить в Настройках."
+        ),
+        "timezone_los_angeles": "UTC-8 (Лос-Анджелес, Ванкувер)",
+        "timezone_new_york": "UTC-5 (Нью-Йорк, Торонто)",
+        "timezone_utc": "UTC+0 (UTC, Рейкьявик)",
+        "timezone_london": "UTC+0 (Лондон, Лиссабон)",
+        "timezone_madrid": "UTC+1 (Мадрид, Париж, Берлин)",
+        "timezone_athens": "UTC+2 (Афины, Киев)",
+        "timezone_moscow": "UTC+3 (Москва, Стамбул)",
+        "timezone_dubai": "UTC+4 (Дубай, Баку)",
+        "timezone_kolkata": "UTC+5:30 (Дели, Мумбаи)",
+        "timezone_bangkok": "UTC+7 (Бангкок, Джакарта)",
+        "timezone_singapore": "UTC+8 (Сингапур, Пекин)",
+        "timezone_tokyo": "UTC+9 (Токио, Сеул)",
+        "timezone_sydney": "UTC+10 (Сидней, Мельбурн)",
         "invalid_currency": "Введите ровно три латинские буквы, например CAD.",
         "expense_for": "На что был этот расход?",
         "back_main": "Вы вернулись в главное меню.",
         "description_invalid": "Введите описание длиной от 1 до 240 символов.",
         "enter_total": "Введите сумму, например 12.50 или 12.50 USD.",
-        "add_people": (
-            "Добавьте до девяти человек: зарегистрированных пользователей, гостей Telegram "
-            "или гостей по имени."
-        ),
+        "add_people": "Добавьте до девяти зарегистрированных или незарегистрированных друзей.",
         "participants": "Участники:",
-        "guest_name": "Введите отображаемое имя гостя.",
+        "guest_name": "Введите отображаемое имя друга.",
         "no_recent": "Недавних соучастников пока нет.",
         "choose_recent": "Выберите недавнего участника:",
         "draft_expired": "Черновик расхода устарел.",
@@ -290,6 +357,13 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "<b>Друзья</b>\nЗарегистрированные друзья: <b>{registered}</b>\n"
             "Активные гости: <b>{guests}</b>"
         ),
+        "friends_list_title": "<b>Друзья</b>\nВыберите друга, чтобы открыть доступные действия.",
+        "friend_details": "<b>{name}</b>\nСтатус: {status}",
+        "friend_registered": "зарегистрирован(а)",
+        "friend_unregistered": "не зарегистрирован(а)",
+        "rename_friend": "Переименовать",
+        "rename_friend_prompt": "Введите новое личное имя для этого друга.",
+        "friend_renamed": "Новое имя друга: {name}.",
         "registered_friends": "Зарегистрированные друзья",
         "guests": "Гости",
         "add_friend": "Добавить друга",
@@ -297,10 +371,10 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "registered_friends_intro": "Ваши зарегистрированные друзья:",
         "choose_friend": "Выберите друга:",
         "no_friends": "Ваш список друзей пуст.",
-        "add_friend_prompt": "Выберите пользователя Telegram или создайте гостя по имени.",
+        "add_friend_prompt": "Выберите пользователя Telegram или добавьте друга по имени.",
         "choose_friend_telegram": "Выбрать пользователя Telegram",
-        "add_named_guest": "Добавить гостя по имени",
-        "friend_name": "Введите отображаемое имя гостя.",
+        "add_named_guest": "Добавить друга по имени",
+        "friend_name": "Введите отображаемое имя друга.",
         "friend_added": "{name} добавлен(а) в ваш список друзей.",
         "remove_friend": "Удалить {name}",
         "remove_friend_short": "Удалить",

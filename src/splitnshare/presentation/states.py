@@ -19,6 +19,11 @@ class UserSettingsStates(StatesGroup):
     custom_currency = State()
 
 
+class OnboardingStates(StatesGroup):
+    timezone = State()
+
+
 class FriendStates(StatesGroup):
     choosing = State()
     manual_name = State()
+    renaming = State()

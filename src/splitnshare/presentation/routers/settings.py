@@ -17,8 +17,13 @@ from splitnshare.presentation.keyboards import (
     language_keyboard,
     main_menu,
     settings_keyboard,
+    timezone_keyboard,
 )
-from splitnshare.presentation.states import UserSettingsStates
+from splitnshare.presentation.states import OnboardingStates, UserSettingsStates
+from splitnshare.presentation.timezones import (
+    timezone_from_callback_key,
+    timezone_label,
+)
 
 router = Router(name="settings")
 router.message.filter(F.chat.type == "private")
@@ -28,13 +33,23 @@ router.callback_query.filter(F.message.chat.type == "private")
 @router.message(Command("settings"))
 @router.message(F.text.in_(button_values("settings")))
 async def show_settings(
-    message: Message, services: Services, language: Language
+    message: Message,
+    state: FSMContext,
+    services: Services,
+    language: Language,
 ) -> None:
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(
         person.id,
         preferred_language=message.from_user.language_code if message.from_user else None,
     )
+    if settings.timezone is None:
+        await state.set_state(OnboardingStates.timezone)
+        await message.answer(
+            translate(language, "onboarding_timezone_required"),
+            reply_markup=timezone_keyboard(language, include_back=False),
+        )
+        return
     await message.answer(
         _settings_text(settings, language),
         reply_markup=settings_keyboard(language),
@@ -43,7 +58,10 @@ async def show_settings(
 
 @router.callback_query(F.data == "settings:show")
 async def show_settings_callback(
-    callback: CallbackQuery, services: Services, language: Language
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
 ) -> None:
     if callback.from_user is None:
         return
@@ -53,6 +71,14 @@ async def show_settings_callback(
         await callback.answer("Use /start first.", show_alert=True)
         return
     settings = await services.user_settings.get_or_create(person.id)
+    if settings.timezone is None:
+        await state.set_state(OnboardingStates.timezone)
+        await target_message.edit_text(
+            translate(language, "onboarding_timezone_required"),
+            reply_markup=timezone_keyboard(language, include_back=False),
+        )
+        await callback.answer()
+        return
     await target_message.edit_text(
         _settings_text(settings, language),
         reply_markup=settings_keyboard(language),
@@ -152,6 +178,56 @@ async def choose_language(callback: CallbackQuery, language: Language) -> None:
     await callback.answer()
 
 
+@router.callback_query(F.data == "settings:timezone")
+async def choose_timezone(callback: CallbackQuery, language: Language) -> None:
+    target_message = callback_message(callback)
+    await target_message.edit_text(
+        translate(language, "choose_timezone"),
+        reply_markup=timezone_keyboard(language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("settings:set_timezone:"))
+async def set_timezone(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    if callback.from_user is None:
+        return
+    payload, target_message = callback_payload(callback)
+    timezone = timezone_from_callback_key(payload.rsplit(":", 1)[1])
+    if timezone is None:
+        await callback.answer(translate(language, "timezone_invalid"), show_alert=True)
+        return
+    person = await services.users.find_registered_target(callback.from_user.id)
+    if person is None:
+        await callback.answer(translate(language, "use_start"), show_alert=True)
+        return
+    updated = await services.user_settings.update(
+        UpdateUserSettingsCommand(person_id=person.id, timezone=timezone)
+    )
+    label = escape(timezone_label(updated.timezone, language))
+    onboarding = await state.get_state() == OnboardingStates.timezone.state
+    if onboarding:
+        await state.clear()
+        await target_message.edit_text(
+            translate(language, "timezone_saved", timezone=label)
+        )
+        await target_message.answer(
+            translate(language, "onboarding_complete"),
+            reply_markup=main_menu(language),
+        )
+    else:
+        await target_message.edit_text(
+            translate(language, "timezone_saved", timezone=label),
+            reply_markup=settings_keyboard(language),
+        )
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("settings:set_language:"))
 async def set_language(callback: CallbackQuery, services: Services) -> None:
     if callback.from_user is None:
@@ -176,8 +252,24 @@ async def set_language(callback: CallbackQuery, services: Services) -> None:
 
 
 @router.callback_query(F.data == "settings:close")
-async def close_settings(callback: CallbackQuery, language: Language) -> None:
+async def close_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    if callback.from_user is None:
+        return
     target_message = callback_message(callback)
+    settings = await services.user_settings.find_by_telegram_id(callback.from_user.id)
+    if settings is None or settings.timezone is None:
+        await state.set_state(OnboardingStates.timezone)
+        await target_message.edit_text(
+            translate(language, "onboarding_timezone_required"),
+            reply_markup=timezone_keyboard(language, include_back=False),
+        )
+        await callback.answer()
+        return
     await target_message.answer(
         translate(language, "main_menu"), reply_markup=main_menu(language)
     )
@@ -190,4 +282,5 @@ def _settings_text(settings: UserSettingsDTO, display_language: Language) -> str
         "settings_title",
         currency=escape(settings.default_currency),
         language=escape(language_name(settings.language, display_language)),
+        timezone=escape(timezone_label(settings.timezone, display_language)),
     )

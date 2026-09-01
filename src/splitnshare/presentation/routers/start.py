@@ -3,13 +3,14 @@ from html import escape
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 
 from splitnshare.domain.enums import Language
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.helpers import telegram_identity
-from splitnshare.presentation.i18n import button_values, translate
-from splitnshare.presentation.keyboards import main_menu
+from splitnshare.presentation.i18n import button_values, language_name, translate
+from splitnshare.presentation.keyboards import main_menu, timezone_keyboard
+from splitnshare.presentation.states import OnboardingStates
 
 router = Router(name="start")
 router.message.filter(F.chat.type == "private")
@@ -25,6 +26,23 @@ async def start(message: Message, state: FSMContext, services: Services) -> None
     settings = await services.user_settings.get_or_create(
         person.id, preferred_language=identity.language_code
     )
+    if settings.timezone is None:
+        await state.set_state(OnboardingStates.timezone)
+        await message.answer(
+            translate(
+                settings.language,
+                "onboarding_welcome",
+                name=escape(person.display_name),
+                currency=escape(settings.default_currency),
+                language=escape(language_name(settings.language, settings.language)),
+            ),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        await message.answer(
+            translate(settings.language, "choose_timezone"),
+            reply_markup=timezone_keyboard(settings.language, include_back=False),
+        )
+        return
     await message.answer(
         translate(settings.language, "welcome", name=escape(person.display_name)),
         reply_markup=main_menu(settings.language),
@@ -34,5 +52,11 @@ async def start(message: Message, state: FSMContext, services: Services) -> None
 @router.message(Command("cancel"))
 @router.message(F.text.in_(button_values("cancel")))
 async def cancel(message: Message, state: FSMContext, language: Language) -> None:
+    if await state.get_state() == OnboardingStates.timezone.state:
+        await message.answer(
+            translate(language, "onboarding_timezone_required"),
+            reply_markup=timezone_keyboard(language, include_back=False),
+        )
+        return
     await state.clear()
     await message.answer(translate(language, "cancelled"), reply_markup=main_menu(language))

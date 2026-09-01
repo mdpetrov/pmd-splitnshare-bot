@@ -137,13 +137,18 @@ class SqlAlchemyUserSettingsRepository:
         return _settings_dto(model) if model is not None else None
 
     async def create(
-        self, person_id: UUID, default_currency: str, language: str
+        self,
+        person_id: UUID,
+        default_currency: str,
+        language: str,
+        timezone: str | None,
     ) -> UserSettingsDTO:
         await _require_registered(self._session, person_id)
         model = UserSettingsModel(
             person_id=person_id,
             default_currency=default_currency,
             language=Language(language),
+            timezone=timezone,
         )
         self._session.add(model)
         await self._session.flush()
@@ -155,6 +160,7 @@ class SqlAlchemyUserSettingsRepository:
         *,
         default_currency: str | None,
         language: str | None,
+        timezone: str | None,
     ) -> UserSettingsDTO:
         model = await self._session.get(UserSettingsModel, person_id, with_for_update=True)
         if model is None:
@@ -163,6 +169,8 @@ class SqlAlchemyUserSettingsRepository:
             model.default_currency = default_currency
         if language is not None:
             model.language = Language(language)
+        if timezone is not None:
+            model.timezone = timezone
         await self._session.flush()
         return _settings_dto(model)
 
@@ -234,7 +242,10 @@ class SqlAlchemyFriendRepository:
                     FriendshipModel.archived_at.is_(None),
                     PersonModel.inactive_at.is_(None),
                 )
-                .order_by(PersonModel.display_name, PersonModel.id)
+                .order_by(
+                    func.coalesce(FriendshipModel.alias, PersonModel.display_name),
+                    PersonModel.id,
+                )
             )
         ).all()
         return tuple(
@@ -254,6 +265,21 @@ class SqlAlchemyFriendRepository:
         relationship.archived_at = datetime.now(UTC)
         await self._session.flush()
         return True
+
+    async def rename(
+        self, owner_person_id: UUID, friend_person_id: UUID, alias: str
+    ) -> FriendDTO:
+        await _require_registered(self._session, owner_person_id)
+        relationship = await self._session.get(
+            FriendshipModel,
+            (owner_person_id, friend_person_id),
+            with_for_update=True,
+        )
+        if relationship is None or relationship.archived_at is not None:
+            raise NotFoundError("Active friend not found.")
+        relationship.alias = alias
+        await self._session.flush()
+        return await self._get_dto(owner_person_id, friend_person_id)
 
     async def _get_dto(
         self, owner_person_id: UUID, friend_person_id: UUID
@@ -1005,6 +1031,7 @@ def _settings_dto(model: UserSettingsModel) -> UserSettingsDTO:
         person_id=model.person_id,
         default_currency=model.default_currency,
         language=model.language,
+        timezone=model.timezone,
     )
 
 
@@ -1030,6 +1057,7 @@ def _friend_dto(
             if account is not None
             else guest.suggested_telegram_user_id if guest is not None else None
         ),
+        alias=relationship.alias,
     )
 
 

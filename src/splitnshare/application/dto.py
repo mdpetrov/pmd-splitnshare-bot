@@ -71,6 +71,7 @@ class FriendDTO:
     source: FriendSource
     username: str | None = None
     telegram_user_id: int | None = None
+    alias: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +161,7 @@ class UserSettingsDTO:
     person_id: UUID
     default_currency: str
     language: Language
+    timezone: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +169,7 @@ class UpdateUserSettingsCommand:
     person_id: UUID
     default_currency: str | None = None
     language: Language | None = None
+    timezone: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -37,7 +37,11 @@ class UserSettingsRepository(Protocol):
     async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None: ...
 
     async def create(
-        self, person_id: UUID, default_currency: str, language: str
+        self,
+        person_id: UUID,
+        default_currency: str,
+        language: str,
+        timezone: str | None,
     ) -> UserSettingsDTO: ...
 
     async def update(
@@ -46,6 +50,7 @@ class UserSettingsRepository(Protocol):
         *,
         default_currency: str | None,
         language: str | None,
+        timezone: str | None,
     ) -> UserSettingsDTO: ...
 
 
@@ -75,6 +80,10 @@ class FriendRepository(Protocol):
     async def list_active(self, owner_person_id: UUID) -> Sequence[FriendDTO]: ...
 
     async def archive(self, owner_person_id: UUID, friend_person_id: UUID) -> bool: ...
+
+    async def rename(
+        self, owner_person_id: UUID, friend_person_id: UUID, alias: str
+    ) -> FriendDTO: ...
 
 
 class ExpenseRepository(Protocol):

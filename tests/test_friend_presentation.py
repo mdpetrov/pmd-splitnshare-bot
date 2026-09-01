@@ -8,14 +8,15 @@ from splitnshare.domain.enums import (
     PersonKind,
 )
 from splitnshare.presentation.keyboards import (
+    friend_detail_keyboard,
+    friends_list_keyboard,
     guests_keyboard,
-    registered_friends_keyboard,
 )
 from splitnshare.presentation.routers.people import _friends_text, _guests_text
 
 
-def test_friends_screen_lists_registered_friends() -> None:
-    friend = FriendDTO(
+def test_friends_screen_unifies_registered_and_unregistered_friends() -> None:
+    registered = FriendDTO(
         person_id=uuid4(),
         display_name="Alice & Bob",
         kind=PersonKind.USER,
@@ -23,12 +24,28 @@ def test_friends_screen_lists_registered_friends() -> None:
         source=FriendSource.DIRECT,
         username="alice<",
     )
+    unregistered = FriendDTO(
+        person_id=uuid4(),
+        display_name="Alex",
+        kind=PersonKind.GUEST,
+        registered=False,
+        source=FriendSource.DIRECT,
+        username="work_alex",
+        alias="Work Alex",
+    )
 
-    text = _friends_text((friend,), guest_count=2, language=Language.ENGLISH)
+    text = _friends_text((registered, unregistered), Language.ENGLISH)
+    keyboard = friends_list_keyboard((registered, unregistered), Language.ENGLISH)
 
-    assert "Registered friends: <b>1</b>" in text
-    assert "Active guests: <b>2</b>" in text
     assert "• Alice &amp; Bob (@alice&lt;)" in text
+    assert "• Work Alex (@work_alex · #" in text
+    assert "guest" not in text.casefold()
+    assert keyboard.inline_keyboard[0][0].callback_data == (
+        f"friend:view:{registered.person_id}"
+    )
+    assert keyboard.inline_keyboard[1][0].callback_data == (
+        f"friend:view:{unregistered.person_id}"
+    )
 
 
 def test_guests_screen_lists_guest_names() -> None:
@@ -44,7 +61,7 @@ def test_guests_screen_lists_guest_names() -> None:
     assert "• Guest &lt;One&gt;" in text
 
 
-def test_friend_keyboards_offer_removal_for_active_entries() -> None:
+def test_friend_detail_menu_offers_rename_and_removal() -> None:
     person_id = uuid4()
     friend = FriendDTO(
         person_id=person_id,
@@ -54,21 +71,13 @@ def test_friend_keyboards_offer_removal_for_active_entries() -> None:
         source=FriendSource.DIRECT,
         username="alice",
     )
-    guest = GuestDTO(
-        person_id=person_id,
-        display_name="Guest",
-        creation_method=GuestCreationMethod.MANUAL,
-        suggested_telegram_user_id=None,
-    )
+    details = friend_detail_keyboard(friend, Language.ENGLISH)
 
-    registered = registered_friends_keyboard((friend,), Language.ENGLISH)
-    guests = guests_keyboard((guest,), Language.ENGLISH, {person_id})
-
-    assert registered.inline_keyboard[0][0].callback_data == (
-        f"friend:remove_ask:r:{person_id}"
+    assert details.inline_keyboard[0][0].callback_data == (
+        f"friend:rename:{person_id}"
     )
-    assert guests.inline_keyboard[0][1].callback_data == (
-        f"friend:remove_ask:g:{person_id}"
+    assert details.inline_keyboard[0][1].callback_data == (
+        f"friend:remove_ask:d:{person_id}"
     )
 
 

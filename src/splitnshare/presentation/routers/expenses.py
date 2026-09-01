@@ -36,7 +36,7 @@ from splitnshare.presentation.keyboards import (
     remove_participant_keyboard,
     split_method_keyboard,
 )
-from splitnshare.presentation.labels import participant_label
+from splitnshare.presentation.labels import friend_label, participant_label
 from splitnshare.presentation.states import AddExpenseStates
 
 router = Router(name="expenses")
@@ -219,9 +219,7 @@ async def add_friend_participant(
         participants.append(
             {
                 "id": str(friend.person_id),
-                "name": participant_label(
-                    friend.display_name, friend.person_id, friend.username
-                ),
+                "name": friend_label(friend),
             }
         )
         await state.update_data(participants=participants)

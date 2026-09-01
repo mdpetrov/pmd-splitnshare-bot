@@ -23,6 +23,7 @@ from splitnshare.domain.contexts import ExpenseContext
 from splitnshare.domain.enums import FriendSource, Language, SplitMethod
 from splitnshare.domain.errors import NotFoundError, ValidationError
 from splitnshare.domain.splitting import EqualSplitStrategy, ExactSplitStrategy
+from splitnshare.domain.timezones import SUPPORTED_TIMEZONES
 
 
 class UserService:
@@ -62,7 +63,7 @@ class UserSettingsService:
                 return current
             language = _supported_language(preferred_language) or self._default_language
             created = await uow.user_settings.create(
-                person_id, self._default_currency, language.value
+                person_id, self._default_currency, language.value, None
             )
             await uow.commit()
             return created
@@ -72,11 +73,20 @@ class UserSettingsService:
             return await uow.user_settings.find_by_telegram_id(telegram_user_id)
 
     async def update(self, command: UpdateUserSettingsCommand) -> UserSettingsDTO:
-        if command.default_currency is None and command.language is None:
+        if (
+            command.default_currency is None
+            and command.language is None
+            and command.timezone is None
+        ):
             raise ValidationError("At least one setting must be changed.")
         currency = (
             _normalize_currency(command.default_currency)
             if command.default_currency is not None
+            else None
+        )
+        timezone = (
+            _normalize_timezone(command.timezone)
+            if command.timezone is not None
             else None
         )
         async with self._uow_factory() as uow:
@@ -86,6 +96,7 @@ class UserSettingsService:
                 command.person_id,
                 default_currency=currency,
                 language=command.language.value if command.language is not None else None,
+                timezone=timezone,
             )
             await uow.commit()
             return updated
@@ -109,7 +120,7 @@ class GuestService:
     async def create_manual_guest(self, owner_person_id: UUID, display_name: str) -> PersonDTO:
         display_name = " ".join(display_name.split())
         if not 1 <= len(display_name) <= 160:
-            raise ValidationError("Guest name must contain between 1 and 160 characters.")
+            raise ValidationError("Friend name must contain between 1 and 160 characters.")
         async with self._uow_factory() as uow:
             guest = await uow.guests.create_manual_guest(owner_person_id, display_name)
             await uow.commit()
@@ -158,7 +169,7 @@ class FriendService:
     ) -> FriendDTO:
         display_name = " ".join(display_name.split())
         if not 1 <= len(display_name) <= 160:
-            raise ValidationError("Guest name must contain between 1 and 160 characters.")
+            raise ValidationError("Friend name must contain between 1 and 160 characters.")
         async with self._uow_factory() as uow:
             guest = await uow.guests.create_manual_guest(owner_person_id, display_name)
             friend = await uow.friends.add(
@@ -178,6 +189,19 @@ class FriendService:
             changed = await uow.friends.archive(owner_person_id, friend_person_id)
             await uow.commit()
             return changed
+
+    async def rename_friend(
+        self, owner_person_id: UUID, friend_person_id: UUID, alias: str
+    ) -> FriendDTO:
+        alias = " ".join(alias.split())
+        if not 1 <= len(alias) <= 160:
+            raise ValidationError("Friend name must contain between 1 and 160 characters.")
+        async with self._uow_factory() as uow:
+            friend = await uow.friends.rename(
+                owner_person_id, friend_person_id, alias
+            )
+            await uow.commit()
+            return friend
 
 
 class ExpenseService:
@@ -294,3 +318,10 @@ def _supported_language(value: str | None) -> Language | None:
         return Language(normalized)
     except ValueError:
         return None
+
+
+def _normalize_timezone(value: str) -> str:
+    timezone = value.strip()
+    if timezone not in SUPPORTED_TIMEZONES:
+        raise ValidationError("Unsupported timezone.")
+    return timezone

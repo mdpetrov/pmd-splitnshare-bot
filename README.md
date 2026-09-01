@@ -1,54 +1,60 @@
 # Splitnshare Bot
 
 Splitnshare is an asynchronous Splitwise-like Telegram bot for recording shared expenses
-between registered users and owner-managed guests. The current release focuses on direct
-expenses, deterministic splitting, transaction history, and explicit guest transfers.
+between registered and unregistered friends. The current release focuses on direct expenses,
+deterministic splitting, transaction history, and balances.
 
 ## Features available now
 
 ### Registration and identity
 
 - `/start` creates or updates the caller's registered Telegram identity.
-- Registration never searches for, claims, or merges an existing guest profile.
-- Registered users and guests have separate participant identities.
-- A guest remains active until its owner explicitly transfers it.
+- Registration never searches for, claims, or merges an existing unregistered participant.
+- Registered and unregistered friends retain separate participant identities.
 
 ### User settings
 
-- Every registered user has a persisted default currency and interface language.
+- Every registered user has a persisted default currency, interface language, and timezone.
+- New users choose their timezone before the main menu opens and are told that currency and
+  language can be changed later in **Settings**.
+- Timezone choices use readable `UTC±offset (cities)` labels while the database stores an IANA
+  city-based timezone, allowing daylight-saving changes to be applied correctly.
+- Existing users receive `UTC` during migration and may change it from **Settings**.
 - The default currency is used when a new expense has no explicit currency code.
 - Changing the default currency never converts existing expenses or combines balances.
 - English and Russian interfaces are available; unsupported Telegram languages fall back
   to English.
 
-### Guests and participant selection
+### Participant selection
 
 - Expenses can include registered bot users.
-- An unregistered Telegram user can be stored as an owner-managed Telegram guest.
-- A participant can also be added as a manually named guest without a Telegram ID.
-- Re-selecting the same unregistered Telegram user reuses that owner's active guest.
-- Guests belonging to different owners remain separate, even when they reference the same
-  Telegram user.
-- Guest names are never used for automatic matching or merging.
+- An unregistered Telegram user can be stored as an owner-managed friend.
+- A friend can also be added manually by name without a Telegram ID.
+- Re-selecting the same unregistered Telegram user reuses that owner's internal participant.
+- Unregistered friends belonging to different owners remain separate, even when they
+  reference the same Telegram user.
+- Names are never used for automatic matching or merging.
 - Participant labels consistently show `Name (@username)` when a Telegram username is
   available. Otherwise, a stable short person code distinguishes repeated names.
-- Telegram guest username snapshots are refreshed whenever that guest is selected again.
+- Telegram username snapshots are refreshed whenever an unregistered friend is selected again.
 - Existing friends can be selected while creating another expense.
 
 ### Friends
 
-- **Friends** is a private, owner-scoped contact list containing registered users and guests.
+- **Friends** is one private, owner-scoped list containing both registered and unregistered
+  friends; the Telegram UI does not expose separate identity categories.
+- Every friend appears as a button opening an extensible detail screen.
+- The detail screen currently supports a private rename and friend removal.
+- Renaming creates an owner-specific alias and never modifies the person's registered name
+  or another user's view of them.
 - Adding someone does not automatically add the owner to the other user's Friends list.
 - Confirming an expense automatically adds its co-participants to the creator's Friends list.
-- Friends can also be added directly by selecting a Telegram user or creating a named guest.
+- Friends can also be added directly by selecting a Telegram user or entering a name.
 - Repeated additions and repeated expenses never create duplicate friendships.
-- Registered friends and guest friends can be removed after an explicit confirmation.
+- Any friend can be removed after an explicit confirmation.
 - Removing a friend archives only the private friendship: expenses, balances, identities,
-  and owned guest profiles remain unchanged.
+  and internal participant profiles remain unchanged.
 - A later expense with a removed person automatically restores the friendship.
-- **Guests** and the explicit guest-transfer flow are nested under **Friends**.
-- Guest transfer redirects friendship references to the registered target and safely combines
-  duplicates.
 
 ### Expense creation
 
@@ -81,19 +87,20 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 ### Balances
 
 - **Balances** separates amounts the current user owes from amounts owed to them.
-- Each balance is shown against the corresponding registered user or guest.
+- Each balance is shown against the corresponding registered or unregistered friend.
 - Balances remain separate by currency and are never converted or combined.
 - Soft-deleted expenses do not contribute to outstanding balances.
 
-### Explicit guest transfer
+### Internal unregistered-participant transfer
 
-- **Friends → Guests** lists active guests owned by the current user.
-- The Guests screen explains that transfer replaces a temporary guest identity across all
-  history and memberships; it does not send money or merge groups.
-- When a Telegram guest's hinted account later registers, the bot shows a live suggestion
-  and offers a shortcut to the normal transfer preview and confirmation.
-- Registration suggestions never transfer, claim, or merge a guest automatically.
-- A guest can be transferred only by its owner and only to a user who has already registered
+- The domain retains an internal guest-profile concept for unregistered identities, but it is
+  not presented as a separate section in the Telegram UI.
+- Transfer logic can replace a temporary identity across all history and memberships; it does
+  not send money or merge groups.
+- The backend can detect when a hinted Telegram account later registers, without transferring,
+  claiming, or merging the internal profile automatically. A future friend-detail action can
+  expose the existing transfer preview and confirmation flow.
+- An internal profile can be transferred only by its owner and only to a user who has registered
   with the bot.
 - The confirmation preview shows affected expenses, groups, and recorded debt amounts by
   currency.

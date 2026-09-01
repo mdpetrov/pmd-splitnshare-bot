@@ -96,6 +96,7 @@ class UserSettingsModel(TimestampMixin, Base):
     language: Mapped[Language] = mapped_column(
         enum_type(Language, "language"), default=Language.ENGLISH, nullable=False
     )
+    timezone: Mapped[str | None] = mapped_column(String(64))
 
 
 class FriendshipModel(TimestampMixin, Base):
@@ -116,6 +117,7 @@ class FriendshipModel(TimestampMixin, Base):
     source: Mapped[FriendSource] = mapped_column(
         enum_type(FriendSource, "friend_source"), nullable=False
     )
+    alias: Mapped[str | None] = mapped_column(String(160))
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

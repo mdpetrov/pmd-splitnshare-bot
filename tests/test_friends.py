@@ -95,6 +95,25 @@ async def test_user_cannot_add_themselves(friend_services) -> None:
         )
 
 
+async def test_friend_alias_is_private_and_does_not_change_registered_identity(
+    friend_services,
+) -> None:
+    _, users, _, friends, _ = friend_services
+    owner = await _register(users, 619, "Owner")
+    other_owner = await _register(users, 620, "Other Owner")
+    target = await _register(users, 621, "Official Name")
+    shared = SharedTelegramUser(telegram_user_id=621, first_name="Official Name")
+    await friends.add_shared_user(owner.id, shared)
+    await friends.add_shared_user(other_owner.id, shared)
+
+    renamed = await friends.rename_friend(owner.id, target.id, "  Work   Friend  ")
+
+    assert renamed.alias == "Work Friend"
+    assert (await friends.list_friends(owner.id))[0].alias == "Work Friend"
+    assert (await friends.list_friends(other_owner.id))[0].alias is None
+    assert (await users.find_registered_target(621)).display_name == "Official Name"
+
+
 async def test_telegram_guest_username_is_stored_and_refreshed(friend_services) -> None:
     _, users, guests, friends, _ = friend_services
     owner = await _register(users, 611, "Owner")
@@ -193,6 +212,7 @@ async def test_expenses_and_balances_survive_removal_and_new_expense_reactivates
         )
     )
 
+    await friends.rename_friend(owner.id, target.id, "Persistent alias")
     assert await friends.remove_friend(owner.id, target.id)
     uow = SqlAlchemyUnitOfWorkFactory(factory)
     assert (await ExpenseQueryService(uow).get_details(owner.id, expense.id)).id == expense.id
@@ -202,9 +222,9 @@ async def test_expenses_and_balances_survive_removal_and_new_expense_reactivates
     ]
 
     await _equal_expense(expenses, owner.id, target.id)
-    assert [friend.person_id for friend in await friends.list_friends(owner.id)] == [
-        target.id
-    ]
+    reactivated = await friends.list_friends(owner.id)
+    assert [friend.person_id for friend in reactivated] == [target.id]
+    assert reactivated[0].alias == "Persistent alias"
 
 
 async def test_expense_automatically_adds_participants_as_friends(friend_services) -> None:

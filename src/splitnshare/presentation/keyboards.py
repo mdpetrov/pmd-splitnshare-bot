@@ -12,7 +12,8 @@ from aiogram.types import (
 from splitnshare.application.dto import ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
 from splitnshare.domain.enums import Language
 from splitnshare.presentation.i18n import translate
-from splitnshare.presentation.labels import participant_label
+from splitnshare.presentation.labels import friend_label, participant_label
+from splitnshare.presentation.timezones import TIMEZONE_CHOICES
 
 ADD_EXPENSE = "➕ Add expense"
 TRANSACTIONS = "📋 Transactions"
@@ -106,9 +107,7 @@ def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMark
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=participant_label(
-                        friend.display_name, friend.person_id, friend.username
-                    ),
+                    text=friend_label(friend),
                     callback_data=f"expense:addfriend:{friend.person_id}",
                 )
             ]
@@ -304,9 +303,7 @@ def registered_friends_keyboard(
                 text=translate(
                     language,
                     "remove_friend",
-                    name=participant_label(
-                        friend.display_name, friend.person_id, friend.username
-                    ),
+                    name=friend_label(friend),
                 ),
                 callback_data=f"friend:remove_ask:r:{friend.person_id}",
             )
@@ -324,6 +321,54 @@ def registered_friends_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def friends_list_keyboard(
+    friends: Sequence[FriendDTO], language: Language
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=friend_label(friend),
+                callback_data=f"friend:view:{friend.person_id}",
+            )
+        ]
+        for friend in friends
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "add_friend"),
+                callback_data="friends:add",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def friend_detail_keyboard(
+    friend: FriendDTO, language: Language
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "rename_friend"),
+                    callback_data=f"friend:rename:{friend.person_id}",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "remove_friend_short"),
+                    callback_data=f"friend:remove_ask:d:{friend.person_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back_friends"),
+                    callback_data="friends:show",
+                )
+            ],
+        ]
+    )
+
+
 def friend_remove_confirm_keyboard(
     friend_person_id: UUID, origin: str, language: Language
 ) -> InlineKeyboardMarkup:
@@ -339,7 +384,11 @@ def friend_remove_confirm_keyboard(
                 InlineKeyboardButton(
                     text=translate(language, "keep_friend"),
                     callback_data=(
-                        "friends:registered" if origin == "r" else "friends:guests"
+                        f"friend:view:{friend_person_id}"
+                        if origin == "d"
+                        else "friends:registered"
+                        if origin == "r"
+                        else "friends:guests"
                     ),
                 )
             ],
@@ -459,11 +508,41 @@ def settings_keyboard(language: Language) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=translate(language, "timezone"),
+                    callback_data="settings:timezone",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=translate(language, "main_menu"), callback_data="settings:close"
                 )
             ],
         ]
     )
+
+
+def timezone_keyboard(
+    language: Language, *, include_back: bool = True
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=translate(language, choice.label_key),
+                callback_data=f"settings:set_timezone:{choice.callback_key}",
+            )
+        ]
+        for choice in TIMEZONE_CHOICES
+    ]
+    if include_back:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"),
+                    callback_data="settings:show",
+                )
+            ]
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def currency_keyboard(language: Language) -> InlineKeyboardMarkup:
