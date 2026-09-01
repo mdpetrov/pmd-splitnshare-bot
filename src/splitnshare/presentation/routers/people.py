@@ -6,7 +6,12 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from splitnshare.application.dto import FriendDTO, SharedTelegramUser, TransferGuestCommand
+from splitnshare.application.dto import (
+    FriendDTO,
+    GuestDTO,
+    SharedTelegramUser,
+    TransferGuestCommand,
+)
 from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import DomainError
 from splitnshare.presentation.container import Services
@@ -77,19 +82,8 @@ async def registered_friends(
         for friend in await services.friends.list_friends(owner.id)
         if friend.registered
     ]
-    if registered:
-        lines = [translate(language, "registered_friends_intro")]
-        lines.extend(
-            f"• {escape(friend.display_name)}"
-            + (f" (@{escape(friend.username)})" if friend.username else "")
-            for friend in registered
-        )
-        text = "\n".join(lines)
-    else:
-        text = translate(language, "no_registered_friends")
-    await target_message.edit_text(
-        text, reply_markup=back_to_friends_keyboard(language)
-    )
+    text = _registered_friends_text(registered, language)
+    await target_message.edit_text(text, reply_markup=back_to_friends_keyboard(language))
     await callback.answer()
 
 
@@ -105,14 +99,8 @@ async def owned_guests(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     guests = tuple(await services.guests.list_owned_guests(owner.id))
-    text = (
-        translate(language, "guests_intro")
-        if guests
-        else translate(language, "no_guests")
-    )
-    await target_message.edit_text(
-        text, reply_markup=guests_keyboard(guests, language)
-    )
+    text = _guests_text(guests, language)
+    await target_message.edit_text(text, reply_markup=guests_keyboard(guests, language))
     await callback.answer()
 
 
@@ -334,10 +322,28 @@ async def cancel_transfer(
 def _friends_text(
     friendships: tuple[FriendDTO, ...], guest_count: int, language: Language
 ) -> str:
-    registered_count = sum(friend.registered for friend in friendships)
-    return translate(
-        language,
-        "friends_title",
-        registered=registered_count,
-        guests=guest_count,
+    registered = tuple(friend for friend in friendships if friend.registered)
+    summary = translate(language, "friends_title", registered=len(registered), guests=guest_count)
+    return f"{summary}\n\n{_registered_friends_text(registered, language)}"
+
+
+def _registered_friends_text(
+    friends: list[FriendDTO] | tuple[FriendDTO, ...], language: Language
+) -> str:
+    if not friends:
+        return translate(language, "no_registered_friends")
+    lines = [translate(language, "registered_friends_intro")]
+    lines.extend(
+        f"• {escape(friend.display_name)}"
+        + (f" (@{escape(friend.username)})" if friend.username else "")
+        for friend in friends
     )
+    return "\n".join(lines)
+
+
+def _guests_text(guests: tuple[GuestDTO, ...], language: Language) -> str:
+    if not guests:
+        return translate(language, "no_guests")
+    lines = [translate(language, "guests_intro")]
+    lines.extend(f"• {escape(guest.display_name)}" for guest in guests)
+    return "\n".join(lines)
