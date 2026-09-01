@@ -88,6 +88,11 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 ### Explicit guest transfer
 
 - **Friends → Guests** lists active guests owned by the current user.
+- The Guests screen explains that transfer replaces a temporary guest identity across all
+  history and memberships; it does not send money or merge groups.
+- When a Telegram guest's hinted account later registers, the bot shows a live suggestion
+  and offers a shortcut to the normal transfer preview and confirmation.
+- Registration suggestions never transfer, claim, or merge a guest automatically.
 - A guest can be transferred only by its owner and only to a user who has already registered
   with the bot.
 - The confirmation preview shows affected expenses, groups, and recorded debt amounts by

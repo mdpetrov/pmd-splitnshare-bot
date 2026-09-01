@@ -10,6 +10,7 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql import Select
 
 from splitnshare.application.dto import (
@@ -340,9 +341,23 @@ class SqlAlchemyGuestRepository:
         return _person_dto(person)
 
     async def list_owned(self, owner_person_id: UUID) -> Sequence[GuestDTO]:
+        target_account = aliased(UserAccountModel)
+        target_person = aliased(PersonModel)
         statement = (
-            select(GuestProfileModel, PersonModel)
+            select(GuestProfileModel, PersonModel, target_account, target_person)
             .join(PersonModel, PersonModel.id == GuestProfileModel.person_id)
+            .outerjoin(
+                target_account,
+                target_account.telegram_user_id
+                == GuestProfileModel.suggested_telegram_user_id,
+            )
+            .outerjoin(
+                target_person,
+                and_(
+                    target_person.id == target_account.person_id,
+                    target_person.inactive_at.is_(None),
+                ),
+            )
             .where(
                 GuestProfileModel.owner_person_id == owner_person_id,
                 GuestProfileModel.status == GuestTransferStatus.ACTIVE,
@@ -358,8 +373,25 @@ class SqlAlchemyGuestRepository:
                 creation_method=guest.creation_method,
                 suggested_telegram_user_id=guest.suggested_telegram_user_id,
                 username=guest.suggested_username,
+                suggested_target_person_id=(
+                    target.id
+                    if target is not None and target.id != owner_person_id
+                    else None
+                ),
+                suggested_target_name=(
+                    target.display_name
+                    if target is not None and target.id != owner_person_id
+                    else None
+                ),
+                suggested_target_username=(
+                    account.username
+                    if account is not None
+                    and target is not None
+                    and target.id != owner_person_id
+                    else None
+                ),
             )
-            for guest, person in rows
+            for guest, person, account, target in rows
         )
 
     async def preview_transfer(

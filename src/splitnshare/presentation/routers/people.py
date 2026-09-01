@@ -290,6 +290,56 @@ async def receive_friend_name(
     )
 
 
+@router.callback_query(F.data.startswith("guest:transfer_hint:"))
+async def choose_suggested_transfer(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    if callback.from_user is None:
+        return
+    payload, target_message = callback_payload(callback)
+    owner = await services.users.find_registered_target(callback.from_user.id)
+    if owner is None:
+        await callback.answer(translate(language, "use_start"), show_alert=True)
+        return
+    guest_id = UUID(payload.rsplit(":", 1)[1])
+    owned_guests = {
+        guest.person_id: guest
+        for guest in await services.guests.list_owned_guests(owner.id)
+    }
+    guest = owned_guests.get(guest_id)
+    if guest is None or guest.suggested_target_person_id is None:
+        await callback.answer(
+            translate(language, "registration_suggestion_unavailable"),
+            show_alert=True,
+        )
+        return
+    command = TransferGuestCommand(
+        actor_person_id=owner.id,
+        guest_person_id=guest.person_id,
+        target_user_person_id=guest.suggested_target_person_id,
+    )
+    try:
+        preview = await services.guests.preview_transfer(command)
+    except DomainError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+    await state.clear()
+    await state.update_data(
+        owner_id=str(owner.id),
+        guest_id=str(guest.person_id),
+        target_id=str(guest.suggested_target_person_id),
+    )
+    await state.set_state(TransferGuestStates.confirm)
+    await target_message.answer(
+        transfer_preview_text(preview, language),
+        reply_markup=transfer_confirm_keyboard(language),
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("guest:transfer:"))
 async def choose_guest(
     callback: CallbackQuery,
@@ -438,11 +488,34 @@ def _registered_friends_text(
 
 
 def _guests_text(guests: tuple[GuestDTO, ...], language: Language) -> str:
+    lines = [
+        translate(language, "guests_intro"),
+        "",
+        translate(language, "transfer_explanation"),
+    ]
     if not guests:
-        return translate(language, "no_guests")
-    lines = [translate(language, "guests_intro")]
-    lines.extend(
-        f"• {participant_html(guest.display_name, guest.person_id, guest.username)}"
-        for guest in guests
-    )
+        lines.extend(("", translate(language, "no_guests")))
+        return "\n".join(lines)
+    for guest in guests:
+        lines.extend(
+            (
+                "",
+                f"• {participant_html(guest.display_name, guest.person_id, guest.username)}",
+            )
+        )
+        if (
+            guest.suggested_target_person_id is not None
+            and guest.suggested_target_name is not None
+        ):
+            lines.append(
+                translate(
+                    language,
+                    "registration_suggestion",
+                    target=participant_html(
+                        guest.suggested_target_name,
+                        guest.suggested_target_person_id,
+                        guest.suggested_target_username,
+                    ),
+                )
+            )
     return "\n".join(lines)

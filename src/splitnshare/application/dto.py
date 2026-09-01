@@ -57,6 +57,9 @@ class GuestDTO:
     creation_method: GuestCreationMethod
     suggested_telegram_user_id: int | None
     username: str | None = None
+    suggested_target_person_id: UUID | None = None
+    suggested_target_name: str | None = None
+    suggested_target_username: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

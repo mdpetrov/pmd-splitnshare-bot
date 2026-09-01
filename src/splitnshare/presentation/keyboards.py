@@ -237,14 +237,41 @@ def guests_keyboard(
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for guest in guests:
+        guest_label = participant_label(
+            guest.display_name, guest.person_id, guest.username
+        )
+        target_id = guest.suggested_target_person_id
+        target_name = guest.suggested_target_name
+        has_suggestion = target_id is not None and target_name is not None
+        if target_id is not None and target_name is not None:
+            target_label = participant_label(
+                target_name,
+                target_id,
+                guest.suggested_target_username,
+            )
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=translate(
+                            language,
+                            "review_suggested_transfer",
+                            guest=guest_label,
+                            target=target_label,
+                        ),
+                        callback_data=f"guest:transfer_hint:{guest.person_id}",
+                    )
+                ]
+            )
         row = [
             InlineKeyboardButton(
-                text=translate(
-                    language,
-                    "transfer_guest",
-                    name=participant_label(
-                        guest.display_name, guest.person_id, guest.username
-                    ),
+                text=(
+                    translate(
+                        language,
+                        "choose_other_transfer_target",
+                        guest=guest_label,
+                    )
+                    if has_suggestion
+                    else translate(language, "transfer_guest", name=guest_label)
                 ),
                 callback_data=f"guest:transfer:{guest.person_id}",
             )

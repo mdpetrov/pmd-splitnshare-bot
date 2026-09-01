@@ -70,3 +70,29 @@ def test_friend_keyboards_offer_removal_for_active_entries() -> None:
     assert guests.inline_keyboard[0][1].callback_data == (
         f"friend:remove_ask:g:{person_id}"
     )
+
+
+def test_guests_screen_explains_transfer_and_offers_registered_suggestion() -> None:
+    guest_id = uuid4()
+    target_id = uuid4()
+    guest = GuestDTO(
+        person_id=guest_id,
+        display_name="Guest Alice",
+        creation_method=GuestCreationMethod.TELEGRAM,
+        suggested_telegram_user_id=9001,
+        username="guest_alice",
+        suggested_target_person_id=target_id,
+        suggested_target_name="Registered Alice",
+        suggested_target_username="alice",
+    )
+
+    text = _guests_text((guest,), Language.ENGLISH)
+    keyboard = guests_keyboard((guest,), Language.ENGLISH)
+
+    assert "temporary participant identity" in text
+    assert "Nothing was transferred automatically" in text
+    assert "Registered Alice (@alice)" in text
+    assert keyboard.inline_keyboard[0][0].callback_data == (
+        f"guest:transfer_hint:{guest_id}"
+    )
+    assert keyboard.inline_keyboard[1][0].callback_data == f"guest:transfer:{guest_id}"

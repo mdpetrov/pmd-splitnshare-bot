@@ -92,7 +92,22 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "expense_deleted": "Expense deleted.",
         "expense_already_deleted": "Expense was already deleted.",
         "no_guests": "You have no active guests. Add a guest while creating an expense.",
-        "guests_intro": "Your guests. A transfer moves all history and group memberships:",
+        "guests_intro": "<b>Your active guests</b>",
+        "transfer_explanation": (
+            "A guest is a temporary participant identity. Transfer replaces it with one "
+            "registered bot user across every expense, balance, friendship, and group "
+            "membership. It does not send money or merge groups. You must confirm the "
+            "transfer, and it cannot currently be reversed."
+        ),
+        "registration_suggestion": (
+            "↳ Telegram account is now registered as {target}. Nothing was transferred "
+            "automatically."
+        ),
+        "review_suggested_transfer": "Review {guest} → {target}",
+        "choose_other_transfer_target": "Choose another user for {guest}",
+        "registration_suggestion_unavailable": (
+            "That registration suggestion is no longer available. Refresh Guests and try again."
+        ),
         "choose_transfer_target": "Choose a user who has already started this bot.",
         "target_not_registered": (
             "That person has not started this bot. Ask them to register, then choose them again."
@@ -232,7 +247,22 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "expense_deleted": "Расход удалён.",
         "expense_already_deleted": "Расход уже был удалён.",
         "no_guests": "У вас нет активных гостей. Добавьте гостя при создании расхода.",
-        "guests_intro": "Ваши гости. Перенос перемещает всю историю и участие в группах:",
+        "guests_intro": "<b>Ваши активные гости</b>",
+        "transfer_explanation": (
+            "Гость — это временная личность участника. Перенос заменяет её одним "
+            "зарегистрированным пользователем бота во всех расходах, балансах, списках "
+            "друзей и группах. Перенос не отправляет деньги и не объединяет группы. "
+            "Операцию нужно подтвердить, и сейчас её нельзя отменить."
+        ),
+        "registration_suggestion": (
+            "↳ Аккаунт Telegram теперь зарегистрирован как {target}. Автоматический "
+            "перенос не выполнялся."
+        ),
+        "review_suggested_transfer": "Проверить {guest} → {target}",
+        "choose_other_transfer_target": "Выбрать другого пользователя для {guest}",
+        "registration_suggestion_unavailable": (
+            "Эта подсказка больше недоступна. Обновите список гостей и повторите."
+        ),
         "choose_transfer_target": "Выберите пользователя, который уже запускал этого бота.",
         "target_not_registered": (
             "Этот человек ещё не запускал бота. Попросите его зарегистрироваться и повторите."

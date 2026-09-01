@@ -70,6 +70,10 @@ async def test_registration_does_not_merge_matching_telegram_guest(app_services)
     registered = await _register(users, 2, "Future User")
 
     assert registered.id != guest.id
+    listed_guest = (await guests.list_owned_guests(owner.id))[0]
+    assert listed_guest.person_id == guest.id
+    assert listed_guest.suggested_target_person_id == registered.id
+    assert listed_guest.suggested_target_name == "Future User"
     async with factory() as session:
         profile = await session.get(GuestProfileModel, guest.id)
         person = await session.get(PersonModel, guest.id)
@@ -88,9 +92,15 @@ async def test_telegram_guest_is_reused_only_within_one_owners_address_book(
     first = await guests.get_or_create_telegram_guest(owner_a.id, shared)
     repeated = await guests.get_or_create_telegram_guest(owner_a.id, shared)
     other_owner = await guests.get_or_create_telegram_guest(owner_b.id, shared)
+    registered = await _register(users, 999, "Registered Hint")
 
     assert repeated.id == first.id
     assert other_owner.id != first.id
+    first_suggestion = (await guests.list_owned_guests(owner_a.id))[0]
+    other_suggestion = (await guests.list_owned_guests(owner_b.id))[0]
+    assert first_suggestion.suggested_target_person_id == registered.id
+    assert other_suggestion.suggested_target_person_id == registered.id
+    assert first_suggestion.person_id != other_suggestion.person_id
 
 
 async def test_manual_names_are_never_merged(app_services) -> None:
@@ -101,6 +111,10 @@ async def test_manual_names_are_never_merged(app_services) -> None:
     second = await guests.create_manual_guest(owner.id, "Alex")
 
     assert first.id != second.id
+    assert all(
+        guest.suggested_target_person_id is None
+        for guest in await guests.list_owned_guests(owner.id)
+    )
 
 
 async def test_transfer_consolidates_splits_debts_and_membership(app_services) -> None:
