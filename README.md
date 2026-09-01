@@ -42,6 +42,10 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 - Confirming an expense automatically adds its co-participants to the creator's Friends list.
 - Friends can also be added directly by selecting a Telegram user or creating a named guest.
 - Repeated additions and repeated expenses never create duplicate friendships.
+- Registered friends and guest friends can be removed after an explicit confirmation.
+- Removing a friend archives only the private friendship: expenses, balances, identities,
+  and owned guest profiles remain unchanged.
+- A later expense with a removed person automatically restores the friendship.
 - **Guests** and the explicit guest-transfer flow are nested under **Friends**.
 - Guest transfer redirects friendship references to the registered target and safely combines
   duplicates.

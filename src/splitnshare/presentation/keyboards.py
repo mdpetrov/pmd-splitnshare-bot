@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from uuid import UUID
 
 from aiogram.types import (
@@ -233,30 +233,89 @@ def delete_confirm_keyboard(
 def guests_keyboard(
     guests: list[GuestDTO] | tuple[GuestDTO, ...],
     language: Language = Language.ENGLISH,
+    removable_person_ids: Collection[UUID] = (),
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for guest in guests:
+        row = [
+            InlineKeyboardButton(
+                text=translate(
+                    language,
+                    "transfer_guest",
+                    name=participant_label(
+                        guest.display_name, guest.person_id, guest.username
+                    ),
+                ),
+                callback_data=f"guest:transfer:{guest.person_id}",
+            )
+        ]
+        if guest.person_id in removable_person_ids:
+            row.append(
+                InlineKeyboardButton(
+                    text=translate(language, "remove_friend_short"),
+                    callback_data=f"friend:remove_ask:g:{guest.person_id}",
+                )
+            )
+        rows.append(row)
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "back_friends"),
+                callback_data="friends:show",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def registered_friends_keyboard(
+    friends: Sequence[FriendDTO], language: Language
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=translate(
+                    language,
+                    "remove_friend",
+                    name=participant_label(
+                        friend.display_name, friend.person_id, friend.username
+                    ),
+                ),
+                callback_data=f"friend:remove_ask:r:{friend.person_id}",
+            )
+        ]
+        for friend in friends
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "back_friends"),
+                callback_data="friends:show",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def friend_remove_confirm_keyboard(
+    friend_person_id: UUID, origin: str, language: Language
 ) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=translate(
-                        language,
-                        "transfer_guest",
-                        name=participant_label(
-                            guest.display_name, guest.person_id, guest.username
-                        ),
-                    ),
-                    callback_data=f"guest:transfer:{guest.person_id}",
+                    text=translate(language, "confirm_remove_friend"),
+                    callback_data=f"friend:remove:{origin}:{friend_person_id}",
                 )
-            ]
-            for guest in guests
-        ]
-        + [
+            ],
             [
                 InlineKeyboardButton(
-                    text=translate(language, "back_friends"),
-                    callback_data="friends:show",
+                    text=translate(language, "keep_friend"),
+                    callback_data=(
+                        "friends:registered" if origin == "r" else "friends:guests"
+                    ),
                 )
-            ]
+            ],
         ]
     )
 

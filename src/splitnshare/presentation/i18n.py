@@ -134,6 +134,17 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "add_named_guest": "Add named guest",
         "friend_name": "Enter the guest's display name.",
         "friend_added": "{name} is now in your Friends list.",
+        "remove_friend": "Remove {name}",
+        "remove_friend_short": "Remove",
+        "remove_friend_question": "Remove <b>{name}</b> from Friends?",
+        "remove_friend_warning": (
+            "Existing expenses and balances will remain. Adding another expense with this "
+            "person will add them to Friends again."
+        ),
+        "confirm_remove_friend": "Remove from Friends",
+        "keep_friend": "Keep friend",
+        "friend_removed": "{name} was removed from Friends.",
+        "friend_already_removed": "That person is no longer in Friends.",
         "back_friends": "Back to Friends",
     },
     Language.RUSSIAN: {
@@ -261,6 +272,17 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "add_named_guest": "Добавить гостя по имени",
         "friend_name": "Введите отображаемое имя гостя.",
         "friend_added": "{name} добавлен(а) в ваш список друзей.",
+        "remove_friend": "Удалить {name}",
+        "remove_friend_short": "Удалить",
+        "remove_friend_question": "Удалить <b>{name}</b> из друзей?",
+        "remove_friend_warning": (
+            "Существующие расходы и балансы сохранятся. Новый расход с этим человеком "
+            "снова добавит его в друзья."
+        ),
+        "confirm_remove_friend": "Удалить из друзей",
+        "keep_friend": "Оставить в друзьях",
+        "friend_removed": "{name} удалён(а) из друзей.",
+        "friend_already_removed": "Этого человека уже нет в списке друзей.",
         "back_friends": "Назад к друзьям",
     },
 }

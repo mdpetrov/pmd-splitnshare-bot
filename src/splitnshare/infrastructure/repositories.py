@@ -241,6 +241,19 @@ class SqlAlchemyFriendRepository:
             for relationship, person, account, guest in rows
         )
 
+    async def archive(self, owner_person_id: UUID, friend_person_id: UUID) -> bool:
+        await _require_registered(self._session, owner_person_id)
+        relationship = await self._session.get(
+            FriendshipModel,
+            (owner_person_id, friend_person_id),
+            with_for_update=True,
+        )
+        if relationship is None or relationship.archived_at is not None:
+            return False
+        relationship.archived_at = datetime.now(UTC)
+        await self._session.flush()
+        return True
+
     async def _get_dto(
         self, owner_person_id: UUID, friend_person_id: UUID
     ) -> FriendDTO:

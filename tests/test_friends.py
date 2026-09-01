@@ -12,6 +12,8 @@ from splitnshare.application.dto import (
     TransferGuestCommand,
 )
 from splitnshare.application.services import (
+    BalanceQueryService,
+    ExpenseQueryService,
     ExpenseService,
     FriendService,
     GuestService,
@@ -155,6 +157,54 @@ async def test_transaction_views_include_registered_and_guest_usernames(
     assert "Owner (@expense_owner)" in details
     assert "Guest (@expense_guest)" in details
     assert "Owner (@expense_owner)" in list_keyboard.inline_keyboard[0][0].text
+
+
+async def test_friend_removal_is_owner_scoped_idempotent_and_keeps_guest(
+    friend_services,
+) -> None:
+    _, users, guests, friends, _ = friend_services
+    owner = await _register(users, 615, "Owner")
+    other_user = await _register(users, 616, "Other")
+    guest = await friends.add_manual_guest(owner.id, "Removable guest")
+
+    assert not await friends.remove_friend(other_user.id, guest.person_id)
+    assert await friends.remove_friend(owner.id, guest.person_id)
+    assert not await friends.remove_friend(owner.id, guest.person_id)
+    assert await friends.list_friends(owner.id) == ()
+    assert [item.person_id for item in await guests.list_owned_guests(owner.id)] == [
+        guest.person_id
+    ]
+
+
+async def test_expenses_and_balances_survive_removal_and_new_expense_reactivates_friend(
+    friend_services,
+) -> None:
+    factory, users, _, friends, expenses = friend_services
+    owner = await _register(users, 617, "Owner")
+    target = await _register(users, 618, "Target")
+    expense = await expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Before removal",
+            total=Money(1000, "USD"),
+            participant_ids=(owner.id, target.id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
+    )
+
+    assert await friends.remove_friend(owner.id, target.id)
+    uow = SqlAlchemyUnitOfWorkFactory(factory)
+    assert (await ExpenseQueryService(uow).get_details(owner.id, expense.id)).id == expense.id
+    balances = await BalanceQueryService(uow).get_balances(owner.id)
+    assert [(balance.other_person_id, balance.net_minor) for balance in balances] == [
+        (target.id, 500)
+    ]
+
+    await _equal_expense(expenses, owner.id, target.id)
+    assert [friend.person_id for friend in await friends.list_friends(owner.id)] == [
+        target.id
+    ]
 
 
 async def test_expense_automatically_adds_participants_as_friends(friend_services) -> None:

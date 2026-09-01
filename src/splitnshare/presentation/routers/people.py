@@ -21,9 +21,11 @@ from splitnshare.presentation.keyboards import (
     add_friend_keyboard,
     back_to_friends_keyboard,
     cancel_keyboard,
+    friend_remove_confirm_keyboard,
     friends_menu_keyboard,
     guests_keyboard,
     main_menu,
+    registered_friends_keyboard,
     transfer_confirm_keyboard,
     transfer_target_keyboard,
 )
@@ -83,7 +85,9 @@ async def registered_friends(
         if friend.registered
     ]
     text = _registered_friends_text(registered, language)
-    await target_message.edit_text(text, reply_markup=back_to_friends_keyboard(language))
+    await target_message.edit_text(
+        text, reply_markup=registered_friends_keyboard(registered, language)
+    )
     await callback.answer()
 
 
@@ -99,8 +103,91 @@ async def owned_guests(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     guests = tuple(await services.guests.list_owned_guests(owner.id))
+    active_friend_ids = {
+        friend.person_id for friend in await services.friends.list_friends(owner.id)
+    }
     text = _guests_text(guests, language)
-    await target_message.edit_text(text, reply_markup=guests_keyboard(guests, language))
+    await target_message.edit_text(
+        text,
+        reply_markup=guests_keyboard(guests, language, active_friend_ids),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("friend:remove_ask:"))
+async def ask_remove_friend(
+    callback: CallbackQuery, services: Services, language: Language
+) -> None:
+    if callback.from_user is None:
+        return
+    payload, target_message = callback_payload(callback)
+    _, _, origin, friend_id_text = payload.split(":", 3)
+    owner = await services.users.find_registered_target(callback.from_user.id)
+    if owner is None:
+        await callback.answer(translate(language, "use_start"), show_alert=True)
+        return
+    friend_id = UUID(friend_id_text)
+    available = {
+        friend.person_id: friend
+        for friend in await services.friends.list_friends(owner.id)
+    }
+    friend = available.get(friend_id)
+    if friend is None:
+        await callback.answer(
+            translate(language, "friend_already_removed"), show_alert=True
+        )
+        return
+    text = "\n\n".join(
+        (
+            translate(
+                language,
+                "remove_friend_question",
+                name=participant_html(
+                    friend.display_name, friend.person_id, friend.username
+                ),
+            ),
+            translate(language, "remove_friend_warning"),
+        )
+    )
+    await target_message.edit_text(
+        text,
+        reply_markup=friend_remove_confirm_keyboard(friend.person_id, origin, language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("friend:remove:"))
+async def remove_friend(
+    callback: CallbackQuery, services: Services, language: Language
+) -> None:
+    if callback.from_user is None:
+        return
+    payload, target_message = callback_payload(callback)
+    _, _, _, friend_id_text = payload.split(":", 3)
+    owner = await services.users.find_registered_target(callback.from_user.id)
+    if owner is None:
+        await callback.answer(translate(language, "use_start"), show_alert=True)
+        return
+    friend_id = UUID(friend_id_text)
+    available = {
+        friend.person_id: friend
+        for friend in await services.friends.list_friends(owner.id)
+    }
+    friend = available.get(friend_id)
+    changed = await services.friends.remove_friend(owner.id, friend_id)
+    if not changed or friend is None:
+        text = translate(language, "friend_already_removed")
+    else:
+        text = translate(
+            language,
+            "friend_removed",
+            name=participant_html(
+                friend.display_name, friend.person_id, friend.username
+            ),
+        )
+    await target_message.edit_text(
+        text, reply_markup=back_to_friends_keyboard(language)
+    )
     await callback.answer()
 
 

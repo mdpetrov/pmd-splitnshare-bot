@@ -171,6 +171,14 @@ class FriendService:
         async with self._uow_factory() as uow:
             return await uow.friends.list_active(owner_person_id)
 
+    async def remove_friend(
+        self, owner_person_id: UUID, friend_person_id: UUID
+    ) -> bool:
+        async with self._uow_factory() as uow:
+            changed = await uow.friends.archive(owner_person_id, friend_person_id)
+            await uow.commit()
+            return changed
+
 
 class ExpenseService:
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
