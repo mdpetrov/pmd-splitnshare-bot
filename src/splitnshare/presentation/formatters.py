@@ -5,20 +5,24 @@ from splitnshare.application.dto import BalanceDTO, ExpenseDTO, TransferPreviewD
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
 from splitnshare.presentation.i18n import translate
+from splitnshare.presentation.labels import participant_html
 
 
 def expense_text(
     expense: ExpenseDTO, language: Language = Language.ENGLISH
 ) -> str:
+    payer = participant_html(
+        expense.payer_name, expense.payer_person_id, expense.payer_username
+    )
     shares = "\n".join(
-        f"• {escape(split.display_name)}: "
+        f"• {participant_html(split.display_name, split.person_id, split.username)}: "
         f"{Money(split.owed_minor, expense.total.currency).format()}"
         for split in expense.splits
     )
     return (
         f"<b>{escape(expense.description)}</b>\n"
         f"{translate(language, 'expense_total', total=expense.total.format())}\n"
-        f"{translate(language, 'expense_paid_by', name=escape(expense.payer_name))}\n"
+        f"{translate(language, 'expense_paid_by', name=payer)}\n"
         f"{translate(language, 'expense_split', method=expense.split_method.value)}\n\n{shares}"
     )
 
@@ -34,8 +38,16 @@ def transfer_preview_text(
             translate(
                 language,
                 "transfer_question",
-                guest=escape(preview.guest_name),
-                target=escape(preview.target_name),
+                guest=participant_html(
+                    preview.guest_name,
+                    preview.guest_person_id,
+                    preview.guest_username,
+                ),
+                target=participant_html(
+                    preview.target_name,
+                    preview.target_person_id,
+                    preview.target_username,
+                ),
             ),
             "",
             translate(language, "expenses_count", count=preview.expense_count),
@@ -72,7 +84,7 @@ def balances_text(
 
 def _balance_section(balances: Sequence[BalanceDTO], heading: str) -> str:
     items = "\n".join(
-        f"• {escape(balance.other_name)} — "
+        f"• {participant_html(balance.other_name, balance.other_person_id, balance.username)} — "
         f"{Money(abs(balance.net_minor), balance.currency).format()}"
         for balance in balances
     )

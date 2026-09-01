@@ -32,7 +32,9 @@ async def test_balances_keep_currencies_separate_and_exclude_deleted_expenses(
         TelegramIdentity(telegram_user_id=801, first_name="Owner")
     )
     friend = await users.register_or_update(
-        TelegramIdentity(telegram_user_id=802, first_name="Friend")
+        TelegramIdentity(
+            telegram_user_id=802, first_name="Friend", username="friend_username"
+        )
     )
     usd_expense = await expenses.create(
         CreateExpenseCommand(
@@ -61,6 +63,7 @@ async def test_balances_keep_currencies_separate_and_exclude_deleted_expenses(
         ("USD", 500),
         ("EUR", -1000),
     }
+    assert {balance.username for balance in result} == {"friend_username"}
 
     assert await expenses.delete(owner.id, usd_expense.id)
     remaining = await balances.get_balances(owner.id)
@@ -71,14 +74,14 @@ async def test_balances_keep_currencies_separate_and_exclude_deleted_expenses(
 
 def test_balances_text_separates_directions_and_escapes_names() -> None:
     entries = (
-        BalanceDTO(uuid4(), "Alice <Admin>", "EUR", -1250),
-        BalanceDTO(uuid4(), "Bob & Carol", "USD", 825),
+        BalanceDTO(uuid4(), "Alice <Admin>", "EUR", -1250, "alice"),
+        BalanceDTO(uuid4(), "Bob & Carol", "USD", 825, "bob"),
     )
 
     text = balances_text(entries, Language.ENGLISH)
 
-    assert "<b>You owe</b>:\n• Alice &lt;Admin&gt; — 12.50 EUR" in text
-    assert "<b>You are owed</b>:\n• Bob &amp; Carol — 8.25 USD" in text
+    assert "<b>You owe</b>:\n• Alice &lt;Admin&gt; (@alice) — 12.50 EUR" in text
+    assert "<b>You are owed</b>:\n• Bob &amp; Carol (@bob) — 8.25 USD" in text
 
 
 def test_balances_text_has_an_empty_state() -> None:

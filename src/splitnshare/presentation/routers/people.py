@@ -1,4 +1,3 @@
-from html import escape
 from uuid import UUID
 
 from aiogram import Bot, F, Router
@@ -28,6 +27,7 @@ from splitnshare.presentation.keyboards import (
     transfer_confirm_keyboard,
     transfer_target_keyboard,
 )
+from splitnshare.presentation.labels import participant_html
 from splitnshare.presentation.states import FriendStates, TransferGuestStates
 
 router = Router(name="friends")
@@ -145,7 +145,11 @@ async def receive_friend_user(
         return
     await state.clear()
     await message.answer(
-        translate(language, "friend_added", name=escape(friend.display_name)),
+        translate(
+            language,
+            "friend_added",
+            name=participant_html(friend.display_name, friend.person_id, friend.username),
+        ),
         reply_markup=main_menu(language),
     )
 
@@ -190,7 +194,11 @@ async def receive_friend_name(
         return
     await state.clear()
     await message.answer(
-        translate(language, "friend_added", name=escape(friend.display_name)),
+        translate(
+            language,
+            "friend_added",
+            name=participant_html(friend.display_name, friend.person_id, friend.username),
+        ),
         reply_markup=main_menu(language),
     )
 
@@ -286,7 +294,9 @@ async def confirm_transfer(
             "transfer_completed",
             expenses=result.affected_counts["expenses"],
             groups=result.affected_counts["group_memberships"],
-            name=escape(result.target_name),
+            name=participant_html(
+                result.target_name, result.target_person_id, result.target_username
+            ),
         ),
         reply_markup=main_menu(language),
     )
@@ -334,8 +344,7 @@ def _registered_friends_text(
         return translate(language, "no_registered_friends")
     lines = [translate(language, "registered_friends_intro")]
     lines.extend(
-        f"• {escape(friend.display_name)}"
-        + (f" (@{escape(friend.username)})" if friend.username else "")
+        f"• {participant_html(friend.display_name, friend.person_id, friend.username)}"
         for friend in friends
     )
     return "\n".join(lines)
@@ -345,5 +354,8 @@ def _guests_text(guests: tuple[GuestDTO, ...], language: Language) -> str:
     if not guests:
         return translate(language, "no_guests")
     lines = [translate(language, "guests_intro")]
-    lines.extend(f"• {escape(guest.display_name)}" for guest in guests)
+    lines.extend(
+        f"• {participant_html(guest.display_name, guest.person_id, guest.username)}"
+        for guest in guests
+    )
     return "\n".join(lines)

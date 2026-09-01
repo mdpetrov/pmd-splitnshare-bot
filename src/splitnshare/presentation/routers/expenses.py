@@ -36,6 +36,7 @@ from splitnshare.presentation.keyboards import (
     remove_participant_keyboard,
     split_method_keyboard,
 )
+from splitnshare.presentation.labels import participant_label
 from splitnshare.presentation.states import AddExpenseStates
 
 router = Router(name="expenses")
@@ -51,7 +52,12 @@ async def begin_expense(
     await state.clear()
     await state.update_data(
         creator_id=str(person.id),
-        participants=[{"id": str(person.id), "name": person.display_name}],
+        participants=[
+            {
+                "id": str(person.id),
+                "name": participant_label(person.display_name, person.id, person.username),
+            }
+        ],
     )
     await state.set_state(AddExpenseStates.description)
     await message.answer(
@@ -134,7 +140,14 @@ async def receive_shared_users(
             ),
         )
         if str(candidate.id) not in existing and len(participants) < 10:
-            participants.append({"id": str(candidate.id), "name": candidate.display_name})
+            participants.append(
+                {
+                    "id": str(candidate.id),
+                    "name": participant_label(
+                        candidate.display_name, candidate.id, candidate.username
+                    ),
+                }
+            )
             existing.add(str(candidate.id))
     await state.update_data(participants=participants)
     await message.answer(
@@ -204,7 +217,12 @@ async def add_friend_participant(
             await callback.answer(translate(language, "participant_limit"), show_alert=True)
             return
         participants.append(
-            {"id": str(friend.person_id), "name": friend.display_name}
+            {
+                "id": str(friend.person_id),
+                "name": participant_label(
+                    friend.display_name, friend.person_id, friend.username
+                ),
+            }
         )
         await state.update_data(participants=participants)
     settings = await services.user_settings.get_or_create(owner.id)
@@ -239,7 +257,12 @@ async def receive_manual_name(
     if len(participants) >= 10:
         await message.answer(translate(language, "participant_limit"))
     else:
-        participants.append({"id": str(guest.id), "name": guest.display_name})
+        participants.append(
+            {
+                "id": str(guest.id),
+                "name": participant_label(guest.display_name, guest.id, guest.username),
+            }
+        )
         await state.update_data(participants=participants)
     await state.set_state(AddExpenseStates.participants)
     await message.answer(

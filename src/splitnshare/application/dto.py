@@ -56,6 +56,7 @@ class GuestDTO:
     display_name: str
     creation_method: GuestCreationMethod
     suggested_telegram_user_id: int | None
+    username: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,7 @@ class CreateExpenseCommand:
 class ExpenseSplitDTO:
     person_id: UUID
     display_name: str
+    username: str | None
     owed_minor: int
     position: int
 
@@ -95,6 +97,7 @@ class ExpenseDTO:
     creator_person_id: UUID
     payer_person_id: UUID
     payer_name: str
+    payer_username: str | None
     description: str
     total: Money
     split_method: SplitMethod
@@ -126,13 +129,17 @@ class TransferPreviewDTO:
     group_count: int
     friendship_count: int
     debt_totals: dict[str, int]
+    guest_username: str | None = None
+    target_username: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class TransferResultDTO:
     transfer_id: UUID
+    target_person_id: UUID
     target_telegram_user_id: int
     target_name: str
+    target_username: str | None
     affected_counts: dict[str, int]
 
 
@@ -142,6 +149,7 @@ class BalanceDTO:
     other_name: str
     currency: str
     net_minor: int
+    username: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

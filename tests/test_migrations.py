@@ -24,6 +24,10 @@ def test_friendship_migration_backfills_existing_expense_participants(
     friend_id = uuid4().hex
     expense_id = uuid4().hex
     with sqlite3.connect(database_path) as connection:
+        guest_columns_before = {
+            row[1] for row in connection.execute("PRAGMA table_info(guest_profiles)")
+        }
+        assert "suggested_username" not in guest_columns_before
         connection.execute(
             "INSERT INTO persons (id, display_name, kind) VALUES (?, ?, ?)",
             (owner_id, "Owner", "user"),
@@ -72,6 +76,10 @@ def test_friendship_migration_backfills_existing_expense_participants(
         revision = connection.execute(
             "SELECT version_num FROM alembic_version"
         ).fetchone()
+        guest_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(guest_profiles)")
+        }
 
     assert rows == [(owner_id, friend_id, "expense")]
-    assert revision == ("20260901_0003",)
+    assert revision == ("20260901_0004",)
+    assert "suggested_username" in guest_columns

@@ -219,9 +219,15 @@ class SqlAlchemyFriendRepository:
         await _require_registered(self._session, owner_person_id)
         rows = (
             await self._session.execute(
-                select(FriendshipModel, PersonModel, UserAccountModel)
+                select(
+                    FriendshipModel,
+                    PersonModel,
+                    UserAccountModel,
+                    GuestProfileModel,
+                )
                 .join(PersonModel, PersonModel.id == FriendshipModel.friend_person_id)
                 .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
                 .where(
                     FriendshipModel.owner_person_id == owner_person_id,
                     FriendshipModel.archived_at.is_(None),
@@ -231,8 +237,8 @@ class SqlAlchemyFriendRepository:
             )
         ).all()
         return tuple(
-            _friend_dto(relationship, person, account)
-            for relationship, person, account in rows
+            _friend_dto(relationship, person, account, guest)
+            for relationship, person, account, guest in rows
         )
 
     async def _get_dto(
@@ -240,16 +246,22 @@ class SqlAlchemyFriendRepository:
     ) -> FriendDTO:
         row = (
             await self._session.execute(
-                select(FriendshipModel, PersonModel, UserAccountModel)
+                select(
+                    FriendshipModel,
+                    PersonModel,
+                    UserAccountModel,
+                    GuestProfileModel,
+                )
                 .join(PersonModel, PersonModel.id == FriendshipModel.friend_person_id)
                 .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
                 .where(
                     FriendshipModel.owner_person_id == owner_person_id,
                     FriendshipModel.friend_person_id == friend_person_id,
                 )
             )
         ).one()
-        return _friend_dto(row[0], row[1], row[2])
+        return _friend_dto(row[0], row[1], row[2], row[3])
 
 class SqlAlchemyGuestRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -272,8 +284,13 @@ class SqlAlchemyGuestRepository:
         if row:
             guest, person = row
             person.display_name = shared.display_name
+            guest.suggested_username = shared.username
             await self._session.flush()
-            return _person_dto(person, telegram_user_id=guest.suggested_telegram_user_id)
+            return _person_dto(
+                person,
+                telegram_user_id=guest.suggested_telegram_user_id,
+                username=guest.suggested_username,
+            )
 
         person = PersonModel(display_name=shared.display_name, kind=PersonKind.GUEST)
         self._session.add(person)
@@ -283,11 +300,16 @@ class SqlAlchemyGuestRepository:
                 person_id=person.id,
                 owner_person_id=owner_person_id,
                 suggested_telegram_user_id=shared.telegram_user_id,
+                suggested_username=shared.username,
                 creation_method=GuestCreationMethod.TELEGRAM,
             )
         )
         await self._session.flush()
-        return _person_dto(person, telegram_user_id=shared.telegram_user_id)
+        return _person_dto(
+            person,
+            telegram_user_id=shared.telegram_user_id,
+            username=shared.username,
+        )
 
     async def create_manual_guest(self, owner_person_id: UUID, display_name: str) -> PersonDTO:
         await _require_registered(self._session, owner_person_id)
@@ -322,6 +344,7 @@ class SqlAlchemyGuestRepository:
                 display_name=person.display_name,
                 creation_method=guest.creation_method,
                 suggested_telegram_user_id=guest.suggested_telegram_user_id,
+                username=guest.suggested_username,
             )
             for guest, person in rows
         )
@@ -377,6 +400,8 @@ class SqlAlchemyGuestRepository:
             group_count=group_count,
             friendship_count=friendship_count,
             debt_totals=dict(totals),
+            guest_username=guest.suggested_username,
+            target_username=target_account.username,
         )
 
     async def transfer_all(
@@ -494,8 +519,10 @@ class SqlAlchemyGuestRepository:
         await self._session.flush()
         return TransferResultDTO(
             transfer_id=transfer.id,
+            target_person_id=target_person.id,
             target_telegram_user_id=target_account.telegram_user_id,
             target_name=target_person.display_name,
+            target_username=target_account.username,
             affected_counts=affected_counts,
         )
 
@@ -684,20 +711,36 @@ class SqlAlchemyExpenseRepository:
             else:
                 totals[(debt.creditor_person_id, debt.currency)] -= debt.amount_minor
         person_ids = {key[0] for key in totals}
-        names: dict[UUID, str] = {}
+        people: dict[UUID, tuple[str, str | None]] = {}
         if person_ids:
             name_rows = (
                 await self._session.execute(
-                    select(PersonModel.id, PersonModel.display_name).where(
-                        PersonModel.id.in_(person_ids)
+                    select(
+                        PersonModel.id,
+                        PersonModel.display_name,
+                        UserAccountModel.username,
+                        GuestProfileModel.suggested_username,
                     )
+                    .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                    .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
+                    .where(PersonModel.id.in_(person_ids))
                 )
             ).tuples().all()
-            names = {person_id: display_name for person_id, display_name in name_rows}
+            people = {
+                other_id: (display_name, account_username or guest_username)
+                for other_id, display_name, account_username, guest_username in name_rows
+            }
         return tuple(
-            BalanceDTO(other_id, names[other_id], currency, net)
+            BalanceDTO(
+                other_person_id=other_id,
+                other_name=people[other_id][0],
+                currency=currency,
+                net_minor=net,
+                username=people[other_id][1],
+            )
             for (other_id, currency), net in sorted(
-                totals.items(), key=lambda item: (names[item[0][0]].casefold(), item[0][1])
+                totals.items(),
+                key=lambda item: (people[item[0][0]][0].casefold(), item[0][1]),
             )
             if net != 0
         )
@@ -722,9 +765,10 @@ class SqlAlchemyExpenseRepository:
         for expense_id in recent_expense_ids:
             rows = (
                 await self._session.execute(
-                    select(PersonModel, UserAccountModel)
+                    select(PersonModel, UserAccountModel, GuestProfileModel)
                     .join(ExpenseSplitModel, ExpenseSplitModel.person_id == PersonModel.id)
                     .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                    .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
                     .where(
                         ExpenseSplitModel.expense_id == expense_id,
                         PersonModel.inactive_at.is_(None),
@@ -732,11 +776,17 @@ class SqlAlchemyExpenseRepository:
                     .order_by(ExpenseSplitModel.position)
                 )
             ).all()
-            for person, account in rows:
+            for person, account, guest in rows:
                 if person.id in seen:
                     continue
                 seen.add(person.id)
-                people.append(_person_dto(person, account))
+                people.append(
+                    _person_dto(
+                        person,
+                        account,
+                        username=guest.suggested_username if guest is not None else None,
+                    )
+                )
                 if len(people) == limit:
                     return tuple(people)
         return tuple(people)
@@ -744,21 +794,38 @@ class SqlAlchemyExpenseRepository:
     async def _to_dto(self, expense: ExpenseModel) -> ExpenseDTO:
         split_rows = (
             await self._session.execute(
-                select(ExpenseSplitModel, PersonModel)
+                select(
+                    ExpenseSplitModel,
+                    PersonModel,
+                    UserAccountModel,
+                    GuestProfileModel,
+                )
                 .join(PersonModel, PersonModel.id == ExpenseSplitModel.person_id)
+                .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
                 .where(ExpenseSplitModel.expense_id == expense.id)
                 .order_by(ExpenseSplitModel.position)
             )
         ).all()
-        payer_name = await self._session.scalar(
-            select(PersonModel.display_name).where(PersonModel.id == expense.payer_person_id)
-        )
-        assert payer_name is not None
+        payer_row = (
+            await self._session.execute(
+                select(PersonModel, UserAccountModel, GuestProfileModel)
+                .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
+                .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
+                .where(PersonModel.id == expense.payer_person_id)
+            )
+        ).one()
+        payer, payer_account, payer_guest = payer_row
         return ExpenseDTO(
             id=expense.id,
             creator_person_id=expense.creator_person_id,
             payer_person_id=expense.payer_person_id,
-            payer_name=payer_name,
+            payer_name=payer.display_name,
+            payer_username=(
+                payer_account.username
+                if payer_account is not None
+                else payer_guest.suggested_username if payer_guest is not None else None
+            ),
             description=expense.description,
             total=Money(expense.total_minor, expense.currency),
             split_method=expense.split_method,
@@ -768,10 +835,15 @@ class SqlAlchemyExpenseRepository:
                 ExpenseSplitDTO(
                     person_id=split.person_id,
                     display_name=person.display_name,
+                    username=(
+                        account.username
+                        if account is not None
+                        else guest.suggested_username if guest is not None else None
+                    ),
                     owed_minor=split.owed_minor,
                     position=split.position,
                 )
-                for split, person in split_rows
+                for split, person, account, guest in split_rows
             ),
         )
 
@@ -871,13 +943,14 @@ def _person_dto(
     person: PersonModel,
     account: UserAccountModel | None = None,
     telegram_user_id: int | None = None,
+    username: str | None = None,
 ) -> PersonDTO:
     return PersonDTO(
         id=person.id,
         display_name=person.display_name,
         kind=person.kind,
         registered=account is not None,
-        username=account.username if account else None,
+        username=account.username if account else username,
         telegram_user_id=account.telegram_user_id if account else telegram_user_id,
     )
 
@@ -894,6 +967,7 @@ def _friend_dto(
     relationship: FriendshipModel,
     person: PersonModel,
     account: UserAccountModel | None,
+    guest: GuestProfileModel | None,
 ) -> FriendDTO:
     return FriendDTO(
         person_id=person.id,
@@ -901,8 +975,16 @@ def _friend_dto(
         kind=person.kind,
         registered=account is not None,
         source=relationship.source,
-        username=account.username if account else None,
-        telegram_user_id=account.telegram_user_id if account else None,
+        username=(
+            account.username
+            if account is not None
+            else guest.suggested_username if guest is not None else None
+        ),
+        telegram_user_id=(
+            account.telegram_user_id
+            if account is not None
+            else guest.suggested_telegram_user_id if guest is not None else None
+        ),
     )
 
 

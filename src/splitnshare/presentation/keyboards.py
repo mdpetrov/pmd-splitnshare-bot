@@ -12,6 +12,7 @@ from aiogram.types import (
 from splitnshare.application.dto import ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
 from splitnshare.domain.enums import Language
 from splitnshare.presentation.i18n import translate
+from splitnshare.presentation.labels import participant_label
 
 ADD_EXPENSE = "➕ Add expense"
 TRANSACTIONS = "📋 Transactions"
@@ -105,7 +106,9 @@ def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMark
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=friend.display_name,
+                    text=participant_label(
+                        friend.display_name, friend.person_id, friend.username
+                    ),
                     callback_data=f"expense:addfriend:{friend.person_id}",
                 )
             ]
@@ -154,7 +157,17 @@ def expense_list_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                text=f"{item.description} · {item.total.format()}",
+                text=" · ".join(
+                    (
+                        item.description,
+                        item.total.format(),
+                        participant_label(
+                            item.payer_name,
+                            item.payer_person_id,
+                            item.payer_username,
+                        ),
+                    )
+                ),
                 callback_data=f"expense:view:{item.id}",
             )
         ]
@@ -225,7 +238,13 @@ def guests_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=translate(language, "transfer_guest", name=guest.display_name),
+                    text=translate(
+                        language,
+                        "transfer_guest",
+                        name=participant_label(
+                            guest.display_name, guest.person_id, guest.username
+                        ),
+                    ),
                     callback_data=f"guest:transfer:{guest.person_id}",
                 )
             ]

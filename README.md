@@ -30,6 +30,9 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 - Guests belonging to different owners remain separate, even when they reference the same
   Telegram user.
 - Guest names are never used for automatic matching or merging.
+- Participant labels consistently show `Name (@username)` when a Telegram username is
+  available. Otherwise, a stable short person code distinguishes repeated names.
+- Telegram guest username snapshots are refreshed whenever that guest is selected again.
 - Existing friends can be selected while creating another expense.
 
 ### Friends

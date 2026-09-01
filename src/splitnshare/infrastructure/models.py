@@ -143,6 +143,7 @@ class GuestProfileModel(Base):
         ForeignKey("persons.id", ondelete="RESTRICT"), index=True, nullable=False
     )
     suggested_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger)
+    suggested_username: Mapped[str | None] = mapped_column(String(64))
     creation_method: Mapped[GuestCreationMethod] = mapped_column(
         enum_type(GuestCreationMethod, "guest_creation_method"), nullable=False
     )

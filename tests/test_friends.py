@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from splitnshare.application.dto import (
     CreateExpenseCommand,
+    ExpensePage,
     SharedTelegramUser,
     TelegramIdentity,
     TransferGuestCommand,
@@ -23,6 +24,8 @@ from splitnshare.domain.money import Money
 from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base, FriendshipModel
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
+from splitnshare.presentation.formatters import expense_text
+from splitnshare.presentation.keyboards import expense_list_keyboard
 
 
 @pytest.fixture
@@ -88,6 +91,70 @@ async def test_user_cannot_add_themselves(friend_services) -> None:
             owner.id,
             SharedTelegramUser(telegram_user_id=603, first_name="Owner"),
         )
+
+
+async def test_telegram_guest_username_is_stored_and_refreshed(friend_services) -> None:
+    _, users, guests, friends, _ = friend_services
+    owner = await _register(users, 611, "Owner")
+
+    created = await friends.add_shared_user(
+        owner.id,
+        SharedTelegramUser(
+            telegram_user_id=612,
+            first_name="Guest",
+            username="original_name",
+        ),
+    )
+    refreshed = await friends.add_shared_user(
+        owner.id,
+        SharedTelegramUser(
+            telegram_user_id=612,
+            first_name="Guest",
+            username="updated_name",
+        ),
+    )
+
+    assert created.username == "original_name"
+    assert refreshed.username == "updated_name"
+    assert (await guests.list_owned_guests(owner.id))[0].username == "updated_name"
+
+
+async def test_transaction_views_include_registered_and_guest_usernames(
+    friend_services,
+) -> None:
+    _, users, guests, _, expenses = friend_services
+    owner = await users.register_or_update(
+        TelegramIdentity(
+            telegram_user_id=613,
+            first_name="Owner",
+            username="expense_owner",
+        )
+    )
+    guest = await guests.get_or_create_telegram_guest(
+        owner.id,
+        SharedTelegramUser(
+            telegram_user_id=614,
+            first_name="Guest",
+            username="expense_guest",
+        ),
+    )
+
+    expense = await expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Named participants",
+            total=Money(1000, "USD"),
+            participant_ids=(owner.id, guest.id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
+    )
+
+    details = expense_text(expense)
+    list_keyboard = expense_list_keyboard(ExpensePage((expense,), None))
+    assert "Owner (@expense_owner)" in details
+    assert "Guest (@expense_guest)" in details
+    assert "Owner (@expense_owner)" in list_keyboard.inline_keyboard[0][0].text
 
 
 async def test_expense_automatically_adds_participants_as_friends(friend_services) -> None:
