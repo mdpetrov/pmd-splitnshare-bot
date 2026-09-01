@@ -13,6 +13,14 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 - Registered users and guests have separate participant identities.
 - A guest remains active until its owner explicitly transfers it.
 
+### User settings
+
+- Every registered user has a persisted default currency and interface language.
+- The default currency is used when a new expense has no explicit currency code.
+- Changing the default currency never converts existing expenses or combines balances.
+- English and Russian interfaces are available; unsupported Telegram languages fall back
+  to English.
+
 ### Guests and participant selection
 
 - Expenses can include registered bot users.

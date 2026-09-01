@@ -25,6 +25,7 @@ from splitnshare.domain.enums import (
     GroupStatus,
     GuestCreationMethod,
     GuestTransferStatus,
+    Language,
     MembershipStatus,
     PersonKind,
     SplitMethod,
@@ -78,6 +79,21 @@ class UserAccountModel(Base):
     )
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class UserSettingsModel(TimestampMixin, Base):
+    __tablename__ = "user_settings"
+    __table_args__ = (
+        CheckConstraint("length(default_currency) = 3", name="ck_user_settings_currency_length"),
+    )
+
+    person_id: Mapped[UUID] = mapped_column(
+        ForeignKey("user_accounts.person_id", ondelete="CASCADE"), primary_key=True
+    )
+    default_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    language: Mapped[Language] = mapped_column(
+        enum_type(Language, "language"), default=Language.ENGLISH, nullable=False
     )
 
 

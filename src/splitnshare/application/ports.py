@@ -16,6 +16,7 @@ from splitnshare.application.dto import (
     TelegramIdentity,
     TransferPreviewDTO,
     TransferResultDTO,
+    UserSettingsDTO,
 )
 from splitnshare.domain.contexts import ExpenseContext
 
@@ -26,6 +27,24 @@ class UserRepository(Protocol):
     async def find_registered_by_telegram_id(self, telegram_user_id: int) -> PersonDTO | None: ...
 
     async def get_registered(self, person_id: UUID, *, for_update: bool = False) -> PersonDTO: ...
+
+
+class UserSettingsRepository(Protocol):
+    async def get(self, person_id: UUID) -> UserSettingsDTO | None: ...
+
+    async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None: ...
+
+    async def create(
+        self, person_id: UUID, default_currency: str, language: str
+    ) -> UserSettingsDTO: ...
+
+    async def update(
+        self,
+        person_id: UUID,
+        *,
+        default_currency: str | None,
+        language: str | None,
+    ) -> UserSettingsDTO: ...
 
 
 class GuestRepository(Protocol):
@@ -70,6 +89,7 @@ class ExpenseRepository(Protocol):
 
 class UnitOfWork(Protocol):
     users: UserRepository
+    user_settings: UserSettingsRepository
     guests: GuestRepository
     expenses: ExpenseRepository
 

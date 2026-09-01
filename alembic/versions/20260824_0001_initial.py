@@ -11,11 +11,28 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+INITIAL_TABLE_NAMES = (
+    "persons",
+    "user_accounts",
+    "guest_profiles",
+    "groups",
+    "group_memberships",
+    "expenses",
+    "expense_splits",
+    "debts",
+    "guest_transfers",
+)
+
+
+def _initial_tables():
+    return [Base.metadata.tables[name] for name in INITIAL_TABLE_NAMES]
+
 
 def upgrade() -> None:
-    Base.metadata.create_all(bind=op.get_bind())
+    # Keep this revision limited to the tables that existed when it was created.
+    # Later model tables belong to their own Alembic revisions.
+    Base.metadata.create_all(bind=op.get_bind(), tables=_initial_tables())
 
 
 def downgrade() -> None:
-    Base.metadata.drop_all(bind=op.get_bind())
-
+    Base.metadata.drop_all(bind=op.get_bind(), tables=_initial_tables())

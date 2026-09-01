@@ -14,3 +14,6 @@ class TransferGuestStates(StatesGroup):
     target = State()
     confirm = State()
 
+
+class UserSettingsStates(StatesGroup):
+    custom_currency = State()

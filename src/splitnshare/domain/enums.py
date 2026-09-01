@@ -40,3 +40,7 @@ class SplitMethod(StrEnum):
 class TransferStatus(StrEnum):
     COMPLETED = "completed"
 
+
+class Language(StrEnum):
+    ENGLISH = "en"
+    RUSSIAN = "ru"
