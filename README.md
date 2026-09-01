@@ -1,45 +1,102 @@
 # Splitnshare Bot
 
-An asynchronous Splitwise-like Telegram bot supporting registered users, owner-managed
-guests, equal or exact expense splits, debt tracking, transaction history, soft deletion,
-and explicit all-or-nothing guest transfers. Registration never claims or merges guests.
+Splitnshare is an asynchronous Splitwise-like Telegram bot for recording shared expenses
+between registered users and owner-managed guests. The current release focuses on direct
+expenses, deterministic splitting, transaction history, and explicit guest transfers.
 
-## Run locally
+## Features available now
 
-1. Install Python 3.12 or newer and create a virtual environment.
-2. Install the project: `pip install -e ".[dev]"`.
-3. Copy `.env.example` to `.env` and set `BOT_TOKEN`.
-4. Start PostgreSQL: `docker compose up -d postgres`.
-5. Apply the schema: `alembic upgrade head`.
-6. Start long polling: `python -m splitnshare`.
+### Registration and identity
 
-The default PostgreSQL URL is
-`postgresql+asyncpg://splitnshare:splitnshare@localhost:5432/splitnshare`.
+- `/start` creates or updates the caller's registered Telegram identity.
+- Registration never searches for, claims, or merges an existing guest profile.
+- Registered users and guests have separate participant identities.
+- A guest remains active until its owner explicitly transfers it.
 
-## User flows
+### Guests and participant selection
 
-- `/start` creates or updates only the registered Telegram identity.
-- **Add expense** collects a description, total/currency, registered or guest participants,
-  split method, review, and confirmation.
-- **Transactions** shows paginated active history and creator-only deletion.
-- **People** lists guests owned by the current user and provides an explicit transfer flow.
+- Expenses can include registered bot users.
+- An unregistered Telegram user can be stored as an owner-managed Telegram guest.
+- A participant can also be added as a manually named guest without a Telegram ID.
+- Re-selecting the same unregistered Telegram user reuses that owner's active guest.
+- Guests belonging to different owners remain separate, even when they reference the same
+  Telegram user.
+- Guest names are never used for automatic matching or merging.
+- Recent co-participants can be selected while creating another expense.
 
-A guest transfer is irreversible through the bot. It moves every split, payer reference,
-debt, and group membership in one database transaction. If the target already occurs in an
-expense, their shares are consolidated. If they already belong to a group, their existing
-role is preserved.
+### Expense creation
 
-## Development
+- The **Add expense** flow collects a description, total, optional ISO currency code, and
+  participants.
+- The creator is included as the payer in the current Telegram flow.
+- Each expense supports 2–10 participants, including the payer.
+- Participants can be added, reviewed, and removed before confirmation.
+- Every multistep stage provides **Back** or **Cancel** navigation where applicable.
+- A final review displays the payer and each participant's share before saving.
+- Expense, split, and debt records are committed in one database transaction.
 
-Run checks with:
+### Splitting and money handling
 
-```text
-ruff check .
-mypy src
-pytest
-```
+- Equal splitting distributes remainder minor units deterministically by participant order.
+- Exact splitting requires an amount for every participant and rejects totals that do not
+  reconcile exactly with the expense total.
+- Money is stored as integer minor units rather than binary floating-point values.
+- Balances and debts remain isolated by ISO currency code; currencies are never combined or
+  converted automatically.
 
-Group tables and group-aware service parameters are present, but group-facing Telegram UI
-is intentionally deferred. The local FSM uses in-memory storage; replace it with Redis for
-multi-instance deployment.
+### Transactions
 
+- **Transactions** shows the registered user's active expense history.
+- History is cursor-paginated and provides a detailed view of each expense and its shares.
+- Only the expense creator can delete it.
+- Deletion is soft: the historical database record remains, while the expense is excluded
+  from active history and balances.
+
+### Explicit guest transfer
+
+- **People** lists active guests owned by the current user.
+- A guest can be transferred only by its owner and only to a user who has already registered
+  with the bot.
+- The confirmation preview shows affected expenses, groups, and recorded debt amounts by
+  currency.
+- Transfer moves all payer references, expense splits, debts, and group memberships in one
+  atomic database transaction.
+- When the guest and target already share an expense, their shares are consolidated without
+  changing the expense total.
+- When both already belong to a group, the target's existing membership and role are
+  preserved.
+- A completed guest becomes inactive and cannot be selected for new expenses.
+- The target receives a best-effort informational Telegram message after a successful
+  transfer; their approval is not required.
+- Transfers cannot be reversed through the current Telegram interface.
+
+## Architecture already prepared for expansion
+
+- Direct and group expense contexts are represented separately in the domain.
+- Group and group-membership tables are included in the database schema.
+- Application services are separated from aiogram routers and SQLAlchemy repositories.
+- Expense creation and guest transfer use explicit transaction boundaries.
+- The presentation layer uses aiogram routers, keyboards, callbacks, and FSM states, allowing
+  new buttons and user flows to be added without moving business rules into handlers.
+
+## Not available in the Telegram UI yet
+
+- Creating and managing groups.
+- Group-scoped expense entry, history, and balances.
+- Settlement payments.
+- Editing an existing expense.
+- Selecting a payer other than the creator.
+- Exchange-rate conversion.
+- Recurring expenses.
+- AI-assisted expense parsing.
+- A user-facing balance screen.
+
+The current FSM storage is in memory and is intended for a single bot process. Durable FSM
+storage such as Redis will be needed before running multiple bot instances.
+
+## Automated coverage
+
+The test suite covers money validation, equal and exact splits, registration isolation,
+owner-scoped guests, explicit guest transfer, split consolidation, debt regeneration, group
+membership consolidation, role preservation, and transfer authorization. Ruff and strict
+mypy configuration are included for source-quality and type checks.
