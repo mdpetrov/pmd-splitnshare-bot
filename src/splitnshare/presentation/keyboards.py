@@ -32,7 +32,10 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=translate(language, "transactions")),
             ],
             [
+                KeyboardButton(text=translate(language, "balances")),
                 KeyboardButton(text=translate(language, "friends")),
+            ],
+            [
                 KeyboardButton(text=translate(language, "settings")),
             ],
         ],

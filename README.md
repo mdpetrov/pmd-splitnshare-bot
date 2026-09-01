@@ -71,6 +71,13 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 - Deletion is soft: the historical database record remains, while the expense is excluded
   from active history and balances.
 
+### Balances
+
+- **Balances** separates amounts the current user owes from amounts owed to them.
+- Each balance is shown against the corresponding registered user or guest.
+- Balances remain separate by currency and are never converted or combined.
+- Soft-deleted expenses do not contribute to outstanding balances.
+
 ### Explicit guest transfer
 
 - **Friends → Guests** lists active guests owned by the current user.
@@ -108,7 +115,6 @@ expenses, deterministic splitting, transaction history, and explicit guest trans
 - Exchange-rate conversion.
 - Recurring expenses.
 - AI-assisted expense parsing.
-- A user-facing balance screen.
 
 The current FSM storage is in memory and is intended for a single bot process. Durable FSM
 storage such as Redis will be needed before running multiple bot instances.

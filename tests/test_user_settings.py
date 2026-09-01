@@ -93,4 +93,5 @@ def test_locales_have_the_same_messages_and_localized_menu() -> None:
 
     keyboard = main_menu(Language.RUSSIAN)
     assert keyboard.keyboard[0][0].text == "➕ Добавить расход"
-    assert keyboard.keyboard[1][1].text == "⚙️ Настройки"
+    assert keyboard.keyboard[1][0].text == "💰 Балансы"
+    assert keyboard.keyboard[2][0].text == "⚙️ Настройки"

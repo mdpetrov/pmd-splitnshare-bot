@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from html import escape
 
-from splitnshare.application.dto import ExpenseDTO, TransferPreviewDTO
+from splitnshare.application.dto import BalanceDTO, ExpenseDTO, TransferPreviewDTO
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
 from splitnshare.presentation.i18n import translate
@@ -47,3 +48,32 @@ def transfer_preview_text(
             translate(language, "transfer_warning"),
         )
     )
+
+
+def balances_text(
+    balances: Sequence[BalanceDTO], language: Language = Language.ENGLISH
+) -> str:
+    if not balances:
+        return "\n\n".join(
+            (translate(language, "balances_title"), translate(language, "no_balances"))
+        )
+
+    user_owes = [balance for balance in balances if balance.net_minor < 0]
+    user_is_owed = [balance for balance in balances if balance.net_minor > 0]
+    sections = [translate(language, "balances_title")]
+    if user_owes:
+        sections.append(_balance_section(user_owes, translate(language, "you_owe")))
+    if user_is_owed:
+        sections.append(
+            _balance_section(user_is_owed, translate(language, "you_are_owed"))
+        )
+    return "\n\n".join(sections)
+
+
+def _balance_section(balances: Sequence[BalanceDTO], heading: str) -> str:
+    items = "\n".join(
+        f"• {escape(balance.other_name)} — "
+        f"{Money(abs(balance.net_minor), balance.currency).format()}"
+        for balance in balances
+    )
+    return f"{heading}:\n{items}"
