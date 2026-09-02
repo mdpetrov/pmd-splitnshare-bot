@@ -25,6 +25,7 @@ from splitnshare.presentation.helpers import (
 )
 from splitnshare.presentation.i18n import button_values, translate
 from splitnshare.presentation.keyboards import (
+    back_to_main_menu_keyboard,
     cancel_keyboard,
     delete_confirm_keyboard,
     expense_confirm_keyboard,
@@ -64,6 +65,40 @@ async def begin_expense(
         translate(language, "expense_for"),
         reply_markup=cancel_keyboard(language, include_back=False),
     )
+
+
+@router.callback_query(F.data == "menu:add_expense")
+async def begin_expense_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    if callback.from_user is None:
+        return
+    target_message = callback_message(callback)
+    person = await services.users.find_registered_target(callback.from_user.id)
+    if person is None:
+        await callback.answer(translate(language, "use_start"), show_alert=True)
+        return
+    await state.clear()
+    await state.update_data(
+        creator_id=str(person.id),
+        participants=[
+            {
+                "id": str(person.id),
+                "name": participant_label(
+                    person.display_name, person.id, person.username
+                ),
+            }
+        ],
+    )
+    await state.set_state(AddExpenseStates.description)
+    await target_message.answer(
+        translate(language, "expense_for"),
+        reply_markup=cancel_keyboard(language, include_back=False),
+    )
+    await callback.answer()
 
 
 @router.message(AddExpenseStates.description, F.text.in_(button_values("back")))
@@ -513,6 +548,32 @@ async def transactions_callback(
         )
     else:
         await target_message.answer(translate(language, "no_active_expenses"))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu:transactions")
+async def menu_transactions_callback(
+    callback: CallbackQuery, services: Services, language: Language
+) -> None:
+    if callback.from_user is None:
+        return
+    target_message = callback_message(callback)
+    person = await services.users.find_registered_target(callback.from_user.id)
+    if person is None:
+        await callback.answer(translate(language, "use_start"), show_alert=True)
+        return
+    page = await services.expense_queries.list_for_person(person.id)
+    await target_message.edit_text(
+        translate(
+            language,
+            "your_transactions" if page.items else "no_active_expenses",
+        ),
+        reply_markup=(
+            expense_list_keyboard(page, language)
+            if page.items
+            else back_to_main_menu_keyboard(language)
+        ),
+    )
     await callback.answer()
 
 

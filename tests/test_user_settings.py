@@ -12,7 +12,11 @@ from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.i18n import catalogs, translate
-from splitnshare.presentation.keyboards import main_menu, timezone_keyboard
+from splitnshare.presentation.keyboards import (
+    main_menu,
+    main_menu_inline_keyboard,
+    timezone_keyboard,
+)
 from splitnshare.presentation.timezones import timezone_label
 
 
@@ -117,8 +121,30 @@ def test_locales_have_the_same_messages_and_localized_menu() -> None:
 def test_timezone_keyboard_uses_readable_utc_city_labels() -> None:
     keyboard = timezone_keyboard(Language.ENGLISH, include_back=False)
     labels = [row[0].text for row in keyboard.inline_keyboard]
+    callbacks = [row[0].callback_data for row in keyboard.inline_keyboard]
 
     assert "UTC+0 (UTC, Reykjavik)" in labels
     assert "UTC+1 (Madrid, Paris, Berlin)" in labels
     assert "UTC+5:30 (Delhi, Mumbai)" in labels
     assert timezone_label("Europe/Madrid", Language.ENGLISH) in labels
+    assert all(
+        callback is not None and callback.startswith("settings:set_timezone:")
+        for callback in callbacks
+    )
+
+
+def test_main_menu_has_all_primary_actions() -> None:
+    keyboard = main_menu_inline_keyboard(Language.ENGLISH)
+    callbacks = {
+        button.callback_data
+        for row in keyboard.inline_keyboard
+        for button in row
+    }
+
+    assert callbacks == {
+        "menu:add_expense",
+        "menu:transactions",
+        "menu:balances",
+        "menu:friends",
+        "menu:settings",
+    }

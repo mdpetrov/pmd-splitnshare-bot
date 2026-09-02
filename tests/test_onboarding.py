@@ -68,6 +68,8 @@ async def test_existing_user_with_timezone_receives_main_menu() -> None:
     await start(message, state, _services("Europe/Madrid"))
 
     state.set_state.assert_not_awaited()
-    assert message.answer.await_count == 1
-    markup = message.answer.await_args.kwargs["reply_markup"]
-    assert isinstance(markup, ReplyKeyboardMarkup)
+    assert message.answer.await_count == 2
+    quick_markup = message.answer.await_args_list[0].kwargs["reply_markup"]
+    menu_markup = message.answer.await_args_list[1].kwargs["reply_markup"]
+    assert isinstance(quick_markup, ReplyKeyboardMarkup)
+    assert isinstance(menu_markup, InlineKeyboardMarkup)

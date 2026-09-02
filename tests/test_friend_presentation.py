@@ -46,6 +46,7 @@ def test_friends_screen_unifies_registered_and_unregistered_friends() -> None:
     assert keyboard.inline_keyboard[1][0].callback_data == (
         f"friend:view:{unregistered.person_id}"
     )
+    assert keyboard.inline_keyboard[-1][0].callback_data == "menu:show"
 
 
 def test_guests_screen_lists_guest_names() -> None:

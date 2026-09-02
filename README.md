@@ -9,6 +9,9 @@ deterministic splitting, transaction history, and balances.
 ### Registration and identity
 
 - `/start` creates or updates the caller's registered Telegram identity.
+- After setup, `/start` shows a visible main menu for expenses, transactions, balances,
+  friends, and settings. It can also be used to reopen the menu later.
+- The persistent reply keyboard keeps the same actions available as quick shortcuts.
 - Registration never searches for, claims, or merges an existing unregistered participant.
 - Registered and unregistered friends retain separate participant identities.
 

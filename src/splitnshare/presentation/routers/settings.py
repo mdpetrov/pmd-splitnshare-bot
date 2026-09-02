@@ -16,6 +16,7 @@ from splitnshare.presentation.keyboards import (
     currency_keyboard,
     language_keyboard,
     main_menu,
+    main_menu_inline_keyboard,
     settings_keyboard,
     timezone_keyboard,
 )
@@ -57,6 +58,7 @@ async def show_settings(
 
 
 @router.callback_query(F.data == "settings:show")
+@router.callback_query(F.data == "menu:settings")
 async def show_settings_callback(
     callback: CallbackQuery,
     state: FSMContext,
@@ -220,6 +222,10 @@ async def set_timezone(
             translate(language, "onboarding_complete"),
             reply_markup=main_menu(language),
         )
+        await target_message.answer(
+            translate(language, "main_menu_prompt"),
+            reply_markup=main_menu_inline_keyboard(language),
+        )
     else:
         await target_message.edit_text(
             translate(language, "timezone_saved", timezone=label),
@@ -248,6 +254,10 @@ async def set_language(callback: CallbackQuery, services: Services) -> None:
     await target_message.answer(
         translate(selected, "main_menu"), reply_markup=main_menu(selected)
     )
+    await target_message.answer(
+        translate(selected, "main_menu_prompt"),
+        reply_markup=main_menu_inline_keyboard(selected),
+    )
     await callback.answer()
 
 
@@ -270,8 +280,10 @@ async def close_settings(
         )
         await callback.answer()
         return
-    await target_message.answer(
-        translate(language, "main_menu"), reply_markup=main_menu(language)
+    await state.clear()
+    await target_message.edit_text(
+        translate(language, "main_menu_prompt"),
+        reply_markup=main_menu_inline_keyboard(language),
     )
     await callback.answer()
 

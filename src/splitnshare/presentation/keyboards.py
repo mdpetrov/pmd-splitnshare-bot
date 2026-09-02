@@ -45,6 +45,52 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
     )
 
 
+def main_menu_inline_keyboard(language: Language) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "add_expense"),
+                    callback_data="menu:add_expense",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "transactions"),
+                    callback_data="menu:transactions",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "balances"),
+                    callback_data="menu:balances",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "friends"),
+                    callback_data="menu:friends",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "settings"),
+                    callback_data="menu:settings",
+                )
+            ],
+        ]
+    )
+
+
+def back_to_main_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "main_menu"),
+                    callback_data="menu:show",
+                )
+            ]
+        ]
+    )
+
+
 def cancel_keyboard(
     language: Language = Language.ENGLISH, *, include_back: bool = True
 ) -> ReplyKeyboardMarkup:
@@ -181,6 +227,14 @@ def expense_list_keyboard(
                 )
             ]
         )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "main_menu"),
+                callback_data="menu:show",
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -291,6 +345,14 @@ def guests_keyboard(
             )
         ]
     )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "main_menu"),
+                callback_data="menu:show",
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -338,6 +400,14 @@ def friends_list_keyboard(
             InlineKeyboardButton(
                 text=translate(language, "add_friend"),
                 callback_data="friends:add",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "main_menu"),
+                callback_data="menu:show",
             )
         ]
     )
@@ -514,7 +584,7 @@ def settings_keyboard(language: Language) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=translate(language, "main_menu"), callback_data="settings:close"
+                    text=translate(language, "main_menu"), callback_data="menu:show"
                 )
             ],
         ]

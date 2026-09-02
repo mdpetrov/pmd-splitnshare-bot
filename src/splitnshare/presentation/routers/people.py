@@ -49,6 +49,7 @@ async def friends(message: Message, services: Services, language: Language) -> N
 
 
 @router.callback_query(F.data == "friends:show")
+@router.callback_query(F.data == "menu:friends")
 async def friends_callback(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
