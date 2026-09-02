@@ -185,6 +185,15 @@ class ExpenseRepository(Protocol):
         """Return expenses in which both specified people participate."""
         ...
 
+    async def count_shared(
+        self,
+        person_id: UUID,
+        other_person_id: UUID,
+        context: ExpenseContext | None,
+    ) -> int:
+        """Count active expenses shared by two specified participants."""
+        ...
+
     async def balances(
         self, person_id: UUID, context: ExpenseContext | None
     ) -> Sequence[BalanceDTO]:

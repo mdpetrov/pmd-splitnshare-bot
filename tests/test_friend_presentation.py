@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from splitnshare.application.dto import FriendDTO, GuestDTO
+from splitnshare.application.dto import BalanceDTO, FriendDTO, GuestDTO
 from splitnshare.domain.enums import (
     FriendSource,
     GuestCreationMethod,
@@ -84,6 +84,49 @@ def test_friend_detail_menu_offers_rename_and_removal() -> None:
     assert details.inline_keyboard[0][1].callback_data == (
         f"friend:remove_ask:d:{person_id}"
     )
+
+
+def test_friend_details_show_transaction_count_and_currency_balances() -> None:
+    person_id = uuid4()
+    friend = FriendDTO(
+        person_id=person_id,
+        display_name="Alice",
+        kind=PersonKind.USER,
+        registered=True,
+        source=FriendSource.DIRECT,
+        username="alice",
+    )
+    balances = (
+        BalanceDTO(person_id, "Alice", "EUR", -1250, "alice"),
+        BalanceDTO(person_id, "Alice", "USD", 800, "alice"),
+    )
+
+    text = _friend_details_text(
+        friend,
+        None,
+        Language.ENGLISH,
+        transaction_count=7,
+        balances=balances,
+    )
+
+    assert "Shared transactions: <b>7</b>" in text
+    assert "🔴 ▼ You owe <b>12.50 EUR</b>" in text
+    assert "🟢 ▲ You are owed <b>8.00 USD</b>" in text
+
+
+def test_friend_details_show_settled_up_when_balance_is_empty() -> None:
+    friend = FriendDTO(
+        person_id=uuid4(),
+        display_name="Alice",
+        kind=PersonKind.USER,
+        registered=True,
+        source=FriendSource.DIRECT,
+    )
+
+    text = _friend_details_text(friend, None, Language.ENGLISH)
+
+    assert "Shared transactions: <b>0</b>" in text
+    assert "You are settled up." in text
 
 
 def test_unregistered_friend_detail_restores_explicit_transfer() -> None:

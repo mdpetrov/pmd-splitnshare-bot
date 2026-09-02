@@ -1,5 +1,7 @@
 """Handle unified friends, aliases, removal, and explicit guest transfers."""
 
+from asyncio import gather
+from collections.abc import Sequence
 from uuid import UUID
 
 from aiogram import Bot, F, Router
@@ -8,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from splitnshare.application.dto import (
+    BalanceDTO,
     FriendDTO,
     GuestDTO,
     SharedTelegramUser,
@@ -15,6 +18,7 @@ from splitnshare.application.dto import (
 )
 from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import DomainError
+from splitnshare.domain.money import Money
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.formatters import transfer_preview_text
 from splitnshare.presentation.helpers import callback_message, callback_payload, current_person
@@ -105,8 +109,21 @@ async def view_friend(
             ),
             None,
         )
+    transaction_count, balances = await gather(
+        services.expense_queries.count_shared(owner.id, friend.person_id),
+        services.balances.get_balances(owner.id),
+    )
+    friend_balances = tuple(
+        balance for balance in balances if balance.other_person_id == friend.person_id
+    )
     await target_message.edit_text(
-        _friend_details_text(friend, transfer_guest, language),
+        _friend_details_text(
+            friend,
+            transfer_guest,
+            language,
+            transaction_count,
+            friend_balances,
+        ),
         reply_markup=friend_detail_keyboard(friend, language, transfer_guest),
     )
     await callback.answer()
@@ -621,8 +638,10 @@ def _friend_details_text(
     friend: FriendDTO,
     transfer_guest: GuestDTO | None,
     language: Language,
+    transaction_count: int = 0,
+    balances: Sequence[BalanceDTO] = (),
 ) -> str:
-    """Render friend status and explicit-transfer guidance when authorized."""
+    """Render friend status, financial summary, and transfer guidance."""
     lines = [
         translate(
             language,
@@ -632,10 +651,30 @@ def _friend_details_text(
                 language,
                 "friend_registered" if friend.registered else "friend_unregistered",
             ),
-        )
+        ),
+        "",
+        translate(
+            language,
+            "friend_transaction_count",
+            count=transaction_count,
+        ),
+        translate(language, "friend_total_balance"),
     ]
+    if balances:
+        lines.extend(
+            translate(
+                language,
+                "balance_you_owe_amount"
+                if balance.net_minor < 0
+                else "balance_you_are_owed_amount",
+                amount=Money(abs(balance.net_minor), balance.currency).format(),
+            )
+            for balance in balances
+        )
+    else:
+        lines.append(translate(language, "friend_no_balance"))
     if transfer_guest is None:
-        return lines[0]
+        return "\n".join(lines)
     lines.extend(("", translate(language, "transfer_explanation")))
     if (
         transfer_guest.suggested_target_person_id is not None

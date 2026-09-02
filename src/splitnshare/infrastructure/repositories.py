@@ -969,6 +969,28 @@ class SqlAlchemyExpenseRepository:
         next_cursor = _encode_cursor(expenses[-1]) if has_more and expenses else None
         return ExpensePage(items=items, next_cursor=next_cursor)
 
+    async def count_shared(
+        self,
+        person_id: UUID,
+        other_person_id: UUID,
+        context: ExpenseContext | None,
+    ) -> int:
+        """Count non-deleted expenses containing both participants."""
+        viewer_split = aliased(ExpenseSplitModel)
+        other_split = aliased(ExpenseSplitModel)
+        statement = (
+            select(func.count(ExpenseModel.id))
+            .join(viewer_split, viewer_split.expense_id == ExpenseModel.id)
+            .join(other_split, other_split.expense_id == ExpenseModel.id)
+            .where(
+                viewer_split.person_id == person_id,
+                other_split.person_id == other_person_id,
+                ExpenseModel.deleted_at.is_(None),
+            )
+        )
+        statement = _apply_context(statement, context)
+        return int(await self._session.scalar(statement) or 0)
+
     async def balances(
         self, person_id: UUID, context: ExpenseContext | None
     ) -> Sequence[BalanceDTO]:

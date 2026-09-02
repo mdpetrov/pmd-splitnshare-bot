@@ -280,6 +280,32 @@ async def test_expenses_and_balances_survive_removal_and_new_expense_reactivates
     assert reactivated[0].alias == "Persistent alias"
 
 
+async def test_shared_transaction_count_excludes_unrelated_and_deleted_expenses(
+    friend_services,
+) -> None:
+    factory, users, _, _, expenses = friend_services
+    owner = await _register(users, 632, "Owner")
+    friend = await _register(users, 633, "Friend")
+    unrelated = await _register(users, 634, "Unrelated")
+    await _equal_expense(expenses, owner.id, friend.id)
+    deleted = await expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Deleted",
+            total=Money(600, "USD"),
+            participant_ids=(owner.id, friend.id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
+    )
+    await _equal_expense(expenses, owner.id, unrelated.id)
+    await expenses.delete(owner.id, deleted.id)
+    queries = ExpenseQueryService(SqlAlchemyUnitOfWorkFactory(factory))
+
+    assert await queries.count_shared(owner.id, friend.id) == 1
+    assert await queries.count_shared(owner.id, unrelated.id) == 1
+
+
 async def test_expense_automatically_adds_participants_as_friends(friend_services) -> None:
     factory, users, _, friends, expenses = friend_services
     owner = await _register(users, 604, "Owner")

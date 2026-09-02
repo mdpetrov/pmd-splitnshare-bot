@@ -53,6 +53,8 @@ deterministic splitting, transaction history, and balances.
 - **Friends** is one private, owner-scoped list containing both registered and unregistered
   friends; the Telegram UI does not expose separate identity categories.
 - Every friend appears as a button opening an extensible detail screen.
+- The detail screen shows the number of active shared transactions and a currency-separated
+  balance summary, making the impact of a possible history transfer easier to understand.
 - The detail screen supports a private rename, friend removal, and an owner-only
   **Transfer history** fallback for unregistered friends, including manually named profiles.
 - When the hinted Telegram account has registered, the transfer action identifies that
