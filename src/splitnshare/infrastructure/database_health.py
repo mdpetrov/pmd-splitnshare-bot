@@ -1,3 +1,5 @@
+"""Provide the production database connectivity smoke-test command."""
+
 import asyncio
 import os
 
@@ -7,6 +9,7 @@ from splitnshare.infrastructure.database import create_engine
 
 
 async def check_database(database_url: str) -> None:
+    """Open a connection and verify that PostgreSQL answers a trivial query."""
     engine = create_engine(database_url)
     try:
         async with engine.connect() as connection:
@@ -18,6 +21,7 @@ async def check_database(database_url: str) -> None:
 
 
 def main() -> None:
+    """Run the database smoke test using environment configuration."""
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("DATABASE_URL is not set.")

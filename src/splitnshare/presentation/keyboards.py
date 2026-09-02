@@ -1,3 +1,5 @@
+"""Build reply and inline keyboards for every Telegram interaction flow."""
+
 from collections.abc import Collection, Sequence
 from uuid import UUID
 
@@ -29,6 +31,7 @@ DONE = "Done selecting"
 
 
 def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
+    """Build the persistent reply keyboard for top-level features."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -48,6 +51,7 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
 
 
 def main_menu_inline_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Build an inline copy of the top-level navigation menu."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -81,6 +85,7 @@ def main_menu_inline_keyboard(language: Language) -> InlineKeyboardMarkup:
 
 
 def back_to_main_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Build a single-button return path to the main menu."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -96,6 +101,7 @@ def back_to_main_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
 def balances_keyboard(
     balances: Sequence[BalanceDTO], language: Language
 ) -> InlineKeyboardMarkup:
+    """Build one settlement action per outstanding balance."""
     rows = [
         [
             InlineKeyboardButton(
@@ -131,6 +137,7 @@ def balances_keyboard(
 def settlement_amount_keyboard(
     amount: Money, language: Language
 ) -> InlineKeyboardMarkup:
+    """Offer full, partial, and cancellation choices for a settlement."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -166,12 +173,14 @@ def settlement_amount_keyboard(
 def cancel_keyboard(
     language: Language = Language.ENGLISH, *, include_back: bool = True
 ) -> ReplyKeyboardMarkup:
+    """Build flow navigation with Cancel and an optional Back button."""
     buttons = [KeyboardButton(text=translate(language, "back"))] if include_back else []
     buttons.append(KeyboardButton(text=translate(language, "cancel")))
     return ReplyKeyboardMarkup(keyboard=[buttons], resize_keyboard=True)
 
 
 def participant_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
+    """Build participant-selection actions for a new expense."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -204,6 +213,7 @@ def participant_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboard
 
 
 def split_method_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
+    """Offer equal or exact expense allocation strategies."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -221,6 +231,7 @@ def split_method_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboa
 
 
 def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMarkup:
+    """Build expense participant buttons from the user's friends."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -237,6 +248,7 @@ def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMark
 def remove_participant_keyboard(
     participants: Sequence[dict[str, str]], creator_id: str
 ) -> InlineKeyboardMarkup:
+    """Build removal actions for non-creator draft participants."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -252,6 +264,7 @@ def remove_participant_keyboard(
 
 
 def expense_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
+    """Build final confirmation and cancellation actions for an expense."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -273,6 +286,7 @@ def expense_list_keyboard(
     language: Language = Language.ENGLISH,
     timezone: str = "UTC",
 ) -> InlineKeyboardMarkup:
+    """Build dated expense-detail links and cursor pagination controls."""
     rows = [
         [
             InlineKeyboardButton(
@@ -310,10 +324,12 @@ def expense_list_keyboard(
 
 
 def _short_button_text(value: str, limit: int = 40) -> str:
+    """Truncate long button labels while preserving a visible ellipsis."""
     return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
 
 
 def expense_date_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Offer common transaction-time presets and custom date entry."""
     choices = (
         ("date_now", "now"),
         ("date_30_minutes_ago", "minus_30m"),
@@ -366,6 +382,7 @@ def expense_details_keyboard(
     viewer_id: UUID,
     language: Language = Language.ENGLISH,
 ) -> InlineKeyboardMarkup:
+    """Build expense navigation and creator-only deletion actions."""
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
@@ -388,6 +405,7 @@ def expense_details_keyboard(
 def delete_confirm_keyboard(
     expense_id: UUID, language: Language = Language.ENGLISH
 ) -> InlineKeyboardMarkup:
+    """Build destructive expense-deletion confirmation controls."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -411,6 +429,7 @@ def guests_keyboard(
     language: Language = Language.ENGLISH,
     removable_person_ids: Collection[UUID] = (),
 ) -> InlineKeyboardMarkup:
+    """Build active guest actions, including suggested transfer targets."""
     rows: list[list[InlineKeyboardButton]] = []
     for guest in guests:
         guest_label = participant_label(
@@ -482,6 +501,7 @@ def guests_keyboard(
 def registered_friends_keyboard(
     friends: Sequence[FriendDTO], language: Language
 ) -> InlineKeyboardMarkup:
+    """Build legacy registered-friend removal actions and back navigation."""
     rows = [
         [
             InlineKeyboardButton(
@@ -509,6 +529,7 @@ def registered_friends_keyboard(
 def friends_list_keyboard(
     friends: Sequence[FriendDTO], language: Language
 ) -> InlineKeyboardMarkup:
+    """Build the unified friend list with detail and creation actions."""
     rows = [
         [
             InlineKeyboardButton(
@@ -540,6 +561,7 @@ def friends_list_keyboard(
 def friend_detail_keyboard(
     friend: FriendDTO, language: Language
 ) -> InlineKeyboardMarkup:
+    """Build rename and removal actions for one friend."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -565,6 +587,7 @@ def friend_detail_keyboard(
 def friend_remove_confirm_keyboard(
     friend_person_id: UUID, origin: str, language: Language
 ) -> InlineKeyboardMarkup:
+    """Build friend-removal confirmation with origin-aware navigation."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -590,6 +613,7 @@ def friend_remove_confirm_keyboard(
 
 
 def friends_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Build the legacy categorized friends navigation menu."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -612,6 +636,7 @@ def friends_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
 
 
 def back_to_friends_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Build a single-button return path to the unified friends list."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -625,6 +650,7 @@ def back_to_friends_keyboard(language: Language) -> InlineKeyboardMarkup:
 
 
 def add_friend_keyboard(language: Language) -> ReplyKeyboardMarkup:
+    """Offer Telegram sharing or manual naming when adding a friend."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -650,6 +676,7 @@ def add_friend_keyboard(language: Language) -> ReplyKeyboardMarkup:
 
 
 def transfer_target_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
+    """Request a registered Telegram user as a guest-transfer target."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -671,6 +698,7 @@ def transfer_target_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyb
 
 
 def transfer_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
+    """Build irreversible guest-transfer confirmation controls."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -689,6 +717,7 @@ def transfer_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKe
 
 
 def settings_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Build navigation for currency, language, and timezone settings."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -717,6 +746,7 @@ def settings_keyboard(language: Language) -> InlineKeyboardMarkup:
 def timezone_keyboard(
     language: Language, *, include_back: bool = True
 ) -> InlineKeyboardMarkup:
+    """Build localized buttons for every supported timezone choice."""
     rows = [
         [
             InlineKeyboardButton(
@@ -739,6 +769,7 @@ def timezone_keyboard(
 
 
 def currency_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Offer common currencies and a custom ISO-code option."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -765,6 +796,7 @@ def currency_keyboard(language: Language) -> InlineKeyboardMarkup:
 
 
 def language_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Offer supported interface languages and settings navigation."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

@@ -1,3 +1,5 @@
+"""Declare persistence and transaction boundaries used by application services."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -26,17 +28,31 @@ from splitnshare.domain.enums import FriendSource
 
 
 class UserRepository(Protocol):
-    async def register_or_update(self, identity: TelegramIdentity) -> PersonDTO: ...
+    """Persist and retrieve registered Telegram-backed identities."""
 
-    async def find_registered_by_telegram_id(self, telegram_user_id: int) -> PersonDTO | None: ...
+    async def register_or_update(self, identity: TelegramIdentity) -> PersonDTO:
+        """Create or refresh a registered identity without merging guests."""
+        ...
 
-    async def get_registered(self, person_id: UUID, *, for_update: bool = False) -> PersonDTO: ...
+    async def find_registered_by_telegram_id(self, telegram_user_id: int) -> PersonDTO | None:
+        """Find a registered person by authenticated Telegram user ID."""
+        ...
+
+    async def get_registered(self, person_id: UUID, *, for_update: bool = False) -> PersonDTO:
+        """Load a registered person, optionally taking a database lock."""
+        ...
 
 
 class UserSettingsRepository(Protocol):
-    async def get(self, person_id: UUID) -> UserSettingsDTO | None: ...
+    """Persist locale, currency, and timezone settings for registered users."""
 
-    async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None: ...
+    async def get(self, person_id: UUID) -> UserSettingsDTO | None:
+        """Return settings for a person when they exist."""
+        ...
+
+    async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None:
+        """Find settings through a registered Telegram user ID."""
+        ...
 
     async def create(
         self,
@@ -44,7 +60,9 @@ class UserSettingsRepository(Protocol):
         default_currency: str,
         language: str,
         timezone: str | None,
-    ) -> UserSettingsDTO: ...
+    ) -> UserSettingsDTO:
+        """Create the initial settings row for a registered user."""
+        ...
 
     async def update(
         self,
@@ -53,47 +71,79 @@ class UserSettingsRepository(Protocol):
         default_currency: str | None,
         language: str | None,
         timezone: str | None,
-    ) -> UserSettingsDTO: ...
+    ) -> UserSettingsDTO:
+        """Apply supplied changes to an existing settings row."""
+        ...
 
 
 class GuestRepository(Protocol):
+    """Persist owner-managed guests and perform explicit guest transfers."""
+
     async def get_or_create_telegram_guest(
         self, owner_person_id: UUID, shared: SharedTelegramUser
-    ) -> PersonDTO: ...
+    ) -> PersonDTO:
+        """Reuse or create the owner's guest for a shared Telegram identity."""
+        ...
 
-    async def create_manual_guest(self, owner_person_id: UUID, display_name: str) -> PersonDTO: ...
+    async def create_manual_guest(self, owner_person_id: UUID, display_name: str) -> PersonDTO:
+        """Create a distinct guest identified only by a display name."""
+        ...
 
-    async def list_owned(self, owner_person_id: UUID) -> Sequence[GuestDTO]: ...
+    async def list_owned(self, owner_person_id: UUID) -> Sequence[GuestDTO]:
+        """List active guests managed by one owner."""
+        ...
 
     async def preview_transfer(
         self, actor_person_id: UUID, guest_person_id: UUID, target_person_id: UUID
-    ) -> TransferPreviewDTO: ...
+    ) -> TransferPreviewDTO:
+        """Summarize everything that a proposed transfer would change."""
+        ...
 
     async def transfer_all(
         self, actor_person_id: UUID, guest_person_id: UUID, target_person_id: UUID
-    ) -> TransferResultDTO: ...
+    ) -> TransferResultDTO:
+        """Atomically replace a guest with a registered participant."""
+        ...
 
 
 class FriendRepository(Protocol):
+    """Persist private, directional friend-list entries."""
+
     async def add(
         self, owner_person_id: UUID, friend_person_id: UUID, source: FriendSource
-    ) -> FriendDTO: ...
+    ) -> FriendDTO:
+        """Add or reactivate one person in an owner's friends list."""
+        ...
 
-    async def list_active(self, owner_person_id: UUID) -> Sequence[FriendDTO]: ...
+    async def list_active(self, owner_person_id: UUID) -> Sequence[FriendDTO]:
+        """List an owner's currently active friends."""
+        ...
 
-    async def archive(self, owner_person_id: UUID, friend_person_id: UUID) -> bool: ...
+    async def archive(self, owner_person_id: UUID, friend_person_id: UUID) -> bool:
+        """Archive a private friend entry without deleting shared history."""
+        ...
 
     async def rename(
         self, owner_person_id: UUID, friend_person_id: UUID, alias: str
-    ) -> FriendDTO: ...
+    ) -> FriendDTO:
+        """Set the owner's private display alias for a friend."""
+        ...
 
 
 class ExpenseRepository(Protocol):
-    async def create(self, record: NewExpenseRecord) -> ExpenseDTO: ...
+    """Persist expense aggregates and query their derived balances."""
 
-    async def soft_delete(self, actor_person_id: UUID, expense_id: UUID) -> bool: ...
+    async def create(self, record: NewExpenseRecord) -> ExpenseDTO:
+        """Persist an expense, its splits, and its generated debts."""
+        ...
 
-    async def get(self, viewer_person_id: UUID, expense_id: UUID) -> ExpenseDTO: ...
+    async def soft_delete(self, actor_person_id: UUID, expense_id: UUID) -> bool:
+        """Soft-delete an expense when the actor is its creator."""
+        ...
+
+    async def get(self, viewer_person_id: UUID, expense_id: UUID) -> ExpenseDTO:
+        """Load an active expense visible to the requesting participant."""
+        ...
 
     async def list_for_person(
         self,
@@ -101,16 +151,24 @@ class ExpenseRepository(Protocol):
         context: ExpenseContext | None,
         cursor: str | None,
         limit: int,
-    ) -> ExpensePage: ...
+    ) -> ExpensePage:
+        """Return a cursor-paginated expense history for one participant."""
+        ...
 
     async def balances(
         self, person_id: UUID, context: ExpenseContext | None
-    ) -> Sequence[BalanceDTO]: ...
+    ) -> Sequence[BalanceDTO]:
+        """Calculate net balances from active debts and settlements."""
+        ...
 
-    async def recent_people(self, person_id: UUID, limit: int) -> Sequence[PersonDTO]: ...
+    async def recent_people(self, person_id: UUID, limit: int) -> Sequence[PersonDTO]:
+        """Return recently encountered active expense participants."""
+        ...
 
 
 class SettlementRepository(Protocol):
+    """Persist payments made against calculated balances."""
+
     async def create_for_balance(
         self,
         actor_person_id: UUID,
@@ -119,10 +177,14 @@ class SettlementRepository(Protocol):
         currency: str,
         context: ExpenseContext,
         occurred_at: datetime,
-    ) -> SettlementDTO: ...
+    ) -> SettlementDTO:
+        """Validate a current balance and record a payment against it."""
+        ...
 
 
 class UnitOfWork(Protocol):
+    """Group repositories behind one atomic database transaction."""
+
     users: UserRepository
     user_settings: UserSettingsRepository
     guests: GuestRepository
@@ -130,17 +192,27 @@ class UnitOfWork(Protocol):
     expenses: ExpenseRepository
     settlements: SettlementRepository
 
-    async def __aenter__(self) -> UnitOfWork: ...
+    async def __aenter__(self) -> UnitOfWork:
+        """Open the transactional repository scope."""
+        ...
 
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> None: ...
+    ) -> None:
+        """Roll back uncommitted work and close the scope."""
+        ...
 
-    async def commit(self) -> None: ...
+    async def commit(self) -> None:
+        """Commit every change made through this unit of work."""
+        ...
 
 
 class UnitOfWorkFactory(Protocol):
-    def __call__(self) -> UnitOfWork: ...
+    """Create independent unit-of-work instances on demand."""
+
+    def __call__(self) -> UnitOfWork:
+        """Return a new transactional unit of work."""
+        ...

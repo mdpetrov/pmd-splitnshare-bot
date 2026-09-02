@@ -1,3 +1,5 @@
+"""Load runtime configuration from environment variables."""
+
 from functools import lru_cache
 
 from pydantic import Field
@@ -7,6 +9,7 @@ from splitnshare.domain.enums import Language
 
 
 class Settings(BaseSettings):
+    """Validated settings required to connect the bot and database."""
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     bot_token: str = Field(min_length=10)
@@ -18,4 +21,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return the process-wide cached application settings."""
     return Settings()  # type: ignore[call-arg]

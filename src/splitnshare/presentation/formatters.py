@@ -1,3 +1,5 @@
+"""Render application DTOs as safe localized Telegram HTML messages."""
+
 from collections.abc import Sequence
 from html import escape
 from uuid import UUID
@@ -15,6 +17,7 @@ def expense_text(
     language: Language = Language.ENGLISH,
     timezone: str = "UTC",
 ) -> str:
+    """Render complete expense details with payer and participant shares."""
     payer = participant_html(
         expense.payer_name, expense.payer_person_id, expense.payer_username
     )
@@ -39,6 +42,7 @@ def transactions_text(
     language: Language = Language.ENGLISH,
     timezone: str = "UTC",
 ) -> str:
+    """Render an expense page with each transaction's viewer-specific effect."""
     items = [translate(language, "your_transactions")]
     for expense in expenses:
         creator = (
@@ -82,6 +86,7 @@ def transactions_text(
 def transfer_preview_text(
     preview: TransferPreviewDTO, language: Language = Language.ENGLISH
 ) -> str:
+    """Render the scope and warning for an explicit guest transfer."""
     debts = ", ".join(
         Money(value, currency).format() for currency, value in sorted(preview.debt_totals.items())
     ) or translate(language, "none")
@@ -118,6 +123,7 @@ def transfer_preview_text(
 def balances_text(
     balances: Sequence[BalanceDTO], language: Language = Language.ENGLISH
 ) -> str:
+    """Render balances grouped by money owed and money receivable."""
     if not balances:
         return "\n\n".join(
             (translate(language, "balances_title"), translate(language, "no_balances"))
@@ -136,6 +142,7 @@ def balances_text(
 
 
 def _balance_section(balances: Sequence[BalanceDTO], heading: str) -> str:
+    """Render one direction of a balance list under a heading."""
     items = "\n".join(
         f"• {participant_html(balance.other_name, balance.other_person_id, balance.username)} — "
         f"{Money(abs(balance.net_minor), balance.currency).format()}"

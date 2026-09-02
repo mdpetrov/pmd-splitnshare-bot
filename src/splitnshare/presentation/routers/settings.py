@@ -1,3 +1,5 @@
+"""Handle currency, language, timezone, and onboarding settings flows."""
+
 from html import escape
 
 from aiogram import F, Router
@@ -39,6 +41,7 @@ async def show_settings(
     services: Services,
     language: Language,
 ) -> None:
+    """Show the current user's settings from the reply menu."""
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(
         person.id,
@@ -65,6 +68,7 @@ async def show_settings_callback(
     services: Services,
     language: Language,
 ) -> None:
+    """Replace the current message with the user's settings panel."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -90,6 +94,7 @@ async def show_settings_callback(
 
 @router.callback_query(F.data == "settings:currency")
 async def choose_currency(callback: CallbackQuery, language: Language) -> None:
+    """Show preset and custom currency choices."""
     target_message = callback_message(callback)
     await target_message.edit_text(
         translate(language, "choose_currency"),
@@ -102,6 +107,7 @@ async def choose_currency(callback: CallbackQuery, language: Language) -> None:
 async def set_currency(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Validate a currency callback and persist the selected default."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -124,6 +130,7 @@ async def set_currency(
 async def request_custom_currency(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Enter the state that accepts a custom ISO currency code."""
     target_message = callback_message(callback)
     await state.set_state(UserSettingsStates.custom_currency)
     await target_message.answer(
@@ -139,6 +146,7 @@ async def request_custom_currency(
 async def custom_currency_back(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Leave custom currency entry and restore the settings panel."""
     await state.clear()
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(person.id)
@@ -152,6 +160,7 @@ async def custom_currency_back(
 async def receive_custom_currency(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Parse and save a user-entered ISO currency code."""
     person = await current_person(message, services)
     try:
         updated = await services.user_settings.update(
@@ -172,6 +181,7 @@ async def receive_custom_currency(
 
 @router.callback_query(F.data == "settings:language")
 async def choose_language(callback: CallbackQuery, language: Language) -> None:
+    """Show supported interface-language choices."""
     target_message = callback_message(callback)
     await target_message.edit_text(
         translate(language, "choose_language"),
@@ -182,6 +192,7 @@ async def choose_language(callback: CallbackQuery, language: Language) -> None:
 
 @router.callback_query(F.data == "settings:timezone")
 async def choose_timezone(callback: CallbackQuery, language: Language) -> None:
+    """Show localized timezone choices from the settings panel."""
     target_message = callback_message(callback)
     await target_message.edit_text(
         translate(language, "choose_timezone"),
@@ -197,6 +208,7 @@ async def set_timezone(
     services: Services,
     language: Language,
 ) -> None:
+    """Save a timezone and complete onboarding when applicable."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -236,6 +248,7 @@ async def set_timezone(
 
 @router.callback_query(F.data.startswith("settings:set_language:"))
 async def set_language(callback: CallbackQuery, services: Services) -> None:
+    """Persist the selected interface language and redraw settings."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -268,6 +281,7 @@ async def close_settings(
     services: Services,
     language: Language,
 ) -> None:
+    """Clear settings input state and return to the main reply menu."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -289,6 +303,7 @@ async def close_settings(
 
 
 def _settings_text(settings: UserSettingsDTO, display_language: Language) -> str:
+    """Render current user settings in the selected display language."""
     return translate(
         display_language,
         "settings_title",

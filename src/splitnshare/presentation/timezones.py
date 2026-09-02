@@ -1,3 +1,5 @@
+"""Map localized timezone choices between callbacks, storage, and labels."""
+
 from dataclasses import dataclass
 
 from splitnshare.domain.enums import Language
@@ -7,6 +9,7 @@ from splitnshare.presentation.i18n import translate
 
 @dataclass(frozen=True, slots=True)
 class TimezoneChoice:
+    """Connect a callback key and IANA timezone to a translation key."""
     callback_key: str
     timezone: str
     label_key: str
@@ -35,11 +38,13 @@ assert set(_BY_TIMEZONE) == SUPPORTED_TIMEZONES
 
 
 def timezone_from_callback_key(callback_key: str) -> str | None:
+    """Resolve a timezone-selection callback key to an IANA identifier."""
     choice = _BY_CALLBACK_KEY.get(callback_key)
     return choice.timezone if choice is not None else None
 
 
 def timezone_label(timezone: str | None, language: Language) -> str:
+    """Return a localized label for a configured timezone."""
     if timezone is None:
         return translate(language, "timezone_not_selected")
     choice = _BY_TIMEZONE.get(timezone)

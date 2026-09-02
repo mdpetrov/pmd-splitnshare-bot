@@ -1,3 +1,5 @@
+"""Declare the IANA timezones offered by user settings."""
+
 SUPPORTED_TIMEZONES = frozenset(
     {
         "America/Los_Angeles",

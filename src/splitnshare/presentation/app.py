@@ -1,3 +1,5 @@
+"""Assemble the Telegram, application-service, and database components."""
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -24,6 +26,7 @@ from splitnshare.presentation.routers import build_router
 
 
 def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]:
+    """Build the configured bot, dispatcher, services, and database engine."""
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
     uow_factory = SqlAlchemyUnitOfWorkFactory(session_factory)

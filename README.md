@@ -163,3 +163,7 @@ The test suite covers money validation, equal and exact splits, registration iso
 owner-scoped guests, explicit guest transfer, split consolidation, debt regeneration, group
 membership consolidation, role preservation, and transfer authorization. Ruff and strict
 mypy configuration are included for source-quality and type checks.
+
+All package modules, classes, functions, and methods must include a concise docstring that
+explains their responsibility. Ruff checks public documentation, and the test suite also
+enforces descriptions for private helpers and constructors so future features remain readable.

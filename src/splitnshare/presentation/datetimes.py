@@ -1,3 +1,5 @@
+"""Parse user-local timestamps and format stored UTC timestamps for display."""
+
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -11,6 +13,7 @@ def parse_local_datetime(
     *,
     now: datetime | None = None,
 ) -> datetime:
+    """Parse supported local date formats and return an aware UTC datetime."""
     text = " ".join(value.strip().split())
     local_now = (now or datetime.now(UTC)).astimezone(ZoneInfo(timezone))
     parsed: datetime | None = None
@@ -44,6 +47,7 @@ def format_local_datetime(
     timezone: str,
     language: Language,
 ) -> str:
+    """Format a timestamp in the user's timezone with its zone abbreviation."""
     if value.tzinfo is None or value.utcoffset() is None:
         value = value.replace(tzinfo=UTC)
     local = value.astimezone(ZoneInfo(timezone))
@@ -56,6 +60,7 @@ def format_local_datetime_compact(
     timezone: str,
     language: Language,
 ) -> str:
+    """Format a timestamp without a zone suffix for compact button labels."""
     if value.tzinfo is None or value.utcoffset() is None:
         value = value.replace(tzinfo=UTC)
     local = value.astimezone(ZoneInfo(timezone))

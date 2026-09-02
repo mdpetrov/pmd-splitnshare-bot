@@ -1,3 +1,5 @@
+"""Handle unified friends, aliases, removal, and explicit guest transfers."""
+
 from uuid import UUID
 
 from aiogram import Bot, F, Router
@@ -40,6 +42,7 @@ router.callback_query.filter(F.message.chat.type == "private")
 
 @router.message(F.text.in_(button_values("friends")))
 async def friends(message: Message, services: Services, language: Language) -> None:
+    """Show the user's unified registered and guest friends list."""
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
     await message.answer(
@@ -53,6 +56,7 @@ async def friends(message: Message, services: Services, language: Language) -> N
 async def friends_callback(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Replace the current message with the unified friends list."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -72,6 +76,7 @@ async def friends_callback(
 async def view_friend(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Show details and available actions for one active friend."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -109,6 +114,7 @@ async def view_friend(
 async def registered_friends(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Show the legacy filtered list of registered friends."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -132,6 +138,7 @@ async def registered_friends(
 async def owned_guests(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Show the legacy filtered list of active guest friends."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -155,6 +162,7 @@ async def owned_guests(
 async def ask_remove_friend(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Validate a friend selection and request removal confirmation."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -195,6 +203,7 @@ async def ask_remove_friend(
 async def remove_friend(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Archive a friendship and return to its originating list."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -231,6 +240,7 @@ async def begin_rename_friend(
     services: Services,
     language: Language,
 ) -> None:
+    """Store the selected friend and prompt for a private alias."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -261,6 +271,7 @@ async def begin_rename_friend(
 async def rename_friend_back(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Cancel alias entry and restore the selected friend's details."""
     await state.clear()
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
@@ -278,6 +289,7 @@ async def rename_friend(
     services: Services,
     language: Language,
 ) -> None:
+    """Validate and save a private friend alias from text input."""
     owner = await current_person(message, services)
     data = await state.get_data()
     friend_id_text = data.get("friend_id")
@@ -311,6 +323,7 @@ async def rename_friend(
 async def begin_add_friend(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Start the flow for adding a Telegram or manually named friend."""
     target_message = callback_message(callback)
     await state.clear()
     await state.set_state(FriendStates.choosing)
@@ -328,6 +341,7 @@ async def receive_friend_user(
     services: Services,
     language: Language,
 ) -> None:
+    """Add a friend from Telegram's shared-user picker response."""
     if message.users_shared is None or not message.users_shared.users:
         return
     owner = await current_person(message, services)
@@ -361,6 +375,7 @@ async def receive_friend_user(
 async def request_friend_name(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Prompt for the display name of a manually created guest friend."""
     await state.set_state(FriendStates.manual_name)
     await message.answer(
         translate(language, "friend_name"), reply_markup=cancel_keyboard(language)
@@ -372,6 +387,7 @@ async def request_friend_name(
 async def add_friend_back(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Cancel friend creation and restore the unified friend list."""
     await state.clear()
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
@@ -389,6 +405,7 @@ async def receive_friend_name(
     services: Services,
     language: Language,
 ) -> None:
+    """Create and display a manually named guest friend."""
     owner = await current_person(message, services)
     try:
         friend = await services.friends.add_manual_guest(owner.id, message.text or "")
@@ -413,6 +430,9 @@ async def choose_suggested_transfer(
     services: Services,
     language: Language,
 ) -> None:
+    """Prepare a transfer using a guest's newly registered suggestion."""
+    """Create and display a manually named guest friend."""
+    """Add a friend from Telegram's shared-user picker response."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -463,6 +483,7 @@ async def choose_guest(
     services: Services,
     language: Language,
 ) -> None:
+    """Select an active guest and request a registered transfer target."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -488,6 +509,7 @@ async def receive_target(
     services: Services,
     language: Language,
 ) -> None:
+    """Resolve a shared registered target and show the transfer preview."""
     if message.users_shared is None or not message.users_shared.users:
         return
     data = await state.get_data()
@@ -525,6 +547,7 @@ async def confirm_transfer(
     bot: Bot,
     language: Language,
 ) -> None:
+    """Commit the confirmed guest transfer and notify its target."""
     target_message = callback_message(callback)
     data = await state.get_data()
     if "target_id" not in data:
@@ -574,6 +597,7 @@ async def confirm_transfer(
 async def cancel_transfer(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Clear the transfer draft and report cancellation."""
     target_message = callback_message(callback)
     await state.clear()
     await target_message.answer(
@@ -583,6 +607,7 @@ async def cancel_transfer(
 
 
 def _friends_text(friendships: tuple[FriendDTO, ...], language: Language) -> str:
+    """Render the unified friends list and registration state."""
     lines = [translate(language, "friends_list_title")]
     if not friendships:
         lines.extend(("", translate(language, "no_friends")))
@@ -595,6 +620,7 @@ def _friends_text(friendships: tuple[FriendDTO, ...], language: Language) -> str
 def _registered_friends_text(
     friends: list[FriendDTO] | tuple[FriendDTO, ...], language: Language
 ) -> str:
+    """Render the legacy registered-only friends listing."""
     if not friends:
         return translate(language, "no_registered_friends")
     lines = [translate(language, "registered_friends_intro")]
@@ -606,6 +632,7 @@ def _registered_friends_text(
 
 
 def _guests_text(guests: tuple[GuestDTO, ...], language: Language) -> str:
+    """Render active guests with transfer explanation and suggestions."""
     lines = [
         translate(language, "guests_intro"),
         "",

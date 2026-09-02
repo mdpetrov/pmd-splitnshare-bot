@@ -1,3 +1,5 @@
+"""Map Splitnshare identities, expenses, debts, and transfers to SQL tables."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -35,6 +37,7 @@ from splitnshare.domain.enums import (
 
 
 def enum_type(enum: type[PythonEnum], name: str) -> Enum:
+    """Create a portable SQLAlchemy enum storing Python enum values."""
     return Enum(
         enum,
         name=name,
@@ -44,10 +47,12 @@ def enum_type(enum: type[PythonEnum], name: str) -> Enum:
 
 
 class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy declarative models."""
     pass
 
 
 class TimestampMixin:
+    """Add database-managed creation and update timestamps to a model."""
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -57,6 +62,7 @@ class TimestampMixin:
 
 
 class PersonModel(TimestampMixin, Base):
+    """Persist a stable registered-user or guest participant identity."""
     __tablename__ = "persons"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -66,6 +72,7 @@ class PersonModel(TimestampMixin, Base):
 
 
 class UserAccountModel(Base):
+    """Attach authenticated Telegram account metadata to a person."""
     __tablename__ = "user_accounts"
 
     person_id: Mapped[UUID] = mapped_column(
@@ -84,6 +91,7 @@ class UserAccountModel(Base):
 
 
 class UserSettingsModel(TimestampMixin, Base):
+    """Persist currency, language, and timezone preferences for a user."""
     __tablename__ = "user_settings"
     __table_args__ = (
         CheckConstraint("length(default_currency) = 3", name="ck_user_settings_currency_length"),
@@ -100,6 +108,7 @@ class UserSettingsModel(TimestampMixin, Base):
 
 
 class FriendshipModel(TimestampMixin, Base):
+    """Persist an owner-scoped, directional friend entry and alias."""
     __tablename__ = "friendships"
     __table_args__ = (
         CheckConstraint(
@@ -122,6 +131,7 @@ class FriendshipModel(TimestampMixin, Base):
 
 
 class GuestProfileModel(Base):
+    """Persist guest ownership, Telegram hints, and transfer state."""
     __tablename__ = "guest_profiles"
     __table_args__ = (
         Index(
@@ -160,6 +170,7 @@ class GuestProfileModel(Base):
 
 
 class GroupModel(TimestampMixin, Base):
+    """Persist an expense group independently of Telegram chat identity."""
     __tablename__ = "groups"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -173,6 +184,7 @@ class GroupModel(TimestampMixin, Base):
 
 
 class GroupMembershipModel(Base):
+    """Persist a person's role and lifecycle within an expense group."""
     __tablename__ = "group_memberships"
 
     group_id: Mapped[UUID] = mapped_column(
@@ -198,6 +210,7 @@ class GroupMembershipModel(Base):
 
 
 class ExpenseModel(TimestampMixin, Base):
+    """Persist the header, payer, amount, context, and deletion state of an expense."""
     __tablename__ = "expenses"
     __table_args__ = (
         CheckConstraint("total_minor > 0", name="ck_expense_positive_total"),
@@ -230,6 +243,7 @@ class ExpenseModel(TimestampMixin, Base):
 
 
 class ExpenseSplitModel(Base):
+    """Persist one participant's ordered owed share of an expense."""
     __tablename__ = "expense_splits"
     __table_args__ = (
         CheckConstraint("owed_minor >= 0", name="ck_split_nonnegative"),
@@ -247,6 +261,7 @@ class ExpenseSplitModel(Base):
 
 
 class DebtModel(Base):
+    """Persist an expense-derived obligation from a participant to its payer."""
     __tablename__ = "debts"
     __table_args__ = (
         CheckConstraint("amount_minor > 0", name="ck_debt_positive"),
@@ -270,6 +285,7 @@ class DebtModel(Base):
 
 
 class SettlementModel(TimestampMixin, Base):
+    """Persist an immutable payment between participants in one currency."""
     __tablename__ = "settlements"
     __table_args__ = (
         CheckConstraint("amount_minor > 0", name="ck_settlement_positive_amount"),
@@ -304,6 +320,7 @@ class SettlementModel(TimestampMixin, Base):
 
 
 class GuestTransferModel(Base):
+    """Audit an explicit guest-to-user transfer and affected record counts."""
     __tablename__ = "guest_transfers"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

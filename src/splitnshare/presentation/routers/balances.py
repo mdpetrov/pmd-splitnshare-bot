@@ -1,3 +1,5 @@
+"""Handle balance display and full or partial settlement flows."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from html import escape
@@ -42,6 +44,7 @@ async def balances(
     services: Services,
     language: Language,
 ) -> None:
+    """Show the current user's direct balances from a reply-menu action."""
     await state.clear()
     person = await current_person(message, services)
     current_balances = await services.balances.get_balances(person.id)
@@ -58,6 +61,7 @@ async def balances_callback(
     services: Services,
     language: Language,
 ) -> None:
+    """Replace the current message with the user's direct balances."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -81,6 +85,7 @@ async def select_balance_to_settle(
     services: Services,
     language: Language,
 ) -> None:
+    """Validate a selected balance and offer full or partial payment."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -129,6 +134,7 @@ async def settle_full_balance(
     services: Services,
     language: Language,
 ) -> None:
+    """Record a payment for the complete outstanding balance."""
     if await state.get_state() != SettlementStates.confirm.state:
         await callback.answer(translate(language, "settlement_stale"), show_alert=True)
         return
@@ -158,6 +164,7 @@ async def settle_full_balance(
 async def request_partial_settlement(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Store the selected balance and prompt for a partial amount."""
     if await state.get_state() != SettlementStates.confirm.state:
         await callback.answer(translate(language, "settlement_stale"), show_alert=True)
         return
@@ -178,6 +185,7 @@ async def partial_settlement_back(
     services: Services,
     language: Language,
 ) -> None:
+    """Leave partial entry and return to the current balance list."""
     await state.clear()
     person = await current_person(message, services)
     current_balances = await services.balances.get_balances(person.id)
@@ -195,6 +203,7 @@ async def receive_partial_settlement(
     services: Services,
     language: Language,
 ) -> None:
+    """Parse and record a user-entered partial settlement amount."""
     data = await state.get_data()
     currency = str(data["currency"])
     outstanding = Money(int(data["outstanding_minor"]), currency)
@@ -239,6 +248,7 @@ def _find_balance(
     other_id: UUID,
     currency: str,
 ) -> BalanceDTO | None:
+    """Find one counterparty-and-currency balance in a result sequence."""
     return next(
         (
             balance
@@ -250,6 +260,7 @@ def _find_balance(
 
 
 def _settlement_prompt(balance: BalanceDTO, language: Language) -> str:
+    """Describe the settlement direction and outstanding amount."""
     return translate(
         language,
         "settle_you_pay" if balance.net_minor < 0 else "settle_other_pays",
@@ -263,6 +274,7 @@ def _settlement_prompt(balance: BalanceDTO, language: Language) -> str:
 async def _record_settlement(
     services: Services, data: dict[str, object], amount_minor: int
 ) -> Money:
+    """Persist one direct settlement and return its money value."""
     amount = Money(amount_minor, str(data["currency"]))
     await services.settlements.settle(
         SettleBalanceCommand(

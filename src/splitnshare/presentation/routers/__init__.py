@@ -1,3 +1,5 @@
+"""Compose feature routers and centralize expected domain-error handling."""
+
 from aiogram import Router
 from aiogram.types import ErrorEvent
 
@@ -10,6 +12,7 @@ from splitnshare.presentation.routers.start import router as start_router
 
 
 def build_router() -> Router:
+    """Combine every private-chat feature router under one root router."""
     router = Router(name="root")
     router.include_routers(
         start_router, settings_router, expenses_router, friends_router, balances_router
@@ -17,6 +20,7 @@ def build_router() -> Router:
 
     @router.error()
     async def handle_error(event: ErrorEvent) -> bool:
+        """Send expected domain errors to users and defer unexpected failures."""
         update = event.update
         message = update.message or (
             update.callback_query.message if update.callback_query is not None else None

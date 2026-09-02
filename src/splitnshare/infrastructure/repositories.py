@@ -1,3 +1,5 @@
+"""Implement application repository ports with asynchronous SQLAlchemy queries."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -64,10 +66,14 @@ from splitnshare.infrastructure.models import (
 
 
 class SqlAlchemyUserRepository:
+    """Persist and retrieve authenticated Telegram user identities."""
+
     def __init__(self, session: AsyncSession) -> None:
+        """Bind repository operations to one unit-of-work session."""
         self._session = session
 
     async def register_or_update(self, identity: TelegramIdentity) -> PersonDTO:
+        """Create or refresh a user account without inspecting guest profiles."""
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
@@ -100,6 +106,7 @@ class SqlAlchemyUserRepository:
         return _person_dto(person, account)
 
     async def find_registered_by_telegram_id(self, telegram_user_id: int) -> PersonDTO | None:
+        """Return the registered person associated with a Telegram user ID."""
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
@@ -109,6 +116,7 @@ class SqlAlchemyUserRepository:
         return _person_dto(row[1], row[0]) if row else None
 
     async def get_registered(self, person_id: UUID, *, for_update: bool = False) -> PersonDTO:
+        """Load a registered person and optionally lock its database row."""
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
@@ -123,14 +131,19 @@ class SqlAlchemyUserRepository:
 
 
 class SqlAlchemyUserSettingsRepository:
+    """Persist registered users' currency, language, and timezone settings."""
+
     def __init__(self, session: AsyncSession) -> None:
+        """Bind repository operations to one unit-of-work session."""
         self._session = session
 
     async def get(self, person_id: UUID) -> UserSettingsDTO | None:
+        """Return settings by participant ID when present."""
         model = await self._session.get(UserSettingsModel, person_id)
         return _settings_dto(model) if model is not None else None
 
     async def find_by_telegram_id(self, telegram_user_id: int) -> UserSettingsDTO | None:
+        """Return settings joined through an authenticated Telegram account."""
         model = await self._session.scalar(
             select(UserSettingsModel)
             .join(UserAccountModel, UserAccountModel.person_id == UserSettingsModel.person_id)
@@ -145,6 +158,7 @@ class SqlAlchemyUserSettingsRepository:
         language: str,
         timezone: str | None,
     ) -> UserSettingsDTO:
+        """Create the initial settings row after verifying registration."""
         await _require_registered(self._session, person_id)
         model = UserSettingsModel(
             person_id=person_id,
@@ -164,6 +178,7 @@ class SqlAlchemyUserSettingsRepository:
         language: str | None,
         timezone: str | None,
     ) -> UserSettingsDTO:
+        """Lock and apply supplied changes to an existing settings row."""
         model = await self._session.get(UserSettingsModel, person_id, with_for_update=True)
         if model is None:
             raise NotFoundError("User settings not found.")
@@ -178,7 +193,10 @@ class SqlAlchemyUserSettingsRepository:
 
 
 class SqlAlchemyFriendRepository:
+    """Persist directional, owner-scoped friendships and private aliases."""
+
     def __init__(self, session: AsyncSession) -> None:
+        """Bind repository operations to one unit-of-work session."""
         self._session = session
 
     async def add(
@@ -187,6 +205,7 @@ class SqlAlchemyFriendRepository:
         friend_person_id: UUID,
         source: FriendSource,
     ) -> FriendDTO:
+        """Insert, reactivate, or return an idempotent friend entry."""
         await _require_registered(self._session, owner_person_id)
         if owner_person_id == friend_person_id:
             raise ValidationError("A user cannot add themselves as a friend.")
@@ -227,6 +246,7 @@ class SqlAlchemyFriendRepository:
         return await self._get_dto(owner_person_id, friend_person_id)
 
     async def list_active(self, owner_person_id: UUID) -> Sequence[FriendDTO]:
+        """List active friends with registered or guest identity metadata."""
         await _require_registered(self._session, owner_person_id)
         rows = (
             await self._session.execute(
@@ -256,6 +276,7 @@ class SqlAlchemyFriendRepository:
         )
 
     async def archive(self, owner_person_id: UUID, friend_person_id: UUID) -> bool:
+        """Archive an active friendship without modifying shared history."""
         await _require_registered(self._session, owner_person_id)
         relationship = await self._session.get(
             FriendshipModel,
@@ -271,6 +292,7 @@ class SqlAlchemyFriendRepository:
     async def rename(
         self, owner_person_id: UUID, friend_person_id: UUID, alias: str
     ) -> FriendDTO:
+        """Store the owner's private alias for an active friend."""
         await _require_registered(self._session, owner_person_id)
         relationship = await self._session.get(
             FriendshipModel,
@@ -286,6 +308,7 @@ class SqlAlchemyFriendRepository:
     async def _get_dto(
         self, owner_person_id: UUID, friend_person_id: UUID
     ) -> FriendDTO:
+        """Load a friendship and related identity as an application DTO."""
         row = (
             await self._session.execute(
                 select(
@@ -306,12 +329,16 @@ class SqlAlchemyFriendRepository:
         return _friend_dto(row[0], row[1], row[2], row[3])
 
 class SqlAlchemyGuestRepository:
+    """Persist owner-managed guests and execute audited guest transfers."""
+
     def __init__(self, session: AsyncSession) -> None:
+        """Bind repository operations to one unit-of-work session."""
         self._session = session
 
     async def get_or_create_telegram_guest(
         self, owner_person_id: UUID, shared: SharedTelegramUser
     ) -> PersonDTO:
+        """Reuse an owner's active Telegram-hinted guest or create one."""
         await _require_registered(self._session, owner_person_id)
         statement = (
             select(GuestProfileModel, PersonModel)
@@ -354,6 +381,7 @@ class SqlAlchemyGuestRepository:
         )
 
     async def create_manual_guest(self, owner_person_id: UUID, display_name: str) -> PersonDTO:
+        """Create a new guest without a Telegram identity hint."""
         await _require_registered(self._session, owner_person_id)
         person = PersonModel(display_name=display_name, kind=PersonKind.GUEST)
         self._session.add(person)
@@ -369,6 +397,7 @@ class SqlAlchemyGuestRepository:
         return _person_dto(person)
 
     async def list_owned(self, owner_person_id: UUID) -> Sequence[GuestDTO]:
+        """List active owned guests and possible registered transfer targets."""
         target_account = aliased(UserAccountModel)
         target_person = aliased(PersonModel)
         statement = (
@@ -425,6 +454,7 @@ class SqlAlchemyGuestRepository:
     async def preview_transfer(
         self, actor_person_id: UUID, guest_person_id: UUID, target_person_id: UUID
     ) -> TransferPreviewDTO:
+        """Count affected history after validating guest ownership and target."""
         guest, guest_person = await self._get_owned_active(
             actor_person_id, guest_person_id, for_update=False
         )
@@ -494,6 +524,7 @@ class SqlAlchemyGuestRepository:
     async def transfer_all(
         self, actor_person_id: UUID, guest_person_id: UUID, target_person_id: UUID
     ) -> TransferResultDTO:
+        """Move all guest references to a registered target and write an audit row."""
         guest, guest_person = await self._get_owned_active(
             actor_person_id, guest_person_id, for_update=True
         )
@@ -647,6 +678,7 @@ class SqlAlchemyGuestRepository:
     async def _get_owned_active(
         self, actor_person_id: UUID, guest_person_id: UUID, *, for_update: bool
     ) -> tuple[GuestProfileModel, PersonModel]:
+        """Load an active guest, enforce ownership, and optionally lock it."""
         statement = (
             select(GuestProfileModel, PersonModel)
             .join(PersonModel, PersonModel.id == GuestProfileModel.person_id)
@@ -666,10 +698,14 @@ class SqlAlchemyGuestRepository:
 
 
 class SqlAlchemyExpenseRepository:
+    """Persist complete expense aggregates and calculate participant balances."""
+
     def __init__(self, session: AsyncSession) -> None:
+        """Bind repository operations to one unit-of-work session."""
         self._session = session
 
     async def create(self, record: NewExpenseRecord) -> ExpenseDTO:
+        """Insert an expense with its participant splits and derived debts."""
         command = record.command
         await _require_registered(self._session, command.creator_person_id)
         rows = (
@@ -740,6 +776,7 @@ class SqlAlchemyExpenseRepository:
         return await self._to_dto(expense)
 
     async def soft_delete(self, actor_person_id: UUID, expense_id: UUID) -> bool:
+        """Mark an expense deleted after locking it and checking its creator."""
         expense = await self._session.get(ExpenseModel, expense_id, with_for_update=True)
         if expense is None:
             raise NotFoundError("Expense not found.")
@@ -753,6 +790,7 @@ class SqlAlchemyExpenseRepository:
         return True
 
     async def get(self, viewer_person_id: UUID, expense_id: UUID) -> ExpenseDTO:
+        """Return active expense details when the viewer may access them."""
         expense = await self._session.get(ExpenseModel, expense_id)
         if expense is None or expense.deleted_at is not None:
             raise NotFoundError("Expense not found.")
@@ -775,6 +813,7 @@ class SqlAlchemyExpenseRepository:
         cursor: str | None,
         limit: int,
     ) -> ExpensePage:
+        """Return an occurred-time-ordered cursor page of visible expenses."""
         statement = (
             select(ExpenseModel)
             .join(ExpenseSplitModel, ExpenseSplitModel.expense_id == ExpenseModel.id)
@@ -810,6 +849,7 @@ class SqlAlchemyExpenseRepository:
     async def balances(
         self, person_id: UUID, context: ExpenseContext | None
     ) -> Sequence[BalanceDTO]:
+        """Net active debts and settlements by counterparty and currency."""
         statement = (
             select(DebtModel)
             .join(ExpenseModel, ExpenseModel.id == DebtModel.expense_id)
@@ -886,6 +926,7 @@ class SqlAlchemyExpenseRepository:
         )
 
     async def recent_people(self, person_id: UUID, limit: int) -> Sequence[PersonDTO]:
+        """Find unique active co-participants from the most recent expenses."""
         recent_expense_ids = list(
             (
                 await self._session.execute(
@@ -932,6 +973,7 @@ class SqlAlchemyExpenseRepository:
         return tuple(people)
 
     async def _to_dto(self, expense: ExpenseModel) -> ExpenseDTO:
+        """Hydrate an expense with participant and identity display data."""
         split_rows = (
             await self._session.execute(
                 select(
@@ -1007,7 +1049,10 @@ class SqlAlchemyExpenseRepository:
 
 
 class SqlAlchemySettlementRepository:
+    """Validate live balances and persist immutable payment records."""
+
     def __init__(self, session: AsyncSession) -> None:
+        """Bind repository operations to one unit-of-work session."""
         self._session = session
 
     async def create_for_balance(
@@ -1019,6 +1064,7 @@ class SqlAlchemySettlementRepository:
         context: ExpenseContext,
         occurred_at: datetime,
     ) -> SettlementDTO:
+        """Lock participants, recheck the balance, and record a valid payment."""
         await _require_registered(self._session, actor_person_id)
         if actor_person_id == other_person_id:
             raise ValidationError("A balance cannot be settled with yourself.")
@@ -1099,6 +1145,7 @@ class SqlAlchemySettlementRepository:
 async def _get_registered_row(
     session: AsyncSession, person_id: UUID, *, for_update: bool
 ) -> tuple[UserAccountModel, PersonModel]:
+    """Load a registered account and person, optionally locking the rows."""
     statement = (
         select(UserAccountModel, PersonModel)
         .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
@@ -1113,6 +1160,7 @@ async def _get_registered_row(
 
 
 async def _require_registered(session: AsyncSession, person_id: UUID) -> None:
+    """Reject operations whose actor has no registered user account."""
     if not await session.scalar(
         select(func.count())
         .select_from(UserAccountModel)
@@ -1124,6 +1172,7 @@ async def _require_registered(session: AsyncSession, person_id: UUID) -> None:
 def _validate_transfer(
     actor_person_id: UUID, guest: GuestProfileModel, target_person: PersonModel
 ) -> None:
+    """Enforce owner, target-kind, activity, and self-transfer rules."""
     if guest.owner_person_id != actor_person_id:
         raise PermissionDeniedError("Only the guest owner can transfer this guest.")
     if actor_person_id == target_person.id:
@@ -1133,6 +1182,7 @@ def _validate_transfer(
 
 
 async def _affected_expense_ids(session: AsyncSession, guest_person_id: UUID) -> list[UUID]:
+    """Find expenses where a guest is either payer or participant."""
     rows = await session.execute(
         select(ExpenseModel.id)
         .outerjoin(ExpenseSplitModel, ExpenseSplitModel.expense_id == ExpenseModel.id)
@@ -1148,6 +1198,7 @@ async def _affected_expense_ids(session: AsyncSession, guest_person_id: UUID) ->
 
 
 async def _normalize_positions(session: AsyncSession, expense_id: UUID) -> None:
+    """Renumber split positions safely under their uniqueness constraint."""
     splits = (
         await session.execute(
             select(ExpenseSplitModel)
@@ -1165,6 +1216,7 @@ async def _normalize_positions(session: AsyncSession, expense_id: UUID) -> None:
 
 
 async def _rebuild_debts(session: AsyncSession, expense: ExpenseModel) -> None:
+    """Regenerate an expense's debt rows from its final payer and splits."""
     await session.execute(delete(DebtModel).where(DebtModel.expense_id == expense.id))
     splits = (
         await session.execute(
@@ -1193,6 +1245,7 @@ def _person_dto(
     telegram_user_id: int | None = None,
     username: str | None = None,
 ) -> PersonDTO:
+    """Convert person and optional account metadata into a participant DTO."""
     return PersonDTO(
         id=person.id,
         display_name=person.display_name,
@@ -1204,6 +1257,7 @@ def _person_dto(
 
 
 def _settings_dto(model: UserSettingsModel) -> UserSettingsDTO:
+    """Convert a user-settings row into an immutable DTO."""
     return UserSettingsDTO(
         person_id=model.person_id,
         default_currency=model.default_currency,
@@ -1213,6 +1267,7 @@ def _settings_dto(model: UserSettingsModel) -> UserSettingsDTO:
 
 
 def _settlement_dto(model: SettlementModel) -> SettlementDTO:
+    """Convert a settlement row into a UTC-normalized DTO."""
     return SettlementDTO(
         id=model.id,
         recorded_by_person_id=model.recorded_by_person_id,
@@ -1231,6 +1286,7 @@ def _friend_dto(
     account: UserAccountModel | None,
     guest: GuestProfileModel | None,
 ) -> FriendDTO:
+    """Combine friendship and identity rows into an owner-visible DTO."""
     return FriendDTO(
         person_id=person.id,
         display_name=person.display_name,
@@ -1252,6 +1308,7 @@ def _friend_dto(
 
 
 def _apply_context(statement: Select[Any], context: ExpenseContext | None) -> Select[Any]:
+    """Restrict an expense query to direct activity or one group."""
     if isinstance(context, DirectExpenseContext):
         return statement.where(ExpenseModel.group_id.is_(None))
     if isinstance(context, GroupExpenseContext):
@@ -1262,6 +1319,7 @@ def _apply_context(statement: Select[Any], context: ExpenseContext | None) -> Se
 def _apply_settlement_context(
     statement: Select[Any], context: ExpenseContext | None
 ) -> Select[Any]:
+    """Restrict a settlement query to direct activity or one group."""
     if isinstance(context, DirectExpenseContext):
         return statement.where(SettlementModel.group_id.is_(None))
     if isinstance(context, GroupExpenseContext):
@@ -1270,10 +1328,12 @@ def _apply_settlement_context(
 
 
 def _encode_cursor(expense: ExpenseModel) -> str:
+    """Encode the stable expense identifier used as a page cursor."""
     return str(expense.id)
 
 
 def _decode_cursor(cursor: str) -> UUID:
+    """Decode and validate an expense page cursor."""
     try:
         return UUID(cursor)
     except ValueError as exc:
@@ -1281,6 +1341,7 @@ def _decode_cursor(cursor: str) -> UUID:
 
 
 def _as_utc(value: datetime) -> datetime:
+    """Attach or convert timezone information so a datetime is UTC-aware."""
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)

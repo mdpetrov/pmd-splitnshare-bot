@@ -1,3 +1,5 @@
+"""Allocate expense totals among participants using supported strategies."""
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from uuid import UUID
@@ -8,15 +10,18 @@ from splitnshare.domain.errors import ValidationError
 
 @dataclass(frozen=True, slots=True)
 class Allocation:
+    """Associate one participant with an owed amount and stable position."""
     person_id: UUID
     owed_minor: int
     position: int
 
 
 class EqualSplitStrategy:
+    """Split a total evenly with deterministic remainder distribution."""
     method = SplitMethod.EQUAL
 
     def allocate(self, total_minor: int, participants: Sequence[UUID]) -> list[Allocation]:
+        """Return equal allocations whose minor units sum to the total."""
         _validate_participants(participants)
         quotient, remainder = divmod(total_minor, len(participants))
         if quotient == 0:
@@ -28,6 +33,7 @@ class EqualSplitStrategy:
 
 
 class ExactSplitStrategy:
+    """Validate and preserve explicitly supplied participant shares."""
     method = SplitMethod.EXACT
 
     def allocate(
@@ -37,6 +43,7 @@ class ExactSplitStrategy:
         exact_amounts: Mapping[UUID, int],
         payer_id: UUID,
     ) -> list[Allocation]:
+        """Return ordered exact allocations after validating their total."""
         _validate_participants(participants)
         if set(exact_amounts) != set(participants):
             raise ValidationError("An exact amount is required for every participant.")
@@ -53,8 +60,8 @@ class ExactSplitStrategy:
 
 
 def _validate_participants(participants: Sequence[UUID]) -> None:
+    """Enforce participant count limits and identity uniqueness."""
     if not 2 <= len(participants) <= 10:
         raise ValidationError("An expense must have between 2 and 10 participants.")
     if len(set(participants)) != len(participants):
         raise ValidationError("A participant cannot be added twice.")
-

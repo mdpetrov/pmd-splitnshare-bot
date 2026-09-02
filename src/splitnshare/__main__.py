@@ -1,3 +1,5 @@
+"""Run the Splitnshare Telegram bot polling process."""
+
 import asyncio
 import logging
 
@@ -6,6 +8,7 @@ from splitnshare.presentation.app import build_application
 
 
 async def run() -> None:
+    """Build the application and poll Telegram until shutdown."""
     settings = get_settings()
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -20,9 +23,9 @@ async def run() -> None:
 
 
 def main() -> None:
+    """Start the asynchronous bot from the console entry point."""
     asyncio.run(run())
 
 
 if __name__ == "__main__":
     main()
-

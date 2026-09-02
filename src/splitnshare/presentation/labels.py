@@ -1,3 +1,5 @@
+"""Build consistent plain-text and HTML-safe participant labels."""
+
 from html import escape
 from uuid import UUID
 
@@ -7,6 +9,7 @@ from splitnshare.application.dto import FriendDTO
 def participant_label(
     display_name: str, person_id: UUID, username: str | None = None
 ) -> str:
+    """Combine a display name with a username or stable synthetic code."""
     normalized_username = (username or "").strip().lstrip("@")
     if normalized_username:
         return f"{display_name} (@{normalized_username})"
@@ -16,10 +19,12 @@ def participant_label(
 def participant_html(
     display_name: str, person_id: UUID, username: str | None = None
 ) -> str:
+    """Return an HTML-escaped participant label for Telegram messages."""
     return escape(participant_label(display_name, person_id, username))
 
 
 def friend_label(friend: FriendDTO) -> str:
+    """Build the owner-specific label for a registered or guest friend."""
     display_name = friend.alias or friend.display_name
     if friend.registered:
         return participant_label(display_name, friend.person_id, friend.username)
@@ -31,4 +36,5 @@ def friend_label(friend: FriendDTO) -> str:
 
 
 def friend_html(friend: FriendDTO) -> str:
+    """Return an HTML-escaped owner-specific friend label."""
     return escape(friend_label(friend))

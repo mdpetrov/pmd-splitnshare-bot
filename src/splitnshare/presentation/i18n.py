@@ -1,3 +1,5 @@
+"""Store interface translations and resolve localized text by message key."""
+
 from collections.abc import Mapping
 
 from splitnshare.domain.enums import Language
@@ -482,6 +484,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
 
 
 def translate(locale: Language | str, key: str, **values: object) -> str:
+    """Format a localized message, falling back to the English catalog."""
     try:
         selected = Language(locale)
     except ValueError:
@@ -493,13 +496,16 @@ def translate(locale: Language | str, key: str, **values: object) -> str:
 
 
 def button_values(key: str) -> set[str]:
+    """Return every localized button label accepted by a text handler."""
     return {catalog[key] for catalog in _TEXTS.values()}
 
 
 def language_name(language: Language, display_language: Language) -> str:
+    """Return a language's localized display name."""
     key = "english" if language is Language.ENGLISH else "russian"
     return translate(display_language, key)
 
 
 def catalogs() -> Mapping[Language, Mapping[str, str]]:
+    """Expose translation catalogs for consistency tests and diagnostics."""
     return _TEXTS

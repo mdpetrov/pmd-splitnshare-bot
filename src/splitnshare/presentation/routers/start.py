@@ -1,3 +1,5 @@
+"""Handle registration, onboarding, main-menu navigation, and cancellation."""
+
 from html import escape
 
 from aiogram import F, Router
@@ -23,6 +25,7 @@ router.callback_query.filter(F.message.chat.type == "private")
 
 @router.message(CommandStart())
 async def start(message: Message, state: FSMContext, services: Services) -> None:
+    """Register or refresh a user and continue onboarding or show the menu."""
     if message.from_user is None:
         return
     await state.clear()
@@ -65,6 +68,7 @@ async def show_main_menu_callback(
     services: Services,
     language: Language,
 ) -> None:
+    """Clear active flow state and replace the message with the main menu."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -88,6 +92,7 @@ async def show_main_menu_callback(
 @router.message(Command("cancel"))
 @router.message(F.text.in_(button_values("cancel")))
 async def cancel(message: Message, state: FSMContext, language: Language) -> None:
+    """Cancel any text-driven flow and restore the main reply keyboard."""
     if await state.get_state() == OnboardingStates.timezone.state:
         await message.answer(
             translate(language, "onboarding_timezone_required"),

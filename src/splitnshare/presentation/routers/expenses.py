@@ -1,3 +1,5 @@
+"""Handle expense creation, transaction history, details, and deletion flows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -53,6 +55,7 @@ router.callback_query.filter(F.message.chat.type == "private")
 async def begin_expense(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Start expense creation and seed the creator as a participant."""
     person = await current_person(message, services)
     await state.clear()
     await state.update_data(
@@ -78,6 +81,7 @@ async def begin_expense_callback(
     services: Services,
     language: Language,
 ) -> None:
+    """Start expense creation from the inline main menu."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -109,6 +113,7 @@ async def begin_expense_callback(
 async def description_back(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Leave description entry and return to the main menu."""
     await state.clear()
     await message.answer(translate(language, "back_main"), reply_markup=main_menu(language))
 
@@ -117,6 +122,7 @@ async def description_back(
 async def receive_description(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Validate the expense description and request its total."""
     text = (message.text or "").strip()
     if not 1 <= len(text) <= 240:
         await message.answer(translate(language, "description_invalid"))
@@ -131,6 +137,7 @@ async def receive_description(
 
 @router.message(AddExpenseStates.total, F.text.in_(button_values("back")))
 async def total_back(message: Message, state: FSMContext, language: Language) -> None:
+    """Return from total entry to the description step."""
     await state.set_state(AddExpenseStates.description)
     await message.answer(
         translate(language, "expense_for"),
@@ -142,6 +149,7 @@ async def total_back(message: Message, state: FSMContext, language: Language) ->
 async def receive_total(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Parse the expense total and request its transaction time."""
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(person.id)
     try:
@@ -176,6 +184,7 @@ async def receive_total(
 async def choose_expense_date(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Apply a relative time preset and continue to participants."""
     if await state.get_state() != AddExpenseStates.expense_date.state:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
@@ -210,6 +219,7 @@ async def choose_expense_date(
 async def request_custom_expense_date(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Prompt for a custom local transaction date and time."""
     if await state.get_state() != AddExpenseStates.expense_date.state:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
@@ -232,6 +242,7 @@ async def request_custom_expense_date(
 async def expense_date_back(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Return from date selection to total entry."""
     target_message = callback_message(callback)
     await state.set_state(AddExpenseStates.total)
     await target_message.answer(
@@ -245,6 +256,7 @@ async def expense_date_back(
 async def custom_expense_date_back(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Return from custom date entry to the date presets."""
     await state.set_state(AddExpenseStates.expense_date)
     await message.answer(
         translate(language, "choose_expense_date"),
@@ -256,6 +268,7 @@ async def custom_expense_date_back(
 async def receive_custom_expense_date(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Parse a custom local datetime and continue to participants."""
     data = await state.get_data()
     timezone = str(data["timezone"])
     try:
@@ -282,6 +295,7 @@ async def receive_custom_expense_date(
 async def receive_shared_users(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Resolve Telegram-shared users and add them to the expense draft."""
     if message.users_shared is None:
         return
     person = await current_person(message, services)
@@ -320,6 +334,7 @@ async def receive_shared_users(
 async def request_manual_name(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Prompt for a manually named participant."""
     await state.set_state(AddExpenseStates.manual_name)
     await message.answer(
         translate(language, "guest_name"), reply_markup=cancel_keyboard(language)
@@ -333,6 +348,7 @@ async def request_manual_name(
 async def choose_friend(
     message: Message, services: Services, language: Language
 ) -> None:
+    """Show active friends available as expense participants."""
     owner = await current_person(message, services)
     friends = list(await services.friends.list_friends(owner.id))
     if not friends:
@@ -351,6 +367,7 @@ async def add_friend_participant(
     services: Services,
     language: Language,
 ) -> None:
+    """Add a selected active friend to the current expense draft."""
     if await state.get_state() != AddExpenseStates.participants.state:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
@@ -393,6 +410,7 @@ async def add_friend_participant(
 
 @router.message(AddExpenseStates.manual_name, F.text.in_(button_values("back")))
 async def manual_back(message: Message, state: FSMContext, language: Language) -> None:
+    """Return from manual naming to participant selection."""
     await state.set_state(AddExpenseStates.participants)
     await message.answer(
         translate(language, "continue_participants"),
@@ -404,6 +422,7 @@ async def manual_back(message: Message, state: FSMContext, language: Language) -
 async def receive_manual_name(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
+    """Create a manual guest and add it to the expense draft."""
     owner = await current_person(message, services)
     try:
         guest = await services.guests.create_manual_guest(owner.id, message.text or "")
@@ -433,6 +452,7 @@ async def receive_manual_name(
 async def participants_back(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Return from participant selection to transaction-time selection."""
     await state.set_state(AddExpenseStates.expense_date)
     await message.answer(
         translate(language, "choose_expense_date"),
@@ -447,6 +467,7 @@ async def participants_back(
 async def choose_participant_to_remove(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Show removable participants from the current draft."""
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) == 1:
@@ -462,6 +483,7 @@ async def choose_participant_to_remove(
 async def remove_participant(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Remove a selected non-payer participant from the draft."""
     if await state.get_state() != AddExpenseStates.participants.state:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
@@ -485,6 +507,7 @@ async def remove_participant(
 async def participants_done(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Validate participant count and request a split method."""
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) < 2:
@@ -499,6 +522,7 @@ async def participants_done(
 async def choose_equal(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Allocate the draft equally and show its confirmation preview."""
     target_message = callback_message(callback)
     data = await state.get_data()
     participants: list[dict[str, str]] = data.get("participants", [])
@@ -526,6 +550,7 @@ async def choose_equal(
 async def choose_exact(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Begin collecting exact participant shares in stable order."""
     target_message = callback_message(callback)
     data = await state.get_data()
     participants: list[dict[str, str]] = data.get("participants", [])
@@ -543,6 +568,7 @@ async def choose_exact(
 
 @router.message(AddExpenseStates.exact_amount, F.text.in_(button_values("back")))
 async def exact_back(message: Message, state: FSMContext, language: Language) -> None:
+    """Cancel exact allocation and return to participant selection."""
     await state.set_state(AddExpenseStates.participants)
     await message.answer(
         translate(language, "split_again"), reply_markup=participant_keyboard(language)
@@ -553,6 +579,7 @@ async def exact_back(message: Message, state: FSMContext, language: Language) ->
 async def receive_exact_amount(
     message: Message, state: FSMContext, language: Language
 ) -> None:
+    """Collect one exact share and advance or display the review."""
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     index: int = data["exact_index"]
@@ -596,6 +623,7 @@ async def confirm_expense(
     services: Services,
     language: Language,
 ) -> None:
+    """Create the reviewed expense and clear its FSM draft."""
     target_message = callback_message(callback)
     data = await state.get_data()
     if not data or "split_method" not in data:
@@ -633,6 +661,7 @@ async def confirm_expense(
 async def cancel_expense_callback(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
+    """Cancel an inline expense draft and restore the main reply menu."""
     target_message = callback_message(callback)
     await state.clear()
     await target_message.answer(
@@ -645,6 +674,7 @@ async def cancel_expense_callback(
 async def transactions(
     message: Message, services: Services, language: Language
 ) -> None:
+    """Show the first transaction page from the reply menu."""
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(person.id)
     page = await services.expense_queries.list_for_person(person.id)
@@ -664,6 +694,7 @@ async def transactions(
 async def transactions_callback(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Send the first transaction page from expense-detail navigation."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -694,6 +725,7 @@ async def transactions_callback(
 async def menu_transactions_callback(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Replace the main-menu message with the first transaction page."""
     if callback.from_user is None:
         return
     target_message = callback_message(callback)
@@ -724,6 +756,7 @@ async def menu_transactions_callback(
 async def transactions_page(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Replace transaction text and buttons with the requested cursor page."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -747,6 +780,7 @@ async def transactions_page(
 async def view_expense(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Show full details for a selected visible expense."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -766,6 +800,7 @@ async def view_expense(
 
 @router.callback_query(F.data.startswith("expense:delete_ask:"))
 async def ask_delete(callback: CallbackQuery, language: Language) -> None:
+    """Request confirmation before soft-deleting an expense."""
     payload, target_message = callback_payload(callback)
     expense_id = UUID(payload.rsplit(":", 1)[1])
     await target_message.answer(
@@ -779,6 +814,7 @@ async def ask_delete(callback: CallbackQuery, language: Language) -> None:
 async def delete_expense(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
+    """Soft-delete a confirmed expense and report the result."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -801,6 +837,7 @@ async def delete_expense(
 def _participant_summary(
     participants: list[dict[str, str]], language: Language
 ) -> str:
+    """Render currently selected draft participants."""
     return translate(language, "participants") + "\n" + "\n".join(
         f"• {escape(item['name'])}" for item in participants
     )
@@ -812,6 +849,7 @@ def _review_text(
     amounts: dict[str, int],
     language: Language,
 ) -> str:
+    """Render the final localized expense review from FSM draft data."""
     total = Money(int(data["total_minor"]), str(data["currency"]))
     lines = [
         translate(language, "review", description=escape(str(data["description"]))),
