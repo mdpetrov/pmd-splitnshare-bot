@@ -129,6 +129,28 @@ class SqlAlchemyUserRepository:
             raise NotFoundError("Registered user not found.")
         return _person_dto(row[1], row[0])
 
+    async def list_registered(
+        self, person_ids: Sequence[UUID]
+    ) -> Sequence[PersonDTO]:
+        """Return registered accounts in the supplied participant order."""
+        if not person_ids:
+            return ()
+        statement = (
+            select(UserAccountModel, PersonModel)
+            .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
+            .where(UserAccountModel.person_id.in_(set(person_ids)))
+        )
+        rows = (await self._session.execute(statement)).all()
+        people = {
+            account.person_id: _person_dto(person, account)
+            for account, person in rows
+        }
+        return tuple(
+            people[person_id]
+            for person_id in dict.fromkeys(person_ids)
+            if person_id in people
+        )
+
 
 class SqlAlchemyUserSettingsRepository:
     """Persist registered users' currency, language, and timezone settings."""

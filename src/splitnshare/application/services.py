@@ -51,6 +51,13 @@ class UserService:
         async with self._uow_factory() as uow:
             return await uow.users.find_registered_by_telegram_id(telegram_user_id)
 
+    async def list_registered(
+        self, person_ids: Sequence[UUID]
+    ) -> Sequence[PersonDTO]:
+        """Return only Telegram-registered people from participant IDs."""
+        async with self._uow_factory() as uow:
+            return await uow.users.list_registered(person_ids)
+
 
 class UserSettingsService:
     """Create, validate, and update per-user interface defaults."""

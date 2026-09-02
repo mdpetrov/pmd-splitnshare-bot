@@ -135,6 +135,11 @@ def test_timezone_keyboard_uses_readable_utc_city_labels() -> None:
 
 def test_main_menu_has_all_primary_actions() -> None:
     keyboard = main_menu_inline_keyboard(Language.ENGLISH)
+    labels = {
+        button.text
+        for row in keyboard.inline_keyboard
+        for button in row
+    }
     callbacks = {
         button.callback_data
         for row in keyboard.inline_keyboard
@@ -148,3 +153,5 @@ def test_main_menu_has_all_primary_actions() -> None:
         "menu:friends",
         "menu:settings",
     }
+    assert "📋 Activity" in labels
+    assert "📋 Transactions" not in labels

@@ -21,7 +21,7 @@ from splitnshare.presentation.labels import friend_label, participant_label
 from splitnshare.presentation.timezones import TIMEZONE_CHOICES
 
 ADD_EXPENSE = "➕ Add expense"
-TRANSACTIONS = "📋 Transactions"
+ACTIVITY = "📋 Activity"
 SETTINGS = "⚙️ Settings"
 CANCEL = "Cancel"
 BACK = "Back"

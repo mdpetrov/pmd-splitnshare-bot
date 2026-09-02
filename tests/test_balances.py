@@ -82,8 +82,8 @@ def test_balances_text_separates_directions_and_escapes_names() -> None:
 
     text = balances_text(entries, Language.ENGLISH)
 
-    assert "<b>You owe</b>:\n• Alice &lt;Admin&gt; (@alice) — 12.50 EUR" in text
-    assert "<b>You are owed</b>:\n• Bob &amp; Carol (@bob) — 8.25 USD" in text
+    assert "<b>You owe</b>:\n• 🔴 ▼ Alice &lt;Admin&gt; (@alice) — 12.50 EUR" in text
+    assert "<b>You are owed</b>:\n• 🟢 ▲ Bob &amp; Carol (@bob) — 8.25 USD" in text
 
 
 def test_balances_text_has_an_empty_state() -> None:
@@ -120,8 +120,8 @@ def test_person_balance_view_offers_each_currency_and_shared_history() -> None:
     callbacks = [row[0].callback_data for row in keyboard.inline_keyboard]
 
     assert "Balance with Alice (@alice)" in text
-    assert "You owe <b>12.50 EUR</b>" in text
-    assert "You are owed <b>8.00 USD</b>" in text
+    assert "🔴 ▼ You owe <b>12.50 EUR</b>" in text
+    assert "🟢 ▲ You are owed <b>8.00 USD</b>" in text
     assert callbacks == [
         f"settle:select:{other_id}:EUR",
         f"settle:select:{other_id}:USD",

@@ -42,6 +42,12 @@ class UserRepository(Protocol):
         """Load a registered person, optionally taking a database lock."""
         ...
 
+    async def list_registered(
+        self, person_ids: Sequence[UUID]
+    ) -> Sequence[PersonDTO]:
+        """Return registered accounts among the supplied participant IDs."""
+        ...
+
 
 class UserSettingsRepository(Protocol):
     """Persist locale, currency, and timezone settings for registered users."""

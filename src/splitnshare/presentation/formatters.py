@@ -84,6 +84,47 @@ def transactions_text(
     return "\n\n".join(items)
 
 
+def expense_notification_text(
+    expense: ExpenseDTO,
+    recipient_person_id: UUID,
+    language: Language = Language.ENGLISH,
+) -> str:
+    """Render a creator notification with the recipient's financial effect."""
+    if recipient_person_id == expense.creator_person_id:
+        raise ValueError("The expense creator does not receive a notification.")
+    recipient_split = next(
+        (
+            split
+            for split in expense.splits
+            if split.person_id == recipient_person_id
+        ),
+        None,
+    )
+    if recipient_split is None:
+        raise ValueError("The notification recipient is not an expense participant.")
+    if recipient_person_id == expense.payer_person_id:
+        relation_key = "transaction_you_are_owed"
+        relation_minor = expense.total.minor - recipient_split.owed_minor
+    else:
+        relation_key = "transaction_you_owe"
+        relation_minor = recipient_split.owed_minor
+    return translate(
+        language,
+        "expense_created_notification",
+        creator=participant_html(
+            expense.creator_name,
+            expense.creator_person_id,
+            expense.creator_username,
+        ),
+        description=escape(expense.description),
+        relation=translate(
+            language,
+            relation_key,
+            amount=escape(Money(relation_minor, expense.total.currency).format()),
+        ),
+    )
+
+
 def transfer_preview_text(
     preview: TransferPreviewDTO, language: Language = Language.ENGLISH
 ) -> str:
@@ -134,10 +175,14 @@ def balances_text(
     user_is_owed = [balance for balance in balances if balance.net_minor > 0]
     sections = [translate(language, "balances_title")]
     if user_owes:
-        sections.append(_balance_section(user_owes, translate(language, "you_owe")))
+        sections.append(
+            _balance_section(user_owes, translate(language, "you_owe"), "🔴 ▼")
+        )
     if user_is_owed:
         sections.append(
-            _balance_section(user_is_owed, translate(language, "you_are_owed"))
+            _balance_section(
+                user_is_owed, translate(language, "you_are_owed"), "🟢 ▲"
+            )
         )
     return "\n\n".join(sections)
 
@@ -172,10 +217,13 @@ def person_balances_text(
     return "\n".join(lines)
 
 
-def _balance_section(balances: Sequence[BalanceDTO], heading: str) -> str:
+def _balance_section(
+    balances: Sequence[BalanceDTO], heading: str, direction_marker: str
+) -> str:
     """Render one direction of a balance list under a heading."""
     items = "\n".join(
-        f"• {participant_html(balance.other_name, balance.other_person_id, balance.username)} — "
+        f"• {direction_marker} "
+        f"{participant_html(balance.other_name, balance.other_person_id, balance.username)} — "
         f"{Money(abs(balance.net_minor), balance.currency).format()}"
         for balance in balances
     )

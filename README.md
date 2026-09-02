@@ -9,7 +9,7 @@ deterministic splitting, transaction history, and balances.
 ### Registration and identity
 
 - `/start` creates or updates the caller's registered Telegram identity.
-- After setup, `/start` shows a visible main menu for expenses, transactions, balances,
+- After setup, `/start` shows a visible main menu for expenses, activity, balances,
   friends, and settings. It can also be used to reopen the menu later.
 - The persistent reply keyboard keeps the same actions available as quick shortcuts.
 - Registration never searches for, claims, or merges an existing unregistered participant.
@@ -73,6 +73,10 @@ deterministic splitting, transaction history, and balances.
 - Every multistep stage provides **Back** or **Cancel** navigation where applicable.
 - A final review displays the payer and each participant's share before saving.
 - Expense, split, and debt records are committed in one database transaction.
+- After that commit, every registered participant except the creator receives a localized,
+  best-effort Telegram notification showing the expense and what they owe or are owed.
+- Unregistered friends cannot receive notifications, and delivery failures never roll back
+  a saved expense.
 
 ### Splitting and money handling
 
@@ -83,9 +87,9 @@ deterministic splitting, transaction history, and balances.
 - Balances and debts remain isolated by ISO currency code; currencies are never combined or
   converted automatically.
 
-### Transactions
+### Activity
 
-- **Transactions** shows the registered user's active expense history.
+- **Activity** shows the registered user's active expense history.
 - History is cursor-paginated and provides a detailed view of each expense and its shares.
 - Only the expense creator can delete it.
 - Deletion is soft: the historical database record remains, while the expense is excluded

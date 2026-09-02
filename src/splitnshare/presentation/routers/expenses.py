@@ -7,11 +7,16 @@ from html import escape
 from typing import Any
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from splitnshare.application.dto import CreateExpenseCommand, SharedTelegramUser
+from splitnshare.application.dto import (
+    CreateExpenseCommand,
+    ExpenseDTO,
+    SharedTelegramUser,
+)
 from splitnshare.domain.contexts import DirectExpenseContext
 from splitnshare.domain.enums import Language, SplitMethod
 from splitnshare.domain.errors import DomainError
@@ -19,7 +24,11 @@ from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import EqualSplitStrategy
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
-from splitnshare.presentation.formatters import expense_text, transactions_text
+from splitnshare.presentation.formatters import (
+    expense_notification_text,
+    expense_text,
+    transactions_text,
+)
 from splitnshare.presentation.helpers import (
     callback_message,
     callback_payload,
@@ -621,9 +630,10 @@ async def confirm_expense(
     callback: CallbackQuery,
     state: FSMContext,
     services: Services,
+    bot: Bot,
     language: Language,
 ) -> None:
-    """Create the reviewed expense and clear its FSM draft."""
+    """Create the reviewed expense and notify its registered participants."""
     target_message = callback_message(callback)
     data = await state.get_data()
     if not data or "split_method" not in data:
@@ -655,6 +665,7 @@ async def confirm_expense(
         reply_markup=main_menu(settings.language),
     )
     await callback.answer()
+    await _notify_expense_participants(bot, services, expense)
 
 
 @router.callback_query(F.data == "expense:cancel")
@@ -873,3 +884,34 @@ def _review_text(
         for item in participants
     )
     return "\n".join(lines)
+
+
+async def _notify_expense_participants(
+    bot: Bot, services: Services, expense: ExpenseDTO
+) -> None:
+    """Best-effort notify every registered participant except the creator."""
+    recipient_ids = tuple(
+        split.person_id
+        for split in expense.splits
+        if split.person_id != expense.creator_person_id
+    )
+    recipients = await services.users.list_registered(recipient_ids)
+    for recipient in recipients:
+        if recipient.telegram_user_id is None:
+            continue
+        settings = await services.user_settings.find_by_telegram_id(
+            recipient.telegram_user_id
+        )
+        recipient_language = (
+            settings.language if settings is not None else Language.ENGLISH
+        )
+        try:
+            await bot.send_message(
+                recipient.telegram_user_id,
+                expense_notification_text(
+                    expense, recipient.id, recipient_language
+                ),
+            )
+        except TelegramAPIError:
+            # Expense creation is authoritative; notifications are best effort.
+            continue
