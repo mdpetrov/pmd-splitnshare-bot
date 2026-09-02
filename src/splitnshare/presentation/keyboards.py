@@ -9,8 +9,10 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
-from splitnshare.application.dto import ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
+from splitnshare.application.dto import BalanceDTO, ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
 from splitnshare.domain.enums import Language
+from splitnshare.domain.money import Money
+from splitnshare.presentation.datetimes import format_local_datetime
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import friend_label, participant_label
 from splitnshare.presentation.timezones import TIMEZONE_CHOICES
@@ -87,6 +89,76 @@ def back_to_main_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
                     callback_data="menu:show",
                 )
             ]
+        ]
+    )
+
+
+def balances_keyboard(
+    balances: Sequence[BalanceDTO], language: Language
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=translate(
+                    language,
+                    "settle_balance_button",
+                    name=participant_label(
+                        balance.other_name,
+                        balance.other_person_id,
+                        balance.username,
+                    ),
+                    amount=Money(
+                        abs(balance.net_minor), balance.currency
+                    ).format(),
+                ),
+                callback_data=(
+                    f"settle:select:{balance.other_person_id}:{balance.currency}"
+                ),
+            )
+        ]
+        for balance in balances
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "main_menu"), callback_data="menu:show"
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def settlement_amount_keyboard(
+    amount: Money, language: Language
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(
+                        language,
+                        "settle_full_amount",
+                        amount=amount.format(),
+                    ),
+                    callback_data="settle:full",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "settle_partial"),
+                    callback_data="settle:partial",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"),
+                    callback_data="menu:balances",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "cancel"),
+                    callback_data="menu:show",
+                ),
+            ],
         ]
     )
 
@@ -197,7 +269,9 @@ def expense_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKey
 
 
 def expense_list_keyboard(
-    page: ExpensePage, language: Language = Language.ENGLISH
+    page: ExpensePage,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
 ) -> InlineKeyboardMarkup:
     rows = [
         [
@@ -206,6 +280,7 @@ def expense_list_keyboard(
                     (
                         item.description,
                         item.total.format(),
+                        format_local_datetime(item.occurred_at, timezone, language),
                         participant_label(
                             item.payer_name,
                             item.payer_person_id,
@@ -236,6 +311,54 @@ def expense_list_keyboard(
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def expense_date_keyboard(language: Language) -> InlineKeyboardMarkup:
+    choices = (
+        ("date_now", "now"),
+        ("date_30_minutes_ago", "minus_30m"),
+        ("date_1_hour_ago", "minus_1h"),
+        ("date_2_hours_ago", "minus_2h"),
+        ("date_3_hours_ago", "minus_3h"),
+    )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, label_key),
+                    callback_data=f"expense:date:{callback_value}",
+                )
+                for label_key, callback_value in choices[:2]
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, label_key),
+                    callback_data=f"expense:date:{callback_value}",
+                )
+                for label_key, callback_value in choices[2:4]
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, choices[4][0]),
+                    callback_data=f"expense:date:{choices[4][1]}",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "date_custom"),
+                    callback_data="expense:date:custom",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"),
+                    callback_data="expense:date:back",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "cancel"),
+                    callback_data="expense:cancel",
+                ),
+            ],
+        ]
+    )
 
 
 def expense_details_keyboard(

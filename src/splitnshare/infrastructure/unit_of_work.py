@@ -7,6 +7,7 @@ from splitnshare.infrastructure.repositories import (
     SqlAlchemyExpenseRepository,
     SqlAlchemyFriendRepository,
     SqlAlchemyGuestRepository,
+    SqlAlchemySettlementRepository,
     SqlAlchemyUserRepository,
     SqlAlchemyUserSettingsRepository,
 )
@@ -18,6 +19,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
     guests: SqlAlchemyGuestRepository
     expenses: SqlAlchemyExpenseRepository
     friends: SqlAlchemyFriendRepository
+    settlements: SqlAlchemySettlementRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -30,6 +32,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.guests = SqlAlchemyGuestRepository(self._session)
         self.expenses = SqlAlchemyExpenseRepository(self._session)
         self.friends = SqlAlchemyFriendRepository(self._session)
+        self.settlements = SqlAlchemySettlementRepository(self._session)
         return self
 
     async def __aexit__(

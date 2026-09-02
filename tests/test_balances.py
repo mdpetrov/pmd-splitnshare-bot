@@ -12,6 +12,7 @@ from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.formatters import balances_text
+from splitnshare.presentation.keyboards import balances_keyboard
 
 
 @pytest.fixture
@@ -86,3 +87,17 @@ def test_balances_text_separates_directions_and_escapes_names() -> None:
 
 def test_balances_text_has_an_empty_state() -> None:
     assert "no outstanding balances" in balances_text((), Language.ENGLISH)
+
+
+def test_balances_keyboard_offers_settlement_for_each_balance() -> None:
+    other_id = uuid4()
+    entries = (BalanceDTO(other_id, "Alice", "EUR", -1250, "alice"),)
+
+    keyboard = balances_keyboard(entries, Language.ENGLISH)
+
+    assert keyboard.inline_keyboard[0][0].callback_data == (
+        f"settle:select:{other_id}:EUR"
+    )
+    assert "Alice (@alice)" in keyboard.inline_keyboard[0][0].text
+    assert "12.50 EUR" in keyboard.inline_keyboard[0][0].text
+    assert keyboard.inline_keyboard[-1][0].callback_data == "menu:show"

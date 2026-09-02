@@ -6,6 +6,7 @@ from splitnshare.application.services import (
     ExpenseService,
     FriendService,
     GuestService,
+    SettlementService,
     UserService,
     UserSettingsService,
 )
@@ -20,3 +21,4 @@ class Services:
     friends: FriendService
     expense_queries: ExpenseQueryService
     balances: BalanceQueryService
+    settlements: SettlementService

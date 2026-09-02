@@ -84,6 +84,7 @@ class CreateExpenseCommand:
     context: ExpenseContext
     payer_person_id: UUID | None = None
     exact_amounts_minor: dict[UUID, int] | None = None
+    occurred_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +107,7 @@ class ExpenseDTO:
     total: Money
     split_method: SplitMethod
     group_id: UUID | None
+    occurred_at: datetime
     created_at: datetime
     splits: tuple[ExpenseSplitDTO, ...]
 
@@ -132,6 +134,7 @@ class TransferPreviewDTO:
     expense_count: int
     group_count: int
     friendship_count: int
+    settlement_count: int
     debt_totals: dict[str, int]
     guest_username: str | None = None
     target_username: str | None = None
@@ -154,6 +157,27 @@ class BalanceDTO:
     currency: str
     net_minor: int
     username: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SettleBalanceCommand:
+    actor_person_id: UUID
+    other_person_id: UUID
+    amount: Money
+    context: ExpenseContext
+    occurred_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SettlementDTO:
+    id: UUID
+    recorded_by_person_id: UUID
+    payer_person_id: UUID
+    recipient_person_id: UUID
+    amount: Money
+    group_id: UUID | None
+    occurred_at: datetime
+    created_at: datetime
 
 
 @dataclass(frozen=True, slots=True)

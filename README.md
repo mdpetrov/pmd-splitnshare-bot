@@ -63,6 +63,10 @@ deterministic splitting, transaction history, and balances.
 
 - The **Add expense** flow collects a description, total, optional ISO currency code, and
   participants.
+- The flow records when the expense happened using **Now**, relative-time presets, or a
+  custom local date and time interpreted in the creator's configured timezone.
+- Expense occurrence times are stored in UTC and displayed in each viewer's local timezone;
+  the separate creation timestamp remains available for auditing.
 - The creator is included as the payer in the current Telegram flow.
 - Each expense supports 2–10 participants, including the payer.
 - Participants can be added, reviewed, and removed before confirmation.
@@ -93,6 +97,18 @@ deterministic splitting, transaction history, and balances.
 - Each balance is shown against the corresponding registered or unregistered friend.
 - Balances remain separate by currency and are never converted or combined.
 - Soft-deleted expenses do not contribute to outstanding balances.
+
+### Settling balances
+
+- Every outstanding person-and-currency balance provides a **Settle** action.
+- A user can record the complete outstanding payment or enter a smaller partial amount.
+- The payment direction is derived from the balance: the current user can record money they
+  paid or money they received without manually choosing payer and recipient.
+- Settlements are stored as separate auditable payment records and immediately reduce both
+  participants' balances.
+- A settlement cannot exceed the current outstanding amount and never combines currencies.
+- Registered and owner-managed unregistered friends can both participate in settlements.
+- Explicit guest transfer also moves settlement history to the selected registered identity.
 
 ### Internal unregistered-participant transfer
 

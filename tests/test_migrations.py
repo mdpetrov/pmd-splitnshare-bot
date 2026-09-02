@@ -92,13 +92,32 @@ def test_friendship_migration_backfills_existing_expense_participants(
         settings_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(user_settings)")
         }
+        expense_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(expenses)")
+        }
+        expense_indexes = {
+            row[1] for row in connection.execute("PRAGMA index_list(expenses)")
+        }
         existing_timezone = connection.execute(
             "SELECT timezone FROM user_settings WHERE person_id = ?", (owner_id,)
         ).fetchone()
+        settlement_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(settlements)")
+        }
 
     assert rows == [(owner_id, friend_id, "expense")]
-    assert revision == ("20260901_0006",)
+    assert revision == ("20260902_0008",)
     assert "suggested_username" in guest_columns
     assert "alias" in friendship_columns
     assert "timezone" in settings_columns
     assert existing_timezone == ("UTC",)
+    assert "occurred_at" in expense_columns
+    assert "ix_expenses_occurred_at_id" in expense_indexes
+    assert {
+        "recorded_by_person_id",
+        "payer_person_id",
+        "recipient_person_id",
+        "amount_minor",
+        "currency",
+        "occurred_at",
+    } <= settlement_columns

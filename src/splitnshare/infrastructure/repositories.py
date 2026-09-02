@@ -22,6 +22,7 @@ from splitnshare.application.dto import (
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
+    SettlementDTO,
     SharedTelegramUser,
     TelegramIdentity,
     TransferPreviewDTO,
@@ -56,6 +57,7 @@ from splitnshare.infrastructure.models import (
     GuestProfileModel,
     GuestTransferModel,
     PersonModel,
+    SettlementModel,
     UserAccountModel,
     UserSettingsModel,
 )
@@ -447,6 +449,19 @@ class SqlAlchemyGuestRepository:
             )
             or 0
         )
+        settlement_count = int(
+            await self._session.scalar(
+                select(func.count())
+                .select_from(SettlementModel)
+                .where(
+                    or_(
+                        SettlementModel.payer_person_id == guest_person_id,
+                        SettlementModel.recipient_person_id == guest_person_id,
+                    )
+                )
+            )
+            or 0
+        )
         totals: dict[str, int] = defaultdict(int)
         if expense_ids:
             rows = (
@@ -470,6 +485,7 @@ class SqlAlchemyGuestRepository:
             expense_count=len(expense_ids),
             group_count=group_count,
             friendship_count=friendship_count,
+            settlement_count=settlement_count,
             debt_totals=dict(totals),
             guest_username=guest.suggested_username,
             target_username=target_account.username,
@@ -513,6 +529,35 @@ class SqlAlchemyGuestRepository:
             await self._session.flush()
             await _normalize_positions(self._session, expense_id)
             await _rebuild_debts(self._session, expense)
+
+        settlement_rows = (
+            await self._session.execute(
+                select(SettlementModel)
+                .where(
+                    or_(
+                        SettlementModel.payer_person_id == guest_person_id,
+                        SettlementModel.recipient_person_id == guest_person_id,
+                    )
+                )
+                .with_for_update()
+            )
+        ).scalars().all()
+        settlement_count = len(settlement_rows)
+        self_settlement_count = 0
+        for settlement in settlement_rows:
+            other_id = (
+                settlement.recipient_person_id
+                if settlement.payer_person_id == guest_person_id
+                else settlement.payer_person_id
+            )
+            if other_id == target_person_id:
+                self_settlement_count += 1
+                await self._session.delete(settlement)
+            elif settlement.payer_person_id == guest_person_id:
+                settlement.payer_person_id = target_person_id
+            else:
+                settlement.recipient_person_id = target_person_id
+        await self._session.flush()
 
         membership_rows = (
             await self._session.execute(
@@ -576,6 +621,8 @@ class SqlAlchemyGuestRepository:
             "friendships": friendship_count,
             "duplicate_friendships": duplicate_friendships,
             "self_friendships": self_friendships,
+            "settlements": settlement_count,
+            "self_settlements": self_settlement_count,
         }
         transfer = GuestTransferModel(
             source_guest_person_id=guest_person_id,
@@ -666,6 +713,7 @@ class SqlAlchemyExpenseRepository:
             total_minor=command.total.minor,
             currency=command.total.currency,
             split_method=command.split_method,
+            occurred_at=command.occurred_at or datetime.now(UTC),
         )
         self._session.add(expense)
         await self._session.flush()
@@ -739,18 +787,18 @@ class SqlAlchemyExpenseRepository:
         if cursor:
             cursor_id = _decode_cursor(cursor)
             cursor_date = await self._session.scalar(
-                select(ExpenseModel.created_at).where(ExpenseModel.id == cursor_id)
+                select(ExpenseModel.occurred_at).where(ExpenseModel.id == cursor_id)
             )
             if cursor_date is None:
                 raise ValidationError("Invalid pagination cursor.")
             statement = statement.where(
                 or_(
-                    ExpenseModel.created_at < cursor_date,
-                    and_(ExpenseModel.created_at == cursor_date, ExpenseModel.id < cursor_id),
+                    ExpenseModel.occurred_at < cursor_date,
+                    and_(ExpenseModel.occurred_at == cursor_date, ExpenseModel.id < cursor_id),
                 )
             )
         statement = statement.order_by(
-            ExpenseModel.created_at.desc(), ExpenseModel.id.desc()
+            ExpenseModel.occurred_at.desc(), ExpenseModel.id.desc()
         ).limit(limit + 1)
         expenses = list((await self._session.execute(statement)).scalars().unique().all())
         has_more = len(expenses) > limit
@@ -781,6 +829,27 @@ class SqlAlchemyExpenseRepository:
                 totals[(debt.debtor_person_id, debt.currency)] += debt.amount_minor
             else:
                 totals[(debt.creditor_person_id, debt.currency)] -= debt.amount_minor
+        settlement_statement = select(SettlementModel).where(
+            or_(
+                SettlementModel.payer_person_id == person_id,
+                SettlementModel.recipient_person_id == person_id,
+            )
+        )
+        settlement_statement = _apply_settlement_context(
+            settlement_statement, context
+        )
+        settlements = (
+            await self._session.execute(settlement_statement)
+        ).scalars().all()
+        for settlement in settlements:
+            if settlement.payer_person_id == person_id:
+                totals[(settlement.recipient_person_id, settlement.currency)] += (
+                    settlement.amount_minor
+                )
+            else:
+                totals[(settlement.payer_person_id, settlement.currency)] -= (
+                    settlement.amount_minor
+                )
         person_ids = {key[0] for key in totals}
         people: dict[UUID, tuple[str, str | None]] = {}
         if person_ids:
@@ -826,7 +895,7 @@ class SqlAlchemyExpenseRepository:
                         ExpenseSplitModel.person_id == person_id,
                         ExpenseModel.deleted_at.is_(None),
                     )
-                    .order_by(ExpenseModel.created_at.desc(), ExpenseModel.id.desc())
+                    .order_by(ExpenseModel.occurred_at.desc(), ExpenseModel.id.desc())
                     .limit(50)
                 )
             ).scalars().all()
@@ -901,7 +970,8 @@ class SqlAlchemyExpenseRepository:
             total=Money(expense.total_minor, expense.currency),
             split_method=expense.split_method,
             group_id=expense.group_id,
-            created_at=expense.created_at,
+            occurred_at=_as_utc(expense.occurred_at),
+            created_at=_as_utc(expense.created_at),
             splits=tuple(
                 ExpenseSplitDTO(
                     person_id=split.person_id,
@@ -917,6 +987,96 @@ class SqlAlchemyExpenseRepository:
                 for split, person, account, guest in split_rows
             ),
         )
+
+
+class SqlAlchemySettlementRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create_for_balance(
+        self,
+        actor_person_id: UUID,
+        other_person_id: UUID,
+        amount_minor: int,
+        currency: str,
+        context: ExpenseContext,
+        occurred_at: datetime,
+    ) -> SettlementDTO:
+        await _require_registered(self._session, actor_person_id)
+        if actor_person_id == other_person_id:
+            raise ValidationError("A balance cannot be settled with yourself.")
+
+        people = (
+            await self._session.execute(
+                select(PersonModel)
+                .where(PersonModel.id.in_((actor_person_id, other_person_id)))
+                .order_by(PersonModel.id)
+                .with_for_update()
+            )
+        ).scalars().all()
+        if len(people) != 2 or any(person.inactive_at is not None for person in people):
+            raise NotFoundError("Both settlement participants must be active.")
+
+        group_id = context.group_id
+        if isinstance(context, GroupExpenseContext):
+            group = await self._session.get(GroupModel, group_id)
+            if group is None or group.status.value != "active":
+                raise NotFoundError("Active group not found.")
+            member_count = int(
+                await self._session.scalar(
+                    select(func.count())
+                    .select_from(GroupMembershipModel)
+                    .where(
+                        GroupMembershipModel.group_id == group_id,
+                        GroupMembershipModel.person_id.in_(
+                            (actor_person_id, other_person_id)
+                        ),
+                        GroupMembershipModel.status == MembershipStatus.ACTIVE,
+                    )
+                )
+                or 0
+            )
+            if member_count != 2:
+                raise PermissionDeniedError(
+                    "Both settlement participants must be active group members."
+                )
+
+        balances = await SqlAlchemyExpenseRepository(self._session).balances(
+            actor_person_id, context
+        )
+        current = next(
+            (
+                balance
+                for balance in balances
+                if balance.other_person_id == other_person_id
+                and balance.currency == currency
+            ),
+            None,
+        )
+        if current is None or current.net_minor == 0:
+            raise ConflictError("There is no outstanding balance to settle.")
+        if amount_minor <= 0:
+            raise ValidationError("Settlement amount must be greater than zero.")
+        if amount_minor > abs(current.net_minor):
+            raise ValidationError("Settlement amount exceeds the outstanding balance.")
+
+        payer_id, recipient_id = (
+            (actor_person_id, other_person_id)
+            if current.net_minor < 0
+            else (other_person_id, actor_person_id)
+        )
+        settlement = SettlementModel(
+            group_id=group_id,
+            recorded_by_person_id=actor_person_id,
+            payer_person_id=payer_id,
+            recipient_person_id=recipient_id,
+            amount_minor=amount_minor,
+            currency=currency,
+            occurred_at=occurred_at,
+        )
+        self._session.add(settlement)
+        await self._session.flush()
+        return _settlement_dto(settlement)
 
 
 async def _get_registered_row(
@@ -1035,6 +1195,19 @@ def _settings_dto(model: UserSettingsModel) -> UserSettingsDTO:
     )
 
 
+def _settlement_dto(model: SettlementModel) -> SettlementDTO:
+    return SettlementDTO(
+        id=model.id,
+        recorded_by_person_id=model.recorded_by_person_id,
+        payer_person_id=model.payer_person_id,
+        recipient_person_id=model.recipient_person_id,
+        amount=Money(model.amount_minor, model.currency),
+        group_id=model.group_id,
+        occurred_at=_as_utc(model.occurred_at),
+        created_at=_as_utc(model.created_at),
+    )
+
+
 def _friend_dto(
     relationship: FriendshipModel,
     person: PersonModel,
@@ -1069,6 +1242,16 @@ def _apply_context(statement: Select[Any], context: ExpenseContext | None) -> Se
     return statement
 
 
+def _apply_settlement_context(
+    statement: Select[Any], context: ExpenseContext | None
+) -> Select[Any]:
+    if isinstance(context, DirectExpenseContext):
+        return statement.where(SettlementModel.group_id.is_(None))
+    if isinstance(context, GroupExpenseContext):
+        return statement.where(SettlementModel.group_id == context.group_id)
+    return statement
+
+
 def _encode_cursor(expense: ExpenseModel) -> str:
     return str(expense.id)
 
@@ -1078,3 +1261,9 @@ def _decode_cursor(cursor: str) -> UUID:
         return UUID(cursor)
     except ValueError as exc:
         raise ValidationError("Invalid pagination cursor.") from exc
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

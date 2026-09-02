@@ -4,6 +4,8 @@ from aiogram.fsm.state import State, StatesGroup
 class AddExpenseStates(StatesGroup):
     description = State()
     total = State()
+    expense_date = State()
+    custom_date = State()
     participants = State()
     manual_name = State()
     exact_amount = State()
@@ -21,6 +23,11 @@ class UserSettingsStates(StatesGroup):
 
 class OnboardingStates(StatesGroup):
     timezone = State()
+
+
+class SettlementStates(StatesGroup):
+    confirm = State()
+    amount = State()
 
 
 class FriendStates(StatesGroup):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Any
 from uuid import UUID
@@ -15,6 +16,7 @@ from splitnshare.domain.errors import DomainError
 from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import EqualSplitStrategy
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
 from splitnshare.presentation.formatters import expense_text
 from splitnshare.presentation.helpers import (
     callback_message,
@@ -29,6 +31,7 @@ from splitnshare.presentation.keyboards import (
     cancel_keyboard,
     delete_confirm_keyboard,
     expense_confirm_keyboard,
+    expense_date_keyboard,
     expense_details_keyboard,
     expense_friends_keyboard,
     expense_list_keyboard,
@@ -39,6 +42,7 @@ from splitnshare.presentation.keyboards import (
 )
 from splitnshare.presentation.labels import friend_label, participant_label
 from splitnshare.presentation.states import AddExpenseStates
+from splitnshare.presentation.timezones import timezone_label
 
 router = Router(name="expenses")
 router.message.filter(F.chat.type == "private")
@@ -145,8 +149,129 @@ async def receive_total(
     except DomainError as exc:
         await message.answer(str(exc))
         return
-    await state.update_data(total_minor=total.minor, currency=total.currency)
+    timezone = settings.timezone or "UTC"
+    await state.update_data(
+        total_minor=total.minor,
+        currency=total.currency,
+        timezone=timezone,
+    )
+    await state.set_state(AddExpenseStates.expense_date)
+    await message.answer(
+        translate(language, "choose_expense_date"),
+        reply_markup=expense_date_keyboard(language),
+    )
+
+
+@router.callback_query(
+    F.data.in_(
+        {
+            "expense:date:now",
+            "expense:date:minus_30m",
+            "expense:date:minus_1h",
+            "expense:date:minus_2h",
+            "expense:date:minus_3h",
+        }
+    )
+)
+async def choose_expense_date(
+    callback: CallbackQuery, state: FSMContext, language: Language
+) -> None:
+    if await state.get_state() != AddExpenseStates.expense_date.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    payload, target_message = callback_payload(callback)
+    offsets = {
+        "now": timedelta(),
+        "minus_30m": timedelta(minutes=30),
+        "minus_1h": timedelta(hours=1),
+        "minus_2h": timedelta(hours=2),
+        "minus_3h": timedelta(hours=3),
+    }
+    occurred_at = datetime.now(UTC) - offsets[payload.rsplit(":", 1)[1]]
+    data = await state.get_data()
+    timezone = str(data["timezone"])
+    await state.update_data(occurred_at=occurred_at.isoformat())
     await state.set_state(AddExpenseStates.participants)
+    await target_message.edit_text(
+        translate(
+            language,
+            "date_selected",
+            date=escape(format_local_datetime(occurred_at, timezone, language)),
+        )
+    )
+    await target_message.answer(
+        translate(language, "add_people"),
+        reply_markup=participant_keyboard(language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "expense:date:custom")
+async def request_custom_expense_date(
+    callback: CallbackQuery, state: FSMContext, language: Language
+) -> None:
+    if await state.get_state() != AddExpenseStates.expense_date.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    target_message = callback_message(callback)
+    data = await state.get_data()
+    timezone = str(data["timezone"])
+    await state.set_state(AddExpenseStates.custom_date)
+    await target_message.answer(
+        translate(
+            language,
+            "enter_custom_date",
+            timezone=escape(timezone_label(timezone, language)),
+        ),
+        reply_markup=cancel_keyboard(language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "expense:date:back")
+async def expense_date_back(
+    callback: CallbackQuery, state: FSMContext, language: Language
+) -> None:
+    target_message = callback_message(callback)
+    await state.set_state(AddExpenseStates.total)
+    await target_message.answer(
+        translate(language, "enter_total_again"),
+        reply_markup=cancel_keyboard(language),
+    )
+    await callback.answer()
+
+
+@router.message(AddExpenseStates.custom_date, F.text.in_(button_values("back")))
+async def custom_expense_date_back(
+    message: Message, state: FSMContext, language: Language
+) -> None:
+    await state.set_state(AddExpenseStates.expense_date)
+    await message.answer(
+        translate(language, "choose_expense_date"),
+        reply_markup=expense_date_keyboard(language),
+    )
+
+
+@router.message(AddExpenseStates.custom_date)
+async def receive_custom_expense_date(
+    message: Message, state: FSMContext, language: Language
+) -> None:
+    data = await state.get_data()
+    timezone = str(data["timezone"])
+    try:
+        occurred_at = parse_local_datetime(message.text or "", timezone)
+    except DomainError:
+        await message.answer(translate(language, "invalid_custom_date"))
+        return
+    await state.update_data(occurred_at=occurred_at.isoformat())
+    await state.set_state(AddExpenseStates.participants)
+    await message.answer(
+        translate(
+            language,
+            "date_selected",
+            date=escape(format_local_datetime(occurred_at, timezone, language)),
+        )
+    )
     await message.answer(
         translate(language, "add_people"),
         reply_markup=participant_keyboard(language),
@@ -308,9 +433,10 @@ async def receive_manual_name(
 async def participants_back(
     message: Message, state: FSMContext, language: Language
 ) -> None:
-    await state.set_state(AddExpenseStates.total)
+    await state.set_state(AddExpenseStates.expense_date)
     await message.answer(
-        translate(language, "enter_total_again"), reply_markup=cancel_keyboard(language)
+        translate(language, "choose_expense_date"),
+        reply_markup=expense_date_keyboard(language),
     )
 
 
@@ -485,6 +611,7 @@ async def confirm_expense(
         split_method=SplitMethod(data["split_method"]),
         context=DirectExpenseContext(),
         exact_amounts_minor={UUID(key): value for key, value in exact.items()} if exact else None,
+        occurred_at=datetime.fromisoformat(data["occurred_at"]),
     )
     try:
         expense = await services.expenses.create(command)
@@ -496,7 +623,7 @@ async def confirm_expense(
     await target_message.answer(
         translate(language, "expense_saved")
         + "\n\n"
-        + expense_text(expense, language),
+        + expense_text(expense, language, settings.timezone or "UTC"),
         reply_markup=main_menu(settings.language),
     )
     await callback.answer()
@@ -519,13 +646,17 @@ async def transactions(
     message: Message, services: Services, language: Language
 ) -> None:
     person = await current_person(message, services)
+    settings = await services.user_settings.get_or_create(person.id)
     page = await services.expense_queries.list_for_person(person.id)
     if not page.items:
-        await message.answer(translate(language, "no_expenses"))
+        await message.answer(
+            translate(language, "no_expenses"),
+            reply_markup=back_to_main_menu_keyboard(language),
+        )
         return
     await message.answer(
         translate(language, "your_transactions"),
-        reply_markup=expense_list_keyboard(page, language),
+        reply_markup=expense_list_keyboard(page, language, settings.timezone or "UTC"),
     )
 
 
@@ -541,13 +672,19 @@ async def transactions_callback(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     page = await services.expense_queries.list_for_person(person.id)
+    settings = await services.user_settings.get_or_create(person.id)
     if page.items:
         await target_message.answer(
             translate(language, "your_transactions"),
-            reply_markup=expense_list_keyboard(page, language),
+            reply_markup=expense_list_keyboard(
+                page, language, settings.timezone or "UTC"
+            ),
         )
     else:
-        await target_message.answer(translate(language, "no_active_expenses"))
+        await target_message.answer(
+            translate(language, "no_active_expenses"),
+            reply_markup=back_to_main_menu_keyboard(language),
+        )
     await callback.answer()
 
 
@@ -563,13 +700,14 @@ async def menu_transactions_callback(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     page = await services.expense_queries.list_for_person(person.id)
+    settings = await services.user_settings.get_or_create(person.id)
     await target_message.edit_text(
         translate(
             language,
             "your_transactions" if page.items else "no_active_expenses",
         ),
         reply_markup=(
-            expense_list_keyboard(page, language)
+            expense_list_keyboard(page, language, settings.timezone or "UTC")
             if page.items
             else back_to_main_menu_keyboard(language)
         ),
@@ -590,7 +728,12 @@ async def transactions_page(
         return
     cursor = payload.split(":", 2)[2]
     page = await services.expense_queries.list_for_person(person.id, cursor=cursor)
-    await target_message.edit_reply_markup(reply_markup=expense_list_keyboard(page, language))
+    settings = await services.user_settings.get_or_create(person.id)
+    await target_message.edit_reply_markup(
+        reply_markup=expense_list_keyboard(
+            page, language, settings.timezone or "UTC"
+        )
+    )
     await callback.answer()
 
 
@@ -607,8 +750,9 @@ async def view_expense(
         return
     expense_id = UUID(payload.rsplit(":", 1)[1])
     expense = await services.expense_queries.get_details(person.id, expense_id)
+    settings = await services.user_settings.get_or_create(person.id)
     await target_message.answer(
-        expense_text(expense, language),
+        expense_text(expense, language, settings.timezone or "UTC"),
         reply_markup=expense_details_keyboard(expense, person.id, language),
     )
     await callback.answer()
@@ -666,6 +810,17 @@ def _review_text(
     lines = [
         translate(language, "review", description=escape(str(data["description"]))),
         translate(language, "total", total=total.format()),
+        translate(
+            language,
+            "expense_date",
+            date=escape(
+                format_local_datetime(
+                    datetime.fromisoformat(str(data["occurred_at"])),
+                    str(data["timezone"]),
+                    language,
+                )
+            ),
+        ),
         translate(language, "paid_you"),
         "",
     ]

@@ -203,6 +203,7 @@ class ExpenseModel(TimestampMixin, Base):
         CheckConstraint("total_minor > 0", name="ck_expense_positive_total"),
         CheckConstraint("length(currency) = 3", name="ck_expense_currency_length"),
         Index("ix_expenses_created_at_id", "created_at", "id"),
+        Index("ix_expenses_occurred_at_id", "occurred_at", "id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -218,6 +219,9 @@ class ExpenseModel(TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     split_method: Mapped[SplitMethod] = mapped_column(
         enum_type(SplitMethod, "split_method"), nullable=False
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_by_person_id: Mapped[UUID | None] = mapped_column(
@@ -263,6 +267,40 @@ class DebtModel(Base):
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
+
+
+class SettlementModel(TimestampMixin, Base):
+    __tablename__ = "settlements"
+    __table_args__ = (
+        CheckConstraint("amount_minor > 0", name="ck_settlement_positive_amount"),
+        CheckConstraint("length(currency) = 3", name="ck_settlement_currency_length"),
+        CheckConstraint(
+            "payer_person_id <> recipient_person_id",
+            name="ck_settlement_distinct_people",
+        ),
+        Index("ix_settlements_payer_currency", "payer_person_id", "currency"),
+        Index("ix_settlements_recipient_currency", "recipient_person_id", "currency"),
+        Index("ix_settlements_occurred_at_id", "occurred_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    group_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("groups.id", ondelete="RESTRICT")
+    )
+    recorded_by_person_id: Mapped[UUID] = mapped_column(
+        ForeignKey("user_accounts.person_id", ondelete="RESTRICT"), nullable=False
+    )
+    payer_person_id: Mapped[UUID] = mapped_column(
+        ForeignKey("persons.id", ondelete="RESTRICT"), nullable=False
+    )
+    recipient_person_id: Mapped[UUID] = mapped_column(
+        ForeignKey("persons.id", ondelete="RESTRICT"), nullable=False
+    )
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 class GuestTransferModel(Base):

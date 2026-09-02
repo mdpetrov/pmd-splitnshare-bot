@@ -4,12 +4,15 @@ from html import escape
 from splitnshare.application.dto import BalanceDTO, ExpenseDTO, TransferPreviewDTO
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
+from splitnshare.presentation.datetimes import format_local_datetime
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import participant_html
 
 
 def expense_text(
-    expense: ExpenseDTO, language: Language = Language.ENGLISH
+    expense: ExpenseDTO,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
 ) -> str:
     payer = participant_html(
         expense.payer_name, expense.payer_person_id, expense.payer_username
@@ -19,9 +22,11 @@ def expense_text(
         f"{Money(split.owed_minor, expense.total.currency).format()}"
         for split in expense.splits
     )
+    occurred_at = format_local_datetime(expense.occurred_at, timezone, language)
     return (
         f"<b>{escape(expense.description)}</b>\n"
         f"{translate(language, 'expense_total', total=expense.total.format())}\n"
+        f"{translate(language, 'expense_date', date=occurred_at)}\n"
         f"{translate(language, 'expense_paid_by', name=payer)}\n"
         f"{translate(language, 'expense_split', method=expense.split_method.value)}\n\n{shares}"
     )
@@ -55,6 +60,7 @@ def transfer_preview_text(
             translate(
                 language, "friendships_count", count=preview.friendship_count
             ),
+            translate(language, "settlements_count", count=preview.settlement_count),
             translate(language, "debt_amounts", amounts=debts),
             "",
             translate(language, "transfer_warning"),

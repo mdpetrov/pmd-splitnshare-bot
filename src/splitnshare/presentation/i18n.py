@@ -86,6 +86,24 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "back_main": "Back at the main menu.",
         "description_invalid": "Enter a description between 1 and 240 characters.",
         "enter_total": "Enter the total, for example 12.50 or 12.50 USD.",
+        "choose_expense_date": "When did this expense happen?",
+        "date_now": "Now",
+        "date_30_minutes_ago": "30 min ago",
+        "date_1_hour_ago": "1 hour ago",
+        "date_2_hours_ago": "2 hours ago",
+        "date_3_hours_ago": "3 hours ago",
+        "date_custom": "Custom",
+        "date_selected": "Expense time: <b>{date}</b>.",
+        "enter_custom_date": (
+            "Enter the local date and time as <code>DD.MM.YYYY HH:MM</code> or "
+            "<code>YYYY-MM-DD HH:MM</code>. You may omit the year: "
+            "<code>DD.MM HH:MM</code>.\nTimezone: <b>{timezone}</b>."
+        ),
+        "invalid_custom_date": (
+            "Enter a valid local date and time, for example "
+            "<code>02.09.2026 18:30</code>."
+        ),
+        "expense_date": "Date: {date}",
         "add_people": "Add up to nine registered or unregistered friends.",
         "participants": "Participants:",
         "guest_name": "Enter the friend's display name.",
@@ -119,6 +137,24 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "you_owe": "<b>You owe</b>",
         "you_are_owed": "<b>You are owed</b>",
         "no_balances": "You have no outstanding balances.",
+        "settle_balance_button": "Settle {name} · {amount}",
+        "settle_you_pay": (
+            "You owe <b>{name}</b> <b>{amount}</b>. Record a payment?"
+        ),
+        "settle_other_pays": (
+            "<b>{name}</b> owes you <b>{amount}</b>. Record that they paid you?"
+        ),
+        "settle_full_amount": "Settle all · {amount}",
+        "settle_partial": "Enter partial amount",
+        "settle_enter_amount": "Enter the amount paid in {currency}.",
+        "settle_wrong_currency": "Enter an amount in {currency}.",
+        "settle_invalid_amount": (
+            "Enter a positive amount no greater than the outstanding {amount}."
+        ),
+        "settlement_saved": "Payment of <b>{amount}</b> recorded.",
+        "settlement_stale": (
+            "That balance changed or is no longer available. Open Balances and try again."
+        ),
         "delete_question": "Delete this expense from active history and balances?",
         "expense_deleted": "Expense deleted.",
         "expense_already_deleted": "Expense was already deleted.",
@@ -164,6 +200,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Everything will move atomically. This cannot be reversed in the bot."
         ),
         "friendships_count": "Friend-list entries: {count}",
+        "settlements_count": "Recorded payments: {count}",
         "friends_title": (
             "<b>Friends</b>\nRegistered friends: <b>{registered}</b>\n"
             "Active guests: <b>{guests}</b>"
@@ -281,6 +318,24 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "back_main": "Вы вернулись в главное меню.",
         "description_invalid": "Введите описание длиной от 1 до 240 символов.",
         "enter_total": "Введите сумму, например 12.50 или 12.50 USD.",
+        "choose_expense_date": "Когда произошёл этот расход?",
+        "date_now": "Сейчас",
+        "date_30_minutes_ago": "30 минут назад",
+        "date_1_hour_ago": "1 час назад",
+        "date_2_hours_ago": "2 часа назад",
+        "date_3_hours_ago": "3 часа назад",
+        "date_custom": "Другая дата",
+        "date_selected": "Время расхода: <b>{date}</b>.",
+        "enter_custom_date": (
+            "Введите местные дату и время в формате <code>ДД.ММ.ГГГГ ЧЧ:ММ</code> "
+            "или <code>ГГГГ-ММ-ДД ЧЧ:ММ</code>. Год можно не указывать: "
+            "<code>ДД.ММ ЧЧ:ММ</code>.\nЧасовой пояс: <b>{timezone}</b>."
+        ),
+        "invalid_custom_date": (
+            "Введите корректные местные дату и время, например "
+            "<code>02.09.2026 18:30</code>."
+        ),
+        "expense_date": "Дата: {date}",
         "add_people": "Добавьте до девяти зарегистрированных или незарегистрированных друзей.",
         "participants": "Участники:",
         "guest_name": "Введите отображаемое имя друга.",
@@ -312,6 +367,24 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "you_owe": "<b>Вы должны</b>",
         "you_are_owed": "<b>Вам должны</b>",
         "no_balances": "У вас нет непогашенных долгов.",
+        "settle_balance_button": "Закрыть долг: {name} · {amount}",
+        "settle_you_pay": (
+            "Вы должны <b>{name}</b> <b>{amount}</b>. Записать платёж?"
+        ),
+        "settle_other_pays": (
+            "<b>{name}</b> должен(на) вам <b>{amount}</b>. Записать полученный платёж?"
+        ),
+        "settle_full_amount": "Закрыть полностью · {amount}",
+        "settle_partial": "Ввести часть суммы",
+        "settle_enter_amount": "Введите выплаченную сумму в {currency}.",
+        "settle_wrong_currency": "Введите сумму в валюте {currency}.",
+        "settle_invalid_amount": (
+            "Введите положительную сумму не больше остатка {amount}."
+        ),
+        "settlement_saved": "Платёж <b>{amount}</b> записан.",
+        "settlement_stale": (
+            "Баланс изменился или больше недоступен. Откройте Балансы и повторите."
+        ),
         "delete_question": "Удалить этот расход из активной истории и балансов?",
         "expense_deleted": "Расход удалён.",
         "expense_already_deleted": "Расход уже был удалён.",
@@ -355,6 +428,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "none": "нет",
         "transfer_warning": "Всё будет перенесено атомарно. Отменить это в боте нельзя.",
         "friendships_count": "Записи в списках друзей: {count}",
+        "settlements_count": "Записанные платежи: {count}",
         "friends_title": (
             "<b>Друзья</b>\nЗарегистрированные друзья: <b>{registered}</b>\n"
             "Активные гости: <b>{guests}</b>"

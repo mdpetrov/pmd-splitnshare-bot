@@ -10,6 +10,7 @@ from splitnshare.application.services import (
     ExpenseService,
     FriendService,
     GuestService,
+    SettlementService,
     UserService,
     UserSettingsService,
 )
@@ -39,6 +40,7 @@ def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]
         friends=FriendService(uow_factory),
         expense_queries=ExpenseQueryService(uow_factory),
         balances=BalanceQueryService(uow_factory),
+        settlements=SettlementService(uow_factory),
     )
     bot = Bot(
         token=settings.bot_token,

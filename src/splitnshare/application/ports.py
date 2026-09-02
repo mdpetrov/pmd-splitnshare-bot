@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 from types import TracebackType
 from typing import Protocol
 from uuid import UUID
@@ -13,6 +14,7 @@ from splitnshare.application.dto import (
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
+    SettlementDTO,
     SharedTelegramUser,
     TelegramIdentity,
     TransferPreviewDTO,
@@ -108,12 +110,25 @@ class ExpenseRepository(Protocol):
     async def recent_people(self, person_id: UUID, limit: int) -> Sequence[PersonDTO]: ...
 
 
+class SettlementRepository(Protocol):
+    async def create_for_balance(
+        self,
+        actor_person_id: UUID,
+        other_person_id: UUID,
+        amount_minor: int,
+        currency: str,
+        context: ExpenseContext,
+        occurred_at: datetime,
+    ) -> SettlementDTO: ...
+
+
 class UnitOfWork(Protocol):
     users: UserRepository
     user_settings: UserSettingsRepository
     guests: GuestRepository
     friends: FriendRepository
     expenses: ExpenseRepository
+    settlements: SettlementRepository
 
     async def __aenter__(self) -> UnitOfWork: ...
 

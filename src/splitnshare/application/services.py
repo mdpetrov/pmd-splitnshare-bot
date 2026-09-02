@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from uuid import UUID
 
 from splitnshare.application.dto import (
@@ -10,6 +11,8 @@ from splitnshare.application.dto import (
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
+    SettleBalanceCommand,
+    SettlementDTO,
     SharedTelegramUser,
     TelegramIdentity,
     TransferGuestCommand,
@@ -215,6 +218,10 @@ class ExpenseService:
         payer_id = command.payer_person_id or command.creator_person_id
         if payer_id not in command.participant_ids:
             raise ValidationError("The payer must be included in the participants.")
+        occurred_at = command.occurred_at or datetime.now(UTC)
+        if occurred_at.tzinfo is None or occurred_at.utcoffset() is None:
+            raise ValidationError("Expense date and time must include a timezone.")
+        occurred_at = occurred_at.astimezone(UTC)
 
         if command.split_method is SplitMethod.EQUAL:
             allocations = EqualSplitStrategy().allocate(
@@ -242,6 +249,7 @@ class ExpenseService:
                 context=command.context,
                 payer_person_id=payer_id,
                 exact_amounts_minor=command.exact_amounts_minor,
+                occurred_at=occurred_at,
             ),
             payer_person_id=payer_id,
             allocations=tuple(allocations),
@@ -290,6 +298,31 @@ class ExpenseQueryService:
             raise ValidationError("Recent-people limit must be between 1 and 20.")
         async with self._uow_factory() as uow:
             return await uow.expenses.recent_people(person_id, limit)
+
+
+class SettlementService:
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self._uow_factory = uow_factory
+
+    async def settle(self, command: SettleBalanceCommand) -> SettlementDTO:
+        if command.actor_person_id == command.other_person_id:
+            raise ValidationError("A balance cannot be settled with yourself.")
+        if command.amount.minor <= 0:
+            raise ValidationError("Settlement amount must be greater than zero.")
+        occurred_at = command.occurred_at or datetime.now(UTC)
+        if occurred_at.tzinfo is None or occurred_at.utcoffset() is None:
+            raise ValidationError("Settlement date and time must include a timezone.")
+        async with self._uow_factory() as uow:
+            settlement = await uow.settlements.create_for_balance(
+                command.actor_person_id,
+                command.other_person_id,
+                command.amount.minor,
+                command.amount.currency,
+                command.context,
+                occurred_at.astimezone(UTC),
+            )
+            await uow.commit()
+            return settlement
 
 
 class BalanceQueryService:
