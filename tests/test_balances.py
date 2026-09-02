@@ -11,8 +11,9 @@ from splitnshare.domain.money import Money
 from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
-from splitnshare.presentation.formatters import balances_text
-from splitnshare.presentation.keyboards import balances_keyboard
+from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
+from splitnshare.presentation.formatters import balances_text, person_balances_text
+from splitnshare.presentation.keyboards import balances_keyboard, person_balance_keyboard
 
 
 @pytest.fixture
@@ -89,15 +90,53 @@ def test_balances_text_has_an_empty_state() -> None:
     assert "no outstanding balances" in balances_text((), Language.ENGLISH)
 
 
-def test_balances_keyboard_offers_settlement_for_each_balance() -> None:
+def test_balances_keyboard_offers_one_drill_down_per_person() -> None:
     other_id = uuid4()
-    entries = (BalanceDTO(other_id, "Alice", "EUR", -1250, "alice"),)
+    entries = (
+        BalanceDTO(other_id, "Alice", "EUR", -1250, "alice"),
+        BalanceDTO(other_id, "Alice", "USD", 800, "alice"),
+    )
 
     keyboard = balances_keyboard(entries, Language.ENGLISH)
 
-    assert keyboard.inline_keyboard[0][0].callback_data == (
-        f"settle:select:{other_id}:EUR"
-    )
+    callback = keyboard.inline_keyboard[0][0].callback_data
+    assert callback is not None
+    assert callback.startswith("balance:person:")
+    assert uuid_from_token(callback.rsplit(":", 1)[1]) == other_id
     assert "Alice (@alice)" in keyboard.inline_keyboard[0][0].text
-    assert "12.50 EUR" in keyboard.inline_keyboard[0][0].text
+    assert len(keyboard.inline_keyboard) == 2
     assert keyboard.inline_keyboard[-1][0].callback_data == "menu:show"
+
+
+def test_person_balance_view_offers_each_currency_and_shared_history() -> None:
+    other_id = uuid4()
+    entries = (
+        BalanceDTO(other_id, "Alice", "EUR", -1250, "alice"),
+        BalanceDTO(other_id, "Alice", "USD", 800, "alice"),
+    )
+
+    text = person_balances_text(entries, Language.ENGLISH)
+    keyboard = person_balance_keyboard(entries, Language.ENGLISH)
+    callbacks = [row[0].callback_data for row in keyboard.inline_keyboard]
+
+    assert "Balance with Alice (@alice)" in text
+    assert "You owe <b>12.50 EUR</b>" in text
+    assert "You are owed <b>8.00 USD</b>" in text
+    assert callbacks == [
+        f"settle:select:{other_id}:EUR",
+        f"settle:select:{other_id}:USD",
+        f"balance:history:{uuid_token(other_id)}",
+        "menu:balances",
+    ]
+    assert all(callback is not None and len(callback) <= 64 for callback in callbacks)
+
+
+def test_uuid_callback_token_round_trips() -> None:
+    value = uuid4()
+
+    token = uuid_token(value)
+
+    assert len(token) == 22
+    assert uuid_from_token(token) == value
+    with pytest.raises(ValueError):
+        uuid_from_token("too-short")

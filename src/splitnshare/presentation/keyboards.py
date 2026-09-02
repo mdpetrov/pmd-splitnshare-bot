@@ -14,6 +14,7 @@ from aiogram.types import (
 from splitnshare.application.dto import BalanceDTO, ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
+from splitnshare.presentation.callbacks import uuid_token
 from splitnshare.presentation.datetimes import format_local_datetime_compact
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import friend_label, participant_label
@@ -101,29 +102,27 @@ def back_to_main_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
 def balances_keyboard(
     balances: Sequence[BalanceDTO], language: Language
 ) -> InlineKeyboardMarkup:
-    """Build one settlement action per outstanding balance."""
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=translate(
-                    language,
-                    "settle_balance_button",
-                    name=participant_label(
+    """Build one drill-down action per person with an outstanding balance."""
+    rows: list[list[InlineKeyboardButton]] = []
+    seen_people: set[UUID] = set()
+    for balance in balances:
+        if balance.other_person_id in seen_people:
+            continue
+        seen_people.add(balance.other_person_id)
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=participant_label(
                         balance.other_name,
                         balance.other_person_id,
                         balance.username,
                     ),
-                    amount=Money(
-                        abs(balance.net_minor), balance.currency
-                    ).format(),
-                ),
-                callback_data=(
-                    f"settle:select:{balance.other_person_id}:{balance.currency}"
-                ),
-            )
-        ]
-        for balance in balances
-    ]
+                    callback_data=(
+                        f"balance:person:{uuid_token(balance.other_person_id)}"
+                    ),
+                )
+            ]
+        )
     rows.append(
         [
             InlineKeyboardButton(
@@ -134,8 +133,52 @@ def balances_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def person_balance_keyboard(
+    balances: Sequence[BalanceDTO], language: Language
+) -> InlineKeyboardMarkup:
+    """Build currency settlement and history actions for one counterparty."""
+    if not balances:
+        return back_to_main_menu_keyboard(language)
+    other_person_id = balances[0].other_person_id
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=translate(
+                    language,
+                    "settle_amount_button",
+                    amount=Money(abs(balance.net_minor), balance.currency).format(),
+                ),
+                callback_data=(
+                    f"settle:select:{balance.other_person_id}:{balance.currency}"
+                ),
+            )
+        ]
+        for balance in balances
+    ]
+    rows.extend(
+        (
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "transaction_history"),
+                    callback_data=f"balance:history:{uuid_token(other_person_id)}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back_to_balances"),
+                    callback_data="menu:balances",
+                )
+            ],
+        )
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def settlement_amount_keyboard(
-    amount: Money, language: Language
+    amount: Money,
+    language: Language,
+    *,
+    back_callback: str = "menu:balances",
 ) -> InlineKeyboardMarkup:
     """Offer full, partial, and cancellation choices for a settlement."""
     return InlineKeyboardMarkup(
@@ -159,7 +202,7 @@ def settlement_amount_keyboard(
             [
                 InlineKeyboardButton(
                     text=translate(language, "back"),
-                    callback_data="menu:balances",
+                    callback_data=back_callback,
                 ),
                 InlineKeyboardButton(
                     text=translate(language, "cancel"),
@@ -323,6 +366,52 @@ def expense_list_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def person_history_keyboard(
+    page: ExpensePage,
+    other_person_id: UUID,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
+) -> InlineKeyboardMarkup:
+    """Build compact shared-history links while preserving person context."""
+    person_token = uuid_token(other_person_id)
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=" · ".join(
+                    (
+                        format_local_datetime_compact(
+                            item.occurred_at, timezone, language
+                        ),
+                        _short_button_text(item.description),
+                    )
+                ),
+                callback_data=f"bhv:{person_token}:{uuid_token(item.id)}",
+            )
+        ]
+        for item in page.items
+    ]
+    if page.next_cursor:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "more"),
+                    callback_data=(
+                        f"bhp:{person_token}:{uuid_token(page.next_cursor)}"
+                    ),
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "back_to_person_balance"),
+                callback_data=f"balance:person:{person_token}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def _short_button_text(value: str, limit: int = 40) -> str:
     """Truncate long button labels while preserving a visible ellipsis."""
     return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
@@ -381,12 +470,15 @@ def expense_details_keyboard(
     expense: ExpenseDTO,
     viewer_id: UUID,
     language: Language = Language.ENGLISH,
+    *,
+    back_callback: str = "expense:list",
+    back_label_key: str = "back_transactions",
 ) -> InlineKeyboardMarkup:
     """Build expense navigation and creator-only deletion actions."""
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
-                text=translate(language, "back_transactions"), callback_data="expense:list"
+                text=translate(language, back_label_key), callback_data=back_callback
             )
         ]
     ]

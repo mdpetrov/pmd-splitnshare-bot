@@ -155,6 +155,17 @@ class ExpenseRepository(Protocol):
         """Return a cursor-paginated expense history for one participant."""
         ...
 
+    async def list_shared(
+        self,
+        person_id: UUID,
+        other_person_id: UUID,
+        context: ExpenseContext | None,
+        cursor: str | None,
+        limit: int,
+    ) -> ExpensePage:
+        """Return expenses in which both specified people participate."""
+        ...
+
     async def balances(
         self, person_id: UUID, context: ExpenseContext | None
     ) -> Sequence[BalanceDTO]:

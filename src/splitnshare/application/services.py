@@ -332,6 +332,24 @@ class ExpenseQueryService:
         async with self._uow_factory() as uow:
             return await uow.expenses.list_for_person(person_id, context, cursor, limit)
 
+    async def list_shared(
+        self,
+        person_id: UUID,
+        other_person_id: UUID,
+        context: ExpenseContext | None = None,
+        cursor: str | None = None,
+        limit: int = 10,
+    ) -> ExpensePage:
+        """Return a page of active expenses shared by two different people."""
+        if person_id == other_person_id:
+            raise ValidationError("Shared history requires two different people.")
+        if not 1 <= limit <= 50:
+            raise ValidationError("Page size must be between 1 and 50.")
+        async with self._uow_factory() as uow:
+            return await uow.expenses.list_shared(
+                person_id, other_person_id, context, cursor, limit
+            )
+
     async def list_recent_people(self, person_id: UUID, limit: int = 10) -> Sequence[PersonDTO]:
         """Return active people recently sharing expenses with the person."""
         if not 1 <= limit <= 20:

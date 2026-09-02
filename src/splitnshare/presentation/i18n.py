@@ -145,6 +145,16 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "you_owe": "<b>You owe</b>",
         "you_are_owed": "<b>You are owed</b>",
         "no_balances": "You have no outstanding balances.",
+        "balance_with": "<b>Balance with {name}</b>",
+        "balance_you_owe_amount": "You owe <b>{amount}</b>",
+        "balance_you_are_owed_amount": "You are owed <b>{amount}</b>",
+        "balance_person_stale": "That balance is no longer available.",
+        "settle_amount_button": "Settle · {amount}",
+        "transaction_history": "Transaction history",
+        "transactions_with": "<b>Transactions with {name}</b>",
+        "no_transactions_with_person": "There are no active transactions with this person.",
+        "back_to_person_balance": "Back to person balance",
+        "back_to_balances": "Back to balances",
         "settle_balance_button": "Settle {name} · {amount}",
         "settle_you_pay": (
             "You owe <b>{name}</b> <b>{amount}</b>. Record a payment?"
@@ -382,6 +392,16 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "you_owe": "<b>Вы должны</b>",
         "you_are_owed": "<b>Вам должны</b>",
         "no_balances": "У вас нет непогашенных долгов.",
+        "balance_with": "<b>Баланс с {name}</b>",
+        "balance_you_owe_amount": "Вы должны <b>{amount}</b>",
+        "balance_you_are_owed_amount": "Вам должны <b>{amount}</b>",
+        "balance_person_stale": "Этот баланс больше недоступен.",
+        "settle_amount_button": "Закрыть · {amount}",
+        "transaction_history": "История транзакций",
+        "transactions_with": "<b>Транзакции с {name}</b>",
+        "no_transactions_with_person": "С этим человеком нет активных транзакций.",
+        "back_to_person_balance": "Назад к балансу с человеком",
+        "back_to_balances": "Назад к балансам",
         "settle_balance_button": "Закрыть долг: {name} · {amount}",
         "settle_you_pay": (
             "Вы должны <b>{name}</b> <b>{amount}</b>. Записать платёж?"

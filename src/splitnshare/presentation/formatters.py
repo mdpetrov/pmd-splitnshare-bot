@@ -41,9 +41,10 @@ def transactions_text(
     viewer_person_id: UUID,
     language: Language = Language.ENGLISH,
     timezone: str = "UTC",
+    title: str | None = None,
 ) -> str:
-    """Render an expense page with each transaction's viewer-specific effect."""
-    items = [translate(language, "your_transactions")]
+    """Render an expense page with a title and each viewer-specific effect."""
+    items = [title or translate(language, "your_transactions")]
     for expense in expenses:
         creator = (
             translate(language, "you")
@@ -139,6 +140,36 @@ def balances_text(
             _balance_section(user_is_owed, translate(language, "you_are_owed"))
         )
     return "\n\n".join(sections)
+
+
+def person_balances_text(
+    balances: Sequence[BalanceDTO], language: Language = Language.ENGLISH
+) -> str:
+    """Render every currency balance belonging to one counterparty."""
+    if not balances:
+        return translate(language, "no_balances")
+    first = balances[0]
+    title = translate(
+        language,
+        "balance_with",
+        name=participant_html(first.other_name, first.other_person_id, first.username),
+    )
+    lines = [title]
+    for balance in balances:
+        relation_key = (
+            "balance_you_owe_amount"
+            if balance.net_minor < 0
+            else "balance_you_are_owed_amount"
+        )
+        lines.append(
+            "• "
+            + translate(
+                language,
+                relation_key,
+                amount=Money(abs(balance.net_minor), balance.currency).format(),
+            )
+        )
+    return "\n".join(lines)
 
 
 def _balance_section(balances: Sequence[BalanceDTO], heading: str) -> str:

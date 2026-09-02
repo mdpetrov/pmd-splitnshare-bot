@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from splitnshare.application.dto import CreateExpenseCommand, TelegramIdentity
+from splitnshare.application.dto import CreateExpenseCommand, ExpenseDTO, TelegramIdentity
 from splitnshare.application.services import ExpenseQueryService, ExpenseService, UserService
 from splitnshare.domain.contexts import DirectExpenseContext
 from splitnshare.domain.enums import Language, SplitMethod
@@ -13,7 +14,7 @@ from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
-from splitnshare.presentation.keyboards import expense_date_keyboard
+from splitnshare.presentation.keyboards import expense_date_keyboard, person_history_keyboard
 
 
 def test_expense_date_keyboard_contains_presets_and_custom_option() -> None:
@@ -125,3 +126,80 @@ async def test_expense_rejects_naive_datetime(expense_date_services) -> None:
                 occurred_at=datetime(2026, 9, 2, 18),
             )
         )
+
+
+async def test_shared_history_filters_people_paginates_and_excludes_deleted(
+    expense_date_services,
+) -> None:
+    users, expenses, queries = expense_date_services
+    owner = await users.register_or_update(
+        TelegramIdentity(telegram_user_id=1010, first_name="Owner")
+    )
+    alice = await users.register_or_update(
+        TelegramIdentity(telegram_user_id=1011, first_name="Alice")
+    )
+    bob = await users.register_or_update(
+        TelegramIdentity(telegram_user_id=1012, first_name="Bob")
+    )
+
+    async def create(
+        description: str,
+        participant_ids: tuple[UUID, ...],
+        occurred_at: datetime,
+    ) -> ExpenseDTO:
+        return await expenses.create(
+            CreateExpenseCommand(
+                creator_person_id=owner.id,
+                description=description,
+                total=Money(1200, "USD"),
+                participant_ids=participant_ids,
+                split_method=SplitMethod.EQUAL,
+                context=DirectExpenseContext(),
+                occurred_at=occurred_at,
+            )
+        )
+
+    older = await create(
+        "Older with Alice",
+        (owner.id, alice.id),
+        datetime(2026, 9, 1, 18, tzinfo=UTC),
+    )
+    await create(
+        "Only with Bob",
+        (owner.id, bob.id),
+        datetime(2026, 9, 2, 18, tzinfo=UTC),
+    )
+    await create(
+        "Newer with Alice",
+        (owner.id, alice.id, bob.id),
+        datetime(2026, 9, 3, 18, tzinfo=UTC),
+    )
+
+    first_page = await queries.list_shared(owner.id, alice.id, limit=1)
+    assert first_page.next_cursor is not None
+    history_keyboard = person_history_keyboard(first_page, alice.id, Language.ENGLISH)
+    history_callbacks = [
+        button.callback_data
+        for row in history_keyboard.inline_keyboard
+        for button in row
+    ]
+    second_page = await queries.list_shared(
+        owner.id, alice.id, cursor=first_page.next_cursor, limit=1
+    )
+
+    assert [item.description for item in first_page.items] == ["Newer with Alice"]
+    assert history_callbacks[0] is not None and history_callbacks[0].startswith("bhv:")
+    assert history_callbacks[1] is not None and history_callbacks[1].startswith("bhp:")
+    assert all(
+        callback is not None and len(callback) <= 64
+        for callback in history_callbacks
+    )
+    assert [item.description for item in second_page.items] == ["Older with Alice"]
+    assert second_page.next_cursor is None
+
+    assert await expenses.delete(owner.id, older.id)
+    remaining = await queries.list_shared(owner.id, alice.id)
+    assert [item.description for item in remaining.items] == ["Newer with Alice"]
+
+    with pytest.raises(ValidationError):
+        await queries.list_shared(owner.id, owner.id)

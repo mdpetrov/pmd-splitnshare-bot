@@ -95,6 +95,8 @@ deterministic splitting, transaction history, and balances.
 
 - **Balances** separates amounts the current user owes from amounts owed to them.
 - Each balance is shown against the corresponding registered or unregistered friend.
+- Selecting a person opens their per-currency balance breakdown, settlement actions, and
+  cursor-paginated history of active transactions shared with that person.
 - Balances remain separate by currency and are never converted or combined.
 - Soft-deleted expenses do not contribute to outstanding balances.
 

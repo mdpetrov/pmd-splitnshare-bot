@@ -846,6 +846,54 @@ class SqlAlchemyExpenseRepository:
         next_cursor = _encode_cursor(expenses[-1]) if has_more and expenses else None
         return ExpensePage(items=items, next_cursor=next_cursor)
 
+    async def list_shared(
+        self,
+        person_id: UUID,
+        other_person_id: UUID,
+        context: ExpenseContext | None,
+        cursor: str | None,
+        limit: int,
+    ) -> ExpensePage:
+        """Return active expenses containing both requested participants."""
+        viewer_split = aliased(ExpenseSplitModel)
+        other_split = aliased(ExpenseSplitModel)
+        statement = (
+            select(ExpenseModel)
+            .join(viewer_split, viewer_split.expense_id == ExpenseModel.id)
+            .join(other_split, other_split.expense_id == ExpenseModel.id)
+            .where(
+                viewer_split.person_id == person_id,
+                other_split.person_id == other_person_id,
+                ExpenseModel.deleted_at.is_(None),
+            )
+        )
+        statement = _apply_context(statement, context)
+        if cursor:
+            cursor_id = _decode_cursor(cursor)
+            cursor_date = await self._session.scalar(
+                select(ExpenseModel.occurred_at).where(ExpenseModel.id == cursor_id)
+            )
+            if cursor_date is None:
+                raise ValidationError("Invalid pagination cursor.")
+            statement = statement.where(
+                or_(
+                    ExpenseModel.occurred_at < cursor_date,
+                    and_(
+                        ExpenseModel.occurred_at == cursor_date,
+                        ExpenseModel.id < cursor_id,
+                    ),
+                )
+            )
+        statement = statement.order_by(
+            ExpenseModel.occurred_at.desc(), ExpenseModel.id.desc()
+        ).limit(limit + 1)
+        expenses = list((await self._session.execute(statement)).scalars().unique().all())
+        has_more = len(expenses) > limit
+        expenses = expenses[:limit]
+        items = tuple([await self._to_dto(expense) for expense in expenses])
+        next_cursor = _encode_cursor(expenses[-1]) if has_more and expenses else None
+        return ExpensePage(items=items, next_cursor=next_cursor)
+
     async def balances(
         self, person_id: UUID, context: ExpenseContext | None
     ) -> Sequence[BalanceDTO]:
