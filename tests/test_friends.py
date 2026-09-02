@@ -26,7 +26,7 @@ from splitnshare.domain.money import Money
 from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base, FriendshipModel
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
-from splitnshare.presentation.formatters import expense_text
+from splitnshare.presentation.formatters import expense_text, transactions_text
 from splitnshare.presentation.keyboards import expense_list_keyboard
 
 
@@ -172,10 +172,19 @@ async def test_transaction_views_include_registered_and_guest_usernames(
     )
 
     details = expense_text(expense)
+    owner_summary = transactions_text((expense,), owner.id)
+    guest_summary = transactions_text((expense,), guest.id)
     list_keyboard = expense_list_keyboard(ExpensePage((expense,), None))
+    button_text = list_keyboard.inline_keyboard[0][0].text
     assert "Owner (@expense_owner)" in details
     assert "Guest (@expense_guest)" in details
-    assert "Owner (@expense_owner)" in list_keyboard.inline_keyboard[0][0].text
+    assert "You added “Named participants” for <b>10.00 USD</b>" in owner_summary
+    assert "You are owed <b>5.00 USD</b>" in owner_summary
+    assert "Owner (@expense_owner) added “Named participants”" in guest_summary
+    assert "You owe <b>5.00 USD</b>" in guest_summary
+    assert button_text.endswith(" · Named participants")
+    assert "10.00 USD" not in button_text
+    assert "Owner" not in button_text
 
 
 async def test_friend_removal_is_owner_scoped_idempotent_and_keeps_guest(

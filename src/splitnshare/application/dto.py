@@ -100,6 +100,8 @@ class ExpenseSplitDTO:
 class ExpenseDTO:
     id: UUID
     creator_person_id: UUID
+    creator_name: str
+    creator_username: str | None
     payer_person_id: UUID
     payer_name: str
     payer_username: str | None

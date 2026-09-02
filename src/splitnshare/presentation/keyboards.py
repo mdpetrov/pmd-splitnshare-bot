@@ -12,7 +12,7 @@ from aiogram.types import (
 from splitnshare.application.dto import BalanceDTO, ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
-from splitnshare.presentation.datetimes import format_local_datetime
+from splitnshare.presentation.datetimes import format_local_datetime_compact
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import friend_label, participant_label
 from splitnshare.presentation.timezones import TIMEZONE_CHOICES
@@ -278,14 +278,10 @@ def expense_list_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        item.description,
-                        item.total.format(),
-                        format_local_datetime(item.occurred_at, timezone, language),
-                        participant_label(
-                            item.payer_name,
-                            item.payer_person_id,
-                            item.payer_username,
+                        format_local_datetime_compact(
+                            item.occurred_at, timezone, language
                         ),
+                        _short_button_text(item.description),
                     )
                 ),
                 callback_data=f"expense:view:{item.id}",
@@ -311,6 +307,10 @@ def expense_list_keyboard(
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _short_button_text(value: str, limit: int = 40) -> str:
+    return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
 
 
 def expense_date_keyboard(language: Language) -> InlineKeyboardMarkup:

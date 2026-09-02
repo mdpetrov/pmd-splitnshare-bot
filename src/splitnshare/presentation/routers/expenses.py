@@ -17,7 +17,7 @@ from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import EqualSplitStrategy
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
-from splitnshare.presentation.formatters import expense_text
+from splitnshare.presentation.formatters import expense_text, transactions_text
 from splitnshare.presentation.helpers import (
     callback_message,
     callback_payload,
@@ -655,7 +655,7 @@ async def transactions(
         )
         return
     await message.answer(
-        translate(language, "your_transactions"),
+        transactions_text(page.items, person.id, language, settings.timezone or "UTC"),
         reply_markup=expense_list_keyboard(page, language, settings.timezone or "UTC"),
     )
 
@@ -675,7 +675,9 @@ async def transactions_callback(
     settings = await services.user_settings.get_or_create(person.id)
     if page.items:
         await target_message.answer(
-            translate(language, "your_transactions"),
+            transactions_text(
+                page.items, person.id, language, settings.timezone or "UTC"
+            ),
             reply_markup=expense_list_keyboard(
                 page, language, settings.timezone or "UTC"
             ),
@@ -702,9 +704,12 @@ async def menu_transactions_callback(
     page = await services.expense_queries.list_for_person(person.id)
     settings = await services.user_settings.get_or_create(person.id)
     await target_message.edit_text(
-        translate(
-            language,
-            "your_transactions" if page.items else "no_active_expenses",
+        (
+            transactions_text(
+                page.items, person.id, language, settings.timezone or "UTC"
+            )
+            if page.items
+            else translate(language, "no_active_expenses")
         ),
         reply_markup=(
             expense_list_keyboard(page, language, settings.timezone or "UTC")
@@ -729,10 +734,11 @@ async def transactions_page(
     cursor = payload.split(":", 2)[2]
     page = await services.expense_queries.list_for_person(person.id, cursor=cursor)
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.edit_reply_markup(
+    await target_message.edit_text(
+        transactions_text(page.items, person.id, language, settings.timezone or "UTC"),
         reply_markup=expense_list_keyboard(
             page, language, settings.timezone or "UTC"
-        )
+        ),
     )
     await callback.answer()
 

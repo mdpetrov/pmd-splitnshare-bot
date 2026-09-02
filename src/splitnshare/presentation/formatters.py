@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from html import escape
+from uuid import UUID
 
 from splitnshare.application.dto import BalanceDTO, ExpenseDTO, TransferPreviewDTO
 from splitnshare.domain.enums import Language
@@ -30,6 +31,52 @@ def expense_text(
         f"{translate(language, 'expense_paid_by', name=payer)}\n"
         f"{translate(language, 'expense_split', method=expense.split_method.value)}\n\n{shares}"
     )
+
+
+def transactions_text(
+    expenses: Sequence[ExpenseDTO],
+    viewer_person_id: UUID,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
+) -> str:
+    items = [translate(language, "your_transactions")]
+    for expense in expenses:
+        creator = (
+            translate(language, "you")
+            if expense.creator_person_id == viewer_person_id
+            else participant_html(
+                expense.creator_name,
+                expense.creator_person_id,
+                expense.creator_username,
+            )
+        )
+        viewer_split = next(
+            split for split in expense.splits if split.person_id == viewer_person_id
+        )
+        if expense.payer_person_id == viewer_person_id:
+            relation_key = "transaction_you_are_owed"
+            relation_amount = expense.total.minor - viewer_split.owed_minor
+        else:
+            relation_key = "transaction_you_owe"
+            relation_amount = viewer_split.owed_minor
+        items.append(
+            translate(
+                language,
+                "transaction_list_item",
+                date=escape(format_local_datetime(expense.occurred_at, timezone, language)),
+                creator=creator,
+                description=escape(expense.description),
+                total=escape(expense.total.format()),
+                relation=translate(
+                    language,
+                    relation_key,
+                    amount=escape(
+                        Money(relation_amount, expense.total.currency).format()
+                    ),
+                ),
+            )
+        )
+    return "\n\n".join(items)
 
 
 def transfer_preview_text(

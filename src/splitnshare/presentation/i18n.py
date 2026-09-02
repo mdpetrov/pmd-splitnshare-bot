@@ -133,6 +133,12 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "no_expenses": "You do not have any active expenses yet.",
         "no_active_expenses": "You do not have any active expenses.",
         "your_transactions": "Your transactions:",
+        "you": "You",
+        "transaction_list_item": (
+            "• {date}: {creator} added “{description}” for <b>{total}</b>. {relation}"
+        ),
+        "transaction_you_owe": "You owe <b>{amount}</b>.",
+        "transaction_you_are_owed": "You are owed <b>{amount}</b>.",
         "balances_title": "<b>Balances</b>",
         "you_owe": "<b>You owe</b>",
         "you_are_owed": "<b>You are owed</b>",
@@ -363,6 +369,13 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "no_expenses": "У вас пока нет активных расходов.",
         "no_active_expenses": "У вас нет активных расходов.",
         "your_transactions": "Ваши транзакции:",
+        "you": "Вы",
+        "transaction_list_item": (
+            "• {date}: {creator} добавил(а) транзакцию «{description}» на сумму "
+            "<b>{total}</b>. {relation}"
+        ),
+        "transaction_you_owe": "Вы должны <b>{amount}</b>.",
+        "transaction_you_are_owed": "Вам должны <b>{amount}</b>.",
         "balances_title": "<b>Балансы</b>",
         "you_owe": "<b>Вы должны</b>",
         "you_are_owed": "<b>Вам должны</b>",

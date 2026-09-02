@@ -947,18 +947,35 @@ class SqlAlchemyExpenseRepository:
                 .order_by(ExpenseSplitModel.position)
             )
         ).all()
-        payer_row = (
+        identity_rows = (
             await self._session.execute(
                 select(PersonModel, UserAccountModel, GuestProfileModel)
                 .outerjoin(UserAccountModel, UserAccountModel.person_id == PersonModel.id)
                 .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
-                .where(PersonModel.id == expense.payer_person_id)
+                .where(
+                    PersonModel.id.in_(
+                        (expense.creator_person_id, expense.payer_person_id)
+                    )
+                )
             )
-        ).one()
-        payer, payer_account, payer_guest = payer_row
+        ).all()
+        identities = {
+            person.id: (person, account, guest)
+            for person, account, guest in identity_rows
+        }
+        creator, creator_account, creator_guest = identities[expense.creator_person_id]
+        payer, payer_account, payer_guest = identities[expense.payer_person_id]
         return ExpenseDTO(
             id=expense.id,
             creator_person_id=expense.creator_person_id,
+            creator_name=creator.display_name,
+            creator_username=(
+                creator_account.username
+                if creator_account is not None
+                else creator_guest.suggested_username
+                if creator_guest is not None
+                else None
+            ),
             payer_person_id=expense.payer_person_id,
             payer_name=payer.display_name,
             payer_username=(
