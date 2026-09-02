@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from splitnshare.domain.enums import Language
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.formatters import welcome_text
 from splitnshare.presentation.helpers import callback_message, telegram_identity
 from splitnshare.presentation.i18n import button_values, language_name, translate
 from splitnshare.presentation.keyboards import (
@@ -51,8 +52,9 @@ async def start(message: Message, state: FSMContext, services: Services) -> None
             reply_markup=timezone_keyboard(settings.language, include_back=False),
         )
         return
+    balances = await services.balances.get_balances(person.id)
     await message.answer(
-        translate(settings.language, "welcome", name=escape(person.display_name)),
+        welcome_text(person.display_name, balances, settings.language),
         reply_markup=main_menu(settings.language),
     )
     await message.answer(

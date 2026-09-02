@@ -1,5 +1,6 @@
 """Render application DTOs as safe localized Telegram HTML messages."""
 
+from collections import defaultdict
 from collections.abc import Sequence
 from html import escape
 from uuid import UUID
@@ -17,6 +18,52 @@ from splitnshare.domain.money import Money
 from splitnshare.presentation.datetimes import format_local_datetime
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import participant_html
+
+
+def welcome_text(
+    display_name: str,
+    balances: Sequence[BalanceDTO],
+    language: Language = Language.ENGLISH,
+) -> str:
+    """Render a greeting with separate gross payable and receivable totals."""
+    lines = [translate(language, "welcome", name=escape(display_name))]
+    if not balances:
+        lines.extend(("", translate(language, "welcome_no_balances")))
+        return "\n".join(lines)
+
+    owed: dict[str, int] = defaultdict(int)
+    owing: dict[str, int] = defaultdict(int)
+    for balance in balances:
+        if balance.net_minor > 0:
+            owed[balance.currency] += balance.net_minor
+        elif balance.net_minor < 0:
+            owing[balance.currency] += abs(balance.net_minor)
+    lines.append("")
+    if owing:
+        lines.append(
+            translate(
+                language,
+                "welcome_you_owe",
+                amounts=_money_totals(owing),
+            )
+        )
+    if owed:
+        lines.append(
+            translate(
+                language,
+                "welcome_you_are_owed",
+                amounts=_money_totals(owed),
+            )
+        )
+    return "\n".join(lines)
+
+
+def _money_totals(totals: dict[str, int]) -> str:
+    """Format currency-separated minor-unit totals in deterministic order."""
+    return ", ".join(
+        Money(total, currency).format()
+        for currency, total in sorted(totals.items())
+    )
 
 
 def expense_text(

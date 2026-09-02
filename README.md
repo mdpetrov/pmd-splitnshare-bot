@@ -11,6 +11,8 @@ deterministic splitting, transaction history, and balances.
 - `/start` creates or updates the caller's registered Telegram identity.
 - After setup, `/start` shows a visible main menu for expenses, activity, balances,
   friends, and settings. It can also be used to reopen the menu later.
+- The returning-user welcome summarizes total amounts owed and receivable separately for
+  each currency without netting unrelated counterparties together.
 - The persistent reply keyboard keeps the same actions available as quick shortcuts.
 - Registration automatically finds every active temporary profile carrying the same shared
   Telegram user ID and transfers its complete history to the registered identity.

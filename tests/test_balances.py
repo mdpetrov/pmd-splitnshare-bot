@@ -12,7 +12,11 @@ from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
-from splitnshare.presentation.formatters import balances_text, person_balances_text
+from splitnshare.presentation.formatters import (
+    balances_text,
+    person_balances_text,
+    welcome_text,
+)
 from splitnshare.presentation.keyboards import balances_keyboard, person_balance_keyboard
 
 
@@ -88,6 +92,19 @@ def test_balances_text_separates_directions_and_escapes_names() -> None:
 
 def test_balances_text_has_an_empty_state() -> None:
     assert "no outstanding balances" in balances_text((), Language.ENGLISH)
+
+
+def test_welcome_totals_do_not_net_opposing_counterparties() -> None:
+    entries = (
+        BalanceDTO(uuid4(), "Alice", "USD", -1000),
+        BalanceDTO(uuid4(), "Bob", "USD", 1000),
+    )
+
+    text = welcome_text("Owner <Admin>", entries, Language.ENGLISH)
+
+    assert "Hi, Owner &lt;Admin&gt;!" in text
+    assert "You owe: <b>10.00 USD</b>" in text
+    assert "You are owed: <b>10.00 USD</b>" in text
 
 
 def test_balances_keyboard_offers_one_drill_down_per_person() -> None:

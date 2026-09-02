@@ -31,7 +31,10 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "transfer_guest": "Transfer {name}",
         "choose_registered": "Choose registered user",
         "transfer_everything": "Transfer everything",
-        "welcome": "Welcome, {name}. Add an expense or review your activity.",
+        "welcome": "Hi, {name}!",
+        "welcome_you_owe": "🔴 ▼ You owe: <b>{amounts}</b>",
+        "welcome_you_are_owed": "🟢 ▲ You are owed: <b>{amounts}</b>",
+        "welcome_no_balances": "You have no outstanding balances.",
         "cancelled": "Cancelled.",
         "settings_title": (
             "<b>Settings</b>\nDefault currency: <b>{currency}</b>\n"
@@ -295,7 +298,10 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "transfer_guest": "Перенести {name}",
         "choose_registered": "Выбрать зарегистрированного пользователя",
         "transfer_everything": "Перенести всё",
-        "welcome": "Добро пожаловать, {name}. Добавьте расход или откройте активность.",
+        "welcome": "Привет, {name}!",
+        "welcome_you_owe": "🔴 ▼ Вы должны: <b>{amounts}</b>",
+        "welcome_you_are_owed": "🟢 ▲ Вам должны: <b>{amounts}</b>",
+        "welcome_no_balances": "У вас нет непогашенных долгов.",
         "cancelled": "Отменено.",
         "settings_title": (
             "<b>Настройки</b>\nВалюта по умолчанию: <b>{currency}</b>\n"
