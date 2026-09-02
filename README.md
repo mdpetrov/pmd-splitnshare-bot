@@ -12,8 +12,10 @@ deterministic splitting, transaction history, and balances.
 - After setup, `/start` shows a visible main menu for expenses, activity, balances,
   friends, and settings. It can also be used to reopen the menu later.
 - The persistent reply keyboard keeps the same actions available as quick shortcuts.
-- Registration never searches for, claims, or merges an existing unregistered participant.
-- Registered and unregistered friends retain separate participant identities.
+- Registration automatically finds every active temporary profile carrying the same shared
+  Telegram user ID and transfers its complete history to the registered identity.
+- Registration and matching transfers commit atomically: if any transfer fails, neither the
+  registration nor a partial transfer is committed.
 
 ### User settings
 
@@ -34,9 +36,13 @@ deterministic splitting, transaction history, and balances.
 - An unregistered Telegram user can be stored as an owner-managed friend.
 - A friend can also be added manually by name without a Telegram ID.
 - Re-selecting the same unregistered Telegram user reuses that owner's internal participant.
+- If that Telegram user later registers, every matching owner-managed temporary profile is
+  transferred automatically. Future selections resolve to the registered identity and cannot
+  create a second active friend entry.
 - Unregistered friends belonging to different owners remain separate, even when they
   reference the same Telegram user.
-- Names are never used for automatic matching or merging.
+- Names are never used for automatic matching or merging; manually named friends are never
+  transferred automatically.
 - Participant labels consistently show `Name (@username)` when a Telegram username is
   available. Otherwise, a stable short person code distinguishes repeated names.
 - Telegram username snapshots are refreshed whenever an unregistered friend is selected again.
@@ -47,7 +53,11 @@ deterministic splitting, transaction history, and balances.
 - **Friends** is one private, owner-scoped list containing both registered and unregistered
   friends; the Telegram UI does not expose separate identity categories.
 - Every friend appears as a button opening an extensible detail screen.
-- The detail screen currently supports a private rename and friend removal.
+- The detail screen supports a private rename, friend removal, and an owner-only
+  **Transfer history** fallback for unregistered friends, including manually named profiles.
+- When the hinted Telegram account has registered, the transfer action identifies that
+  account and opens the review directly; otherwise it asks the owner to select a registered
+  target.
 - Renaming creates an owner-specific alias and never modifies the person's registered name
   or another user's view of them.
 - Adding someone does not automatically add the owner to the other user's Friends list.
@@ -124,11 +134,12 @@ deterministic splitting, transaction history, and balances.
   not presented as a separate section in the Telegram UI.
 - Transfer logic can replace a temporary identity across all history and memberships; it does
   not send money or merge groups.
-- The backend can detect when a hinted Telegram account later registers, without transferring,
-  claiming, or merging the internal profile automatically. A future friend-detail action can
-  expose the existing transfer preview and confirmation flow.
-- An internal profile can be transferred only by its owner and only to a user who has registered
-  with the bot.
+- When a hinted Telegram account registers, the backend automatically transfers every matching
+  active profile, including separate profiles owned by different users. Manually named profiles
+  have no Telegram identity hint and remain available for an explicit transfer.
+- Manual transfer can be initiated only by the profile owner and can target only a user who has
+  registered with the bot. Registration-triggered transfer is authorized by the matching
+  authenticated Telegram ID.
 - The confirmation preview shows affected expenses, groups, and recorded debt amounts by
   currency.
 - Transfer moves all payer references, expense splits, debts, and group memberships in one
@@ -167,8 +178,8 @@ storage such as Redis will be needed before running multiple bot instances.
 
 ## Automated coverage
 
-The test suite covers money validation, equal and exact splits, registration isolation,
-owner-scoped guests, explicit guest transfer, split consolidation, debt regeneration, group
+The test suite covers money validation, equal and exact splits, automatic registration transfer,
+owner-scoped guests, manual guest transfer, split consolidation, debt regeneration, group
 membership consolidation, role preservation, and transfer authorization. Ruff and strict
 mypy configuration are included for source-quality and type checks.
 

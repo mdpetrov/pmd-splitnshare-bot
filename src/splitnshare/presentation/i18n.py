@@ -187,14 +187,16 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "no_guests": "You have no active guests. Add a guest while creating an expense.",
         "guests_intro": "<b>Your active guests</b>",
         "transfer_explanation": (
-            "A guest is a temporary participant identity. Transfer replaces it with one "
-            "registered bot user across every expense, balance, friendship, and group "
-            "membership. It does not send money or merge groups. You must confirm the "
-            "transfer, and it cannot currently be reversed."
+            "An unregistered friend uses a temporary participant profile. A Telegram-linked "
+            "profile transfers automatically when that account registers. Transfer history "
+            "is also available for manual profiles or as a fallback: it replaces the profile "
+            "with one registered user across every expense, balance, friendship, and group "
+            "membership. It does not send money or merge groups, requires confirmation, and "
+            "cannot currently be reversed."
         ),
         "registration_suggestion": (
-            "↳ Telegram account is now registered as {target}. Nothing was transferred "
-            "automatically."
+            "↳ Telegram account is registered as {target}. Review this remaining profile "
+            "if its automatic transfer was not completed."
         ),
         "review_suggested_transfer": "Review {guest} → {target}",
         "choose_other_transfer_target": "Choose another user for {guest}",
@@ -211,7 +213,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "moved to {name}."
         ),
         "transfer_notification": (
-            "A guest profile and all of its expense history were transferred to your account."
+            "A temporary friend profile and all of its expense history were transferred "
+            "to your account."
         ),
         "transfer_cancelled": "Transfer cancelled.",
         "expense_total": "Total: {total}",
@@ -236,6 +239,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "friend_registered": "registered",
         "friend_unregistered": "not registered",
         "rename_friend": "Rename",
+        "transfer_friend": "Transfer history",
+        "transfer_friend_to": "Transfer history to {name}",
         "rename_friend_prompt": "Enter a new private name for this friend.",
         "friend_renamed": "Friend renamed to {name}.",
         "registered_friends": "Registered friends",
@@ -442,14 +447,17 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "no_guests": "У вас нет активных гостей. Добавьте гостя при создании расхода.",
         "guests_intro": "<b>Ваши активные гости</b>",
         "transfer_explanation": (
-            "Гость — это временная личность участника. Перенос заменяет её одним "
-            "зарегистрированным пользователем бота во всех расходах, балансах, списках "
-            "друзей и группах. Перенос не отправляет деньги и не объединяет группы. "
-            "Операцию нужно подтвердить, и сейчас её нельзя отменить."
+            "Для незарегистрированного друга используется временный профиль участника. "
+            "Профиль, связанный с Telegram, переносится автоматически, когда этот аккаунт "
+            "регистрируется. Перенос истории также доступен для профиля, созданного вручную, "
+            "или как запасной вариант: он заменяет профиль одним зарегистрированным "
+            "пользователем во всех расходах, балансах, списках друзей и группах. Перенос не "
+            "отправляет деньги и не объединяет группы; его нужно подтвердить, и сейчас его "
+            "нельзя отменить."
         ),
         "registration_suggestion": (
-            "↳ Аккаунт Telegram теперь зарегистрирован как {target}. Автоматический "
-            "перенос не выполнялся."
+            "↳ Аккаунт Telegram зарегистрирован как {target}. Проверьте оставшийся профиль, "
+            "если автоматический перенос не завершился."
         ),
         "review_suggested_transfer": "Проверить {guest} → {target}",
         "choose_other_transfer_target": "Выбрать другого пользователя для {guest}",
@@ -466,7 +474,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Новый пользователь: {name}."
         ),
         "transfer_notification": (
-            "Профиль гостя и вся история его расходов были перенесены в вашу учётную запись."
+            "Временный профиль друга и вся история его расходов были перенесены "
+            "в вашу учётную запись."
         ),
         "transfer_cancelled": "Перенос отменён.",
         "expense_total": "Сумма: {total}",
@@ -489,6 +498,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "friend_registered": "зарегистрирован(а)",
         "friend_unregistered": "не зарегистрирован(а)",
         "rename_friend": "Переименовать",
+        "transfer_friend": "Перенести историю",
+        "transfer_friend_to": "Перенести историю к {name}",
         "rename_friend_prompt": "Введите новое личное имя для этого друга.",
         "friend_renamed": "Новое имя друга: {name}.",
         "registered_friends": "Зарегистрированные друзья",

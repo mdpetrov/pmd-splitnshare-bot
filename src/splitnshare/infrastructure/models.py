@@ -320,7 +320,7 @@ class SettlementModel(TimestampMixin, Base):
 
 
 class GuestTransferModel(Base):
-    """Audit an explicit guest-to-user transfer and affected record counts."""
+    """Audit a manual or registration-triggered identity transfer."""
     __tablename__ = "guest_transfers"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

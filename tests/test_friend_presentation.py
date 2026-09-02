@@ -12,7 +12,11 @@ from splitnshare.presentation.keyboards import (
     friends_list_keyboard,
     guests_keyboard,
 )
-from splitnshare.presentation.routers.people import _friends_text, _guests_text
+from splitnshare.presentation.routers.people import (
+    _friend_details_text,
+    _friends_text,
+    _guests_text,
+)
 
 
 def test_friends_screen_unifies_registered_and_unregistered_friends() -> None:
@@ -82,6 +86,54 @@ def test_friend_detail_menu_offers_rename_and_removal() -> None:
     )
 
 
+def test_unregistered_friend_detail_restores_explicit_transfer() -> None:
+    guest_id = uuid4()
+    target_id = uuid4()
+    friend = FriendDTO(
+        person_id=guest_id,
+        display_name="Temporary Alice",
+        kind=PersonKind.GUEST,
+        registered=False,
+        source=FriendSource.DIRECT,
+        username="alice",
+    )
+    guest = GuestDTO(
+        person_id=guest_id,
+        display_name="Temporary Alice",
+        creation_method=GuestCreationMethod.TELEGRAM,
+        suggested_telegram_user_id=9002,
+        username="alice",
+        suggested_target_person_id=target_id,
+        suggested_target_name="Registered Alice",
+        suggested_target_username="alice",
+    )
+
+    text = _friend_details_text(friend, guest, Language.ENGLISH)
+    details = friend_detail_keyboard(friend, Language.ENGLISH, guest)
+
+    assert "temporary participant profile" in text
+    assert "Registered Alice (@alice)" in text
+    assert details.inline_keyboard[1][0].callback_data == (
+        f"guest:transfer_hint:{guest_id}"
+    )
+    assert "Transfer history to Registered Alice (@alice)" in (
+        details.inline_keyboard[1][0].text
+    )
+
+    manual_guest = GuestDTO(
+        person_id=guest_id,
+        display_name="Temporary Alice",
+        creation_method=GuestCreationMethod.MANUAL,
+        suggested_telegram_user_id=None,
+    )
+    manual_details = friend_detail_keyboard(
+        friend, Language.ENGLISH, manual_guest
+    )
+    assert manual_details.inline_keyboard[1][0].callback_data == (
+        f"guest:transfer:{guest_id}"
+    )
+
+
 def test_guests_screen_explains_transfer_and_offers_registered_suggestion() -> None:
     guest_id = uuid4()
     target_id = uuid4()
@@ -99,8 +151,9 @@ def test_guests_screen_explains_transfer_and_offers_registered_suggestion() -> N
     text = _guests_text((guest,), Language.ENGLISH)
     keyboard = guests_keyboard((guest,), Language.ENGLISH)
 
-    assert "temporary participant identity" in text
-    assert "Nothing was transferred automatically" in text
+    assert "temporary participant profile" in text
+    assert "transfers automatically when that account registers" in text
+    assert "if its automatic transfer was not completed" in text
     assert "Registered Alice (@alice)" in text
     assert keyboard.inline_keyboard[0][0].callback_data == (
         f"guest:transfer_hint:{guest_id}"

@@ -140,6 +140,50 @@ async def test_telegram_guest_username_is_stored_and_refreshed(friend_services) 
     assert (await guests.list_owned_guests(owner.id))[0].username == "updated_name"
 
 
+async def test_registration_transfers_guest_and_future_selection_uses_user(
+    friend_services,
+) -> None:
+    factory, users, guests, friends, expenses = friend_services
+    owner = await _register(users, 630, "Owner")
+    shared = SharedTelegramUser(
+        telegram_user_id=631,
+        first_name="Future user",
+        username="future_user",
+    )
+    original = await friends.add_shared_user(owner.id, shared)
+    expense = await expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Before registration",
+            total=Money(1000, "USD"),
+            participant_ids=(owner.id, original.person_id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
+    )
+    registered = await users.register_or_update(
+        TelegramIdentity(
+            telegram_user_id=631,
+            first_name="Registered user",
+            username="future_user",
+        )
+    )
+
+    repeated_friend = await friends.add_shared_user(owner.id, shared)
+    repeated_participant = await guests.get_or_create_telegram_guest(owner.id, shared)
+    transferred = await ExpenseQueryService(
+        SqlAlchemyUnitOfWorkFactory(factory)
+    ).get_details(registered.id, expense.id)
+
+    assert repeated_friend.person_id == registered.id
+    assert repeated_participant.id == registered.id
+    assert [friend.person_id for friend in await friends.list_friends(owner.id)] == [
+        registered.id
+    ]
+    assert await guests.list_owned_guests(owner.id) == ()
+    assert any(split.person_id == registered.id for split in transferred.splits)
+
+
 async def test_transaction_views_include_registered_and_guest_usernames(
     friend_services,
 ) -> None:

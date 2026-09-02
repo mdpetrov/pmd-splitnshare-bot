@@ -32,7 +32,7 @@ class UserRepository(Protocol):
     """Persist and retrieve registered Telegram-backed identities."""
 
     async def register_or_update(self, identity: TelegramIdentity) -> PersonDTO:
-        """Create or refresh a registered identity without merging guests."""
+        """Persist the account row before application-level profile transfer."""
         ...
 
     async def find_registered_by_telegram_id(self, telegram_user_id: int) -> PersonDTO | None:
@@ -84,7 +84,13 @@ class UserSettingsRepository(Protocol):
 
 
 class GuestRepository(Protocol):
-    """Persist owner-managed guests and perform explicit guest transfers."""
+    """Persist guests and perform manual or registration-triggered transfers."""
+
+    async def find_active_telegram_guest(
+        self, owner_person_id: UUID, shared: SharedTelegramUser
+    ) -> PersonDTO | None:
+        """Find and refresh an owner's active Telegram-hinted guest."""
+        ...
 
     async def get_or_create_telegram_guest(
         self, owner_person_id: UUID, shared: SharedTelegramUser
@@ -110,6 +116,12 @@ class GuestRepository(Protocol):
         self, actor_person_id: UUID, guest_person_id: UUID, target_person_id: UUID
     ) -> TransferResultDTO:
         """Atomically replace a guest with a registered participant."""
+        ...
+
+    async def transfer_matching_registration(
+        self, target_person_id: UUID
+    ) -> Sequence[TransferResultDTO]:
+        """Transfer active Telegram-hinted guests matching a registered account."""
         ...
 
 

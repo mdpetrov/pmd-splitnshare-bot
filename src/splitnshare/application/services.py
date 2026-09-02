@@ -33,17 +33,17 @@ from splitnshare.domain.timezones import SUPPORTED_TIMEZONES
 
 
 class UserService:
-    """Register and locate authenticated Telegram users without claiming guests."""
+    """Register Telegram users and claim matching Telegram-linked guests."""
 
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         """Initialize the service with a transactional unit-of-work factory."""
         self._uow_factory = uow_factory
 
     async def register_or_update(self, identity: TelegramIdentity) -> PersonDTO:
-        """Create or refresh a registered user while leaving all guests untouched."""
-        # Intentionally talks only to UserRepository. Registration must never inspect guests.
+        """Create or refresh a user and atomically transfer matching guest history."""
         async with self._uow_factory() as uow:
             person = await uow.users.register_or_update(identity)
+            await uow.guests.transfer_matching_registration(person.id)
             await uow.commit()
             return person
 
@@ -127,7 +127,7 @@ class UserSettingsService:
 
 
 class GuestService:
-    """Manage temporary participant identities and explicit transfers."""
+    """Manage temporary participants and owner-initiated transfer operations."""
 
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         """Initialize the service with a transactional unit-of-work factory."""
@@ -136,8 +136,14 @@ class GuestService:
     async def get_or_create_telegram_guest(
         self, owner_person_id: UUID, shared: SharedTelegramUser
     ) -> PersonDTO:
-        """Resolve a shared Telegram person to a user or owner-specific guest."""
+        """Reuse an active hint or resolve its already-registered Telegram account."""
         async with self._uow_factory() as uow:
+            existing = await uow.guests.find_active_telegram_guest(
+                owner_person_id, shared
+            )
+            if existing is not None:
+                await uow.commit()
+                return existing
             registered = await uow.users.find_registered_by_telegram_id(shared.telegram_user_id)
             if registered is not None:
                 return registered
@@ -187,9 +193,15 @@ class FriendService:
     async def add_shared_user(
         self, owner_person_id: UUID, shared: SharedTelegramUser
     ) -> FriendDTO:
-        """Add a Telegram-selected user or guest to the owner's friend list."""
+        """Add a Telegram friend while safely reusing any still-active profile."""
         async with self._uow_factory() as uow:
-            person = await uow.users.find_registered_by_telegram_id(shared.telegram_user_id)
+            person = await uow.guests.find_active_telegram_guest(
+                owner_person_id, shared
+            )
+            if person is None:
+                person = await uow.users.find_registered_by_telegram_id(
+                    shared.telegram_user_id
+                )
             if person is None:
                 person = await uow.guests.get_or_create_telegram_guest(
                     owner_person_id, shared

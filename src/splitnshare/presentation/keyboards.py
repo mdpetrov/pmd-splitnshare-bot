@@ -748,29 +748,59 @@ def friends_list_keyboard(
 
 
 def friend_detail_keyboard(
-    friend: FriendDTO, language: Language
+    friend: FriendDTO,
+    language: Language,
+    transfer_guest: GuestDTO | None = None,
 ) -> InlineKeyboardMarkup:
-    """Build rename and removal actions for one friend."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    """Build friend actions, including owner-authorized guest transfer."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=translate(language, "rename_friend"),
+                callback_data=f"friend:rename:{friend.person_id}",
+            ),
+            InlineKeyboardButton(
+                text=translate(language, "remove_friend_short"),
+                callback_data=f"friend:remove_ask:d:{friend.person_id}",
+            ),
+        ]
+    ]
+    if transfer_guest is not None:
+        target_id = transfer_guest.suggested_target_person_id
+        target_name = transfer_guest.suggested_target_name
+        has_suggestion = target_id is not None and target_name is not None
+        target_label = ""
+        if target_id is not None and target_name is not None:
+            target_label = participant_label(
+                target_name,
+                target_id,
+                transfer_guest.suggested_target_username,
+            )
+        rows.append(
             [
                 InlineKeyboardButton(
-                    text=translate(language, "rename_friend"),
-                    callback_data=f"friend:rename:{friend.person_id}",
-                ),
-                InlineKeyboardButton(
-                    text=translate(language, "remove_friend_short"),
-                    callback_data=f"friend:remove_ask:d:{friend.person_id}",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=translate(language, "back_friends"),
-                    callback_data="friends:show",
+                    text=translate(
+                        language,
+                        "transfer_friend_to" if has_suggestion else "transfer_friend",
+                        name=target_label,
+                    ),
+                    callback_data=(
+                        f"guest:transfer_hint:{transfer_guest.person_id}"
+                        if has_suggestion
+                        else f"guest:transfer:{transfer_guest.person_id}"
+                    ),
                 )
-            ],
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "back_friends"),
+                callback_data="friends:show",
+            )
         ]
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def friend_remove_confirm_keyboard(

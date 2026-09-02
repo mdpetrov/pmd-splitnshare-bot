@@ -95,17 +95,19 @@ async def view_friend(
             translate(language, "friend_already_removed"), show_alert=True
         )
         return
-    await target_message.edit_text(
-        translate(
-            language,
-            "friend_details",
-            name=friend_html(friend),
-            status=translate(
-                language,
-                "friend_registered" if friend.registered else "friend_unregistered",
+    transfer_guest = None
+    if not friend.registered:
+        transfer_guest = next(
+            (
+                guest
+                for guest in await services.guests.list_owned_guests(owner.id)
+                if guest.person_id == friend.person_id
             ),
-        ),
-        reply_markup=friend_detail_keyboard(friend, language),
+            None,
+        )
+    await target_message.edit_text(
+        _friend_details_text(friend, transfer_guest, language),
+        reply_markup=friend_detail_keyboard(friend, language, transfer_guest),
     )
     await callback.answer()
 
@@ -431,8 +433,6 @@ async def choose_suggested_transfer(
     language: Language,
 ) -> None:
     """Prepare a transfer using a guest's newly registered suggestion."""
-    """Create and display a manually named guest friend."""
-    """Add a friend from Telegram's shared-user picker response."""
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
@@ -614,6 +614,47 @@ def _friends_text(friendships: tuple[FriendDTO, ...], language: Language) -> str
         return "\n".join(lines)
     lines.append("")
     lines.extend(f"• {friend_html(friend)}" for friend in friendships)
+    return "\n".join(lines)
+
+
+def _friend_details_text(
+    friend: FriendDTO,
+    transfer_guest: GuestDTO | None,
+    language: Language,
+) -> str:
+    """Render friend status and explicit-transfer guidance when authorized."""
+    lines = [
+        translate(
+            language,
+            "friend_details",
+            name=friend_html(friend),
+            status=translate(
+                language,
+                "friend_registered" if friend.registered else "friend_unregistered",
+            ),
+        )
+    ]
+    if transfer_guest is None:
+        return lines[0]
+    lines.extend(("", translate(language, "transfer_explanation")))
+    if (
+        transfer_guest.suggested_target_person_id is not None
+        and transfer_guest.suggested_target_name is not None
+    ):
+        lines.extend(
+            (
+                "",
+                translate(
+                    language,
+                    "registration_suggestion",
+                    target=participant_html(
+                        transfer_guest.suggested_target_name,
+                        transfer_guest.suggested_target_person_id,
+                        transfer_guest.suggested_target_username,
+                    ),
+                ),
+            )
+        )
     return "\n".join(lines)
 
 

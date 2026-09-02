@@ -32,6 +32,7 @@ from splitnshare.infrastructure.models import (
     GroupMembershipModel,
     GroupModel,
     GuestProfileModel,
+    GuestTransferModel,
     PersonModel,
 )
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
@@ -60,31 +61,68 @@ async def _register(users: UserService, telegram_id: int, name: str):
     )
 
 
-async def test_registration_does_not_merge_matching_telegram_guest(app_services) -> None:
-    factory, users, guests, _, _ = app_services
+async def test_registration_automatically_transfers_matching_telegram_guest(
+    app_services,
+) -> None:
+    factory, users, guests, expenses, queries = app_services
     owner = await _register(users, 1, "Owner")
     guest = await guests.get_or_create_telegram_guest(
         owner.id, SharedTelegramUser(telegram_user_id=2, first_name="Future User")
+    )
+    expense = await expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Before registration",
+            total=Money(1000, "USD"),
+            participant_ids=(owner.id, guest.id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
     )
 
     registered = await _register(users, 2, "Future User")
 
     assert registered.id != guest.id
-    listed_guest = (await guests.list_owned_guests(owner.id))[0]
-    assert listed_guest.person_id == guest.id
-    assert listed_guest.suggested_target_person_id == registered.id
-    assert listed_guest.suggested_target_name == "Future User"
+    assert await guests.list_owned_guests(owner.id) == ()
+    transferred = await queries.get_details(registered.id, expense.id)
+    assert any(split.person_id == registered.id for split in transferred.splits)
     async with factory() as session:
         profile = await session.get(GuestProfileModel, guest.id)
         person = await session.get(PersonModel, guest.id)
-        assert profile is not None and profile.status is GuestTransferStatus.ACTIVE
-        assert person is not None and person.inactive_at is None
+        audit = (
+            await session.execute(
+                select(GuestTransferModel).where(
+                    GuestTransferModel.source_guest_person_id == guest.id
+                )
+            )
+        ).scalar_one()
+        assert profile is not None and profile.status is GuestTransferStatus.TRANSFERRED
+        assert profile.transferred_to_person_id == registered.id
+        assert person is not None and person.inactive_at is not None
+        assert audit.initiated_by_person_id == registered.id
+        assert audit.affected_counts["automatic_registration"] == 1
+
+    repeated_registration = await _register(users, 2, "Future User Updated")
+    assert repeated_registration.id == registered.id
+    async with factory() as session:
+        audit_count = len(
+            (
+                await session.execute(
+                    select(GuestTransferModel).where(
+                        GuestTransferModel.source_guest_person_id == guest.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert audit_count == 1
 
 
 async def test_telegram_guest_is_reused_only_within_one_owners_address_book(
     app_services,
 ) -> None:
-    _, users, guests, _, _ = app_services
+    factory, users, guests, _, _ = app_services
     owner_a = await _register(users, 3, "Owner A")
     owner_b = await _register(users, 4, "Owner B")
     shared = SharedTelegramUser(telegram_user_id=999, first_name="Same Hint")
@@ -96,11 +134,23 @@ async def test_telegram_guest_is_reused_only_within_one_owners_address_book(
 
     assert repeated.id == first.id
     assert other_owner.id != first.id
-    first_suggestion = (await guests.list_owned_guests(owner_a.id))[0]
-    other_suggestion = (await guests.list_owned_guests(owner_b.id))[0]
-    assert first_suggestion.suggested_target_person_id == registered.id
-    assert other_suggestion.suggested_target_person_id == registered.id
-    assert first_suggestion.person_id != other_suggestion.person_id
+    assert first.id != other_owner.id
+    assert await guests.list_owned_guests(owner_a.id) == ()
+    assert await guests.list_owned_guests(owner_b.id) == ()
+    async with factory() as session:
+        profiles = (
+            await session.execute(
+                select(GuestProfileModel).where(
+                    GuestProfileModel.person_id.in_((first.id, other_owner.id))
+                )
+            )
+        ).scalars().all()
+        assert len(profiles) == 2
+        assert all(
+            profile.status is GuestTransferStatus.TRANSFERRED
+            and profile.transferred_to_person_id == registered.id
+            for profile in profiles
+        )
 
 
 async def test_manual_names_are_never_merged(app_services) -> None:
@@ -109,12 +159,12 @@ async def test_manual_names_are_never_merged(app_services) -> None:
 
     first = await guests.create_manual_guest(owner.id, "Alex")
     second = await guests.create_manual_guest(owner.id, "Alex")
+    await _register(users, 6, "Alex")
 
     assert first.id != second.id
-    assert all(
-        guest.suggested_target_person_id is None
-        for guest in await guests.list_owned_guests(owner.id)
-    )
+    active_guests = await guests.list_owned_guests(owner.id)
+    assert {guest.person_id for guest in active_guests} == {first.id, second.id}
+    assert all(guest.suggested_target_person_id is None for guest in active_guests)
 
 
 async def test_transfer_consolidates_splits_debts_and_membership(app_services) -> None:

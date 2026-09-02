@@ -76,7 +76,7 @@ class SqlAlchemyUserRepository:
         self._session = session
 
     async def register_or_update(self, identity: TelegramIdentity) -> PersonDTO:
-        """Create or refresh a user account without inspecting guest profiles."""
+        """Create or refresh one registered account before service-level claiming."""
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
@@ -360,31 +360,42 @@ class SqlAlchemyGuestRepository:
         """Bind repository operations to one unit-of-work session."""
         self._session = session
 
-    async def get_or_create_telegram_guest(
+    async def find_active_telegram_guest(
         self, owner_person_id: UUID, shared: SharedTelegramUser
-    ) -> PersonDTO:
-        """Reuse an owner's active Telegram-hinted guest or create one."""
+    ) -> PersonDTO | None:
+        """Find and refresh an active guest matching an owner's Telegram hint."""
         await _require_registered(self._session, owner_person_id)
         statement = (
             select(GuestProfileModel, PersonModel)
             .join(PersonModel, PersonModel.id == GuestProfileModel.person_id)
             .where(
                 GuestProfileModel.owner_person_id == owner_person_id,
-                GuestProfileModel.suggested_telegram_user_id == shared.telegram_user_id,
+                GuestProfileModel.suggested_telegram_user_id
+                == shared.telegram_user_id,
                 GuestProfileModel.status == GuestTransferStatus.ACTIVE,
+                PersonModel.inactive_at.is_(None),
             )
         )
         row = (await self._session.execute(statement)).one_or_none()
-        if row:
-            guest, person = row
-            person.display_name = shared.display_name
-            guest.suggested_username = shared.username
-            await self._session.flush()
-            return _person_dto(
-                person,
-                telegram_user_id=guest.suggested_telegram_user_id,
-                username=guest.suggested_username,
-            )
+        if row is None:
+            return None
+        guest, person = row
+        person.display_name = shared.display_name
+        guest.suggested_username = shared.username
+        await self._session.flush()
+        return _person_dto(
+            person,
+            telegram_user_id=guest.suggested_telegram_user_id,
+            username=guest.suggested_username,
+        )
+
+    async def get_or_create_telegram_guest(
+        self, owner_person_id: UUID, shared: SharedTelegramUser
+    ) -> PersonDTO:
+        """Reuse an owner's active Telegram-hinted guest or create one."""
+        existing = await self.find_active_telegram_guest(owner_person_id, shared)
+        if existing is not None:
+            return existing
 
         person = PersonModel(display_name=shared.display_name, kind=PersonKind.GUEST)
         self._session.add(person)
@@ -699,6 +710,45 @@ class SqlAlchemyGuestRepository:
             target_username=target_account.username,
             affected_counts=affected_counts,
         )
+
+    async def transfer_matching_registration(
+        self, target_person_id: UUID
+    ) -> Sequence[TransferResultDTO]:
+        """Transfer every active guest hinted to the registering Telegram account."""
+        target_account, _ = await _get_registered_row(
+            self._session, target_person_id, for_update=False
+        )
+        candidates = (
+            await self._session.execute(
+                select(GuestProfileModel)
+                .join(PersonModel, PersonModel.id == GuestProfileModel.person_id)
+                .where(
+                    GuestProfileModel.suggested_telegram_user_id
+                    == target_account.telegram_user_id,
+                    GuestProfileModel.status == GuestTransferStatus.ACTIVE,
+                    GuestProfileModel.owner_person_id != target_person_id,
+                    PersonModel.inactive_at.is_(None),
+                )
+                .order_by(GuestProfileModel.person_id)
+                .with_for_update()
+            )
+        ).scalars().all()
+        results: list[TransferResultDTO] = []
+        for guest in candidates:
+            result = await self.transfer_all(
+                guest.owner_person_id, guest.person_id, target_person_id
+            )
+            audit = await self._session.get(GuestTransferModel, result.transfer_id)
+            if audit is None:
+                raise ConflictError("Automatic transfer audit record is missing.")
+            audit.initiated_by_person_id = target_person_id
+            audit.affected_counts = {
+                **audit.affected_counts,
+                "automatic_registration": 1,
+            }
+            results.append(result)
+        await self._session.flush()
+        return tuple(results)
 
     async def _get_owned_active(
         self, actor_person_id: UUID, guest_person_id: UUID, *, for_update: bool
