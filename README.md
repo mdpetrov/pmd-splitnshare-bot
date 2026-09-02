@@ -154,7 +154,8 @@ deterministic splitting, transaction history, and balances.
   preserved.
 - A completed guest becomes inactive and cannot be selected for new expenses.
 - The target receives a best-effort informational Telegram message after a successful
-  transfer; their approval is not required.
+  transfer naming its initiator and showing active transferred expense totals separately by
+  currency; their approval is not required.
 - Transfers cannot be reversed through the current Telegram interface.
 
 ## Architecture already prepared for expansion

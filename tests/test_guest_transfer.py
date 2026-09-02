@@ -211,6 +211,9 @@ async def test_transfer_consolidates_splits_debts_and_membership(app_services) -
     assert result.affected_counts["expenses"] == 1
     assert result.affected_counts["overlapping_splits"] == 1
     assert result.affected_counts["duplicate_memberships"] == 1
+    assert result.initiator_person_id == owner.id
+    assert result.initiator_name == "Owner"
+    assert result.expense_totals == {"USD": 1000}
 
     transferred = await queries.get_details(target.id, expense.id)
     assert sum(split.owed_minor for split in transferred.splits) == 1000

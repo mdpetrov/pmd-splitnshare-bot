@@ -11,6 +11,7 @@ from splitnshare.application.dto import UpdateUserSettingsCommand, UserSettingsD
 from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import DomainError
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.formatters import welcome_text
 from splitnshare.presentation.helpers import callback_message, callback_payload, current_person
 from splitnshare.presentation.i18n import button_values, language_name, translate
 from splitnshare.presentation.keyboards import (
@@ -230,8 +231,9 @@ async def set_timezone(
         await target_message.edit_text(
             translate(language, "timezone_saved", timezone=label)
         )
+        balances = await services.balances.get_balances(person.id)
         await target_message.answer(
-            translate(language, "onboarding_complete"),
+            welcome_text(person.display_name, balances, language),
             reply_markup=main_menu(language),
         )
         await target_message.answer(

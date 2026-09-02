@@ -1,12 +1,18 @@
 from uuid import uuid4
 
-from splitnshare.application.dto import BalanceDTO, FriendDTO, GuestDTO
+from splitnshare.application.dto import (
+    BalanceDTO,
+    FriendDTO,
+    GuestDTO,
+    TransferResultDTO,
+)
 from splitnshare.domain.enums import (
     FriendSource,
     GuestCreationMethod,
     Language,
     PersonKind,
 )
+from splitnshare.presentation.formatters import transfer_notification_text
 from splitnshare.presentation.keyboards import (
     friend_detail_keyboard,
     friends_list_keyboard,
@@ -202,3 +208,23 @@ def test_guests_screen_explains_transfer_and_offers_registered_suggestion() -> N
         f"guest:transfer_hint:{guest_id}"
     )
     assert keyboard.inline_keyboard[1][0].callback_data == f"guest:transfer:{guest_id}"
+
+
+def test_transfer_notification_names_initiator_and_currency_totals() -> None:
+    result = TransferResultDTO(
+        transfer_id=uuid4(),
+        target_person_id=uuid4(),
+        target_telegram_user_id=9003,
+        target_name="Bob",
+        target_username="bob",
+        initiator_person_id=uuid4(),
+        initiator_name="Alice & Co",
+        initiator_username="alice",
+        expense_totals={"USD": 1250, "EUR": 800},
+        affected_counts={"expenses": 2},
+    )
+
+    text = transfer_notification_text(result, Language.ENGLISH)
+
+    assert "Alice &amp; Co (@alice) transferred" in text
+    assert "with a total of <b>8.00 EUR, 12.50 USD</b>" in text

@@ -159,12 +159,16 @@ class TransferPreviewDTO:
 
 @dataclass(frozen=True, slots=True)
 class TransferResultDTO:
-    """Report the committed guest transfer and affected-record counts."""
+    """Report a committed transfer with initiator and expense-total details."""
     transfer_id: UUID
     target_person_id: UUID
     target_telegram_user_id: int
     target_name: str
     target_username: str | None
+    initiator_person_id: UUID
+    initiator_name: str
+    initiator_username: str | None
+    expense_totals: dict[str, int]
     affected_counts: dict[str, int]
 
 

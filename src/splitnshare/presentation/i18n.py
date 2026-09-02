@@ -216,8 +216,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "moved to {name}."
         ),
         "transfer_notification": (
-            "A temporary friend profile and all of its expense history were transferred "
-            "to your account."
+            "{initiator} transferred <b>{count}</b> transactions to your account with a "
+            "total of <b>{amounts}</b>."
         ),
         "transfer_cancelled": "Transfer cancelled.",
         "expense_total": "Total: {total}",
@@ -483,8 +483,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Новый пользователь: {name}."
         ),
         "transfer_notification": (
-            "Временный профиль друга и вся история его расходов были перенесены "
-            "в вашу учётную запись."
+            "{initiator} перенёс(ла) <b>{count}</b> транзакций в вашу учётную запись "
+            "на общую сумму <b>{amounts}</b>."
         ),
         "transfer_cancelled": "Перенос отменён.",
         "expense_total": "Сумма: {total}",

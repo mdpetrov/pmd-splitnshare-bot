@@ -20,7 +20,10 @@ from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import DomainError
 from splitnshare.domain.money import Money
 from splitnshare.presentation.container import Services
-from splitnshare.presentation.formatters import transfer_preview_text
+from splitnshare.presentation.formatters import (
+    transfer_notification_text,
+    transfer_preview_text,
+)
 from splitnshare.presentation.helpers import callback_message, callback_payload, current_person
 from splitnshare.presentation.i18n import button_values, translate
 from splitnshare.presentation.keyboards import (
@@ -602,7 +605,7 @@ async def confirm_transfer(
         )
         await bot.send_message(
             result.target_telegram_user_id,
-            translate(target_language, "transfer_notification"),
+            transfer_notification_text(result, target_language),
         )
     except (TelegramForbiddenError, TelegramBadRequest):
         # The transfer is authoritative; notification delivery is best effort.

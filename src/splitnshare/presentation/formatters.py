@@ -12,6 +12,7 @@ from splitnshare.application.dto import (
     ExpenseDTO,
     SettlementActivityDTO,
     TransferPreviewDTO,
+    TransferResultDTO,
 )
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
@@ -257,6 +258,25 @@ def expense_notification_text(
             relation_key,
             amount=escape(Money(relation_minor, expense.total.currency).format()),
         ),
+    )
+
+
+def transfer_notification_text(
+    result: TransferResultDTO,
+    language: Language = Language.ENGLISH,
+) -> str:
+    """Render who transferred history and its active expense totals."""
+    amounts = _money_totals(result.expense_totals) or translate(language, "none")
+    return translate(
+        language,
+        "transfer_notification",
+        initiator=participant_html(
+            result.initiator_name,
+            result.initiator_person_id,
+            result.initiator_username,
+        ),
+        count=result.affected_counts["expenses"],
+        amounts=amounts,
     )
 
 

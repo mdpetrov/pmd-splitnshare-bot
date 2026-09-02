@@ -567,9 +567,28 @@ class SqlAlchemyGuestRepository:
         target_account, target_person = await _get_registered_row(
             self._session, target_person_id, for_update=True
         )
+        initiator_account, initiator_person = await _get_registered_row(
+            self._session, actor_person_id, for_update=False
+        )
         _validate_transfer(actor_person_id, guest, target_person)
 
         expense_ids = await _affected_expense_ids(self._session, guest_person_id)
+        expense_totals: dict[str, int] = {}
+        if expense_ids:
+            total_rows = (
+                await self._session.execute(
+                    select(ExpenseModel.currency, func.sum(ExpenseModel.total_minor))
+                    .where(
+                        ExpenseModel.id.in_(expense_ids),
+                        ExpenseModel.deleted_at.is_(None),
+                    )
+                    .group_by(ExpenseModel.currency)
+                )
+            ).all()
+            expense_totals = {
+                currency: int(total_minor)
+                for currency, total_minor in total_rows
+            }
         overlap_count = 0
         for expense_id in expense_ids:
             expense = await self._session.get(ExpenseModel, expense_id)
@@ -708,6 +727,10 @@ class SqlAlchemyGuestRepository:
             target_telegram_user_id=target_account.telegram_user_id,
             target_name=target_person.display_name,
             target_username=target_account.username,
+            initiator_person_id=initiator_person.id,
+            initiator_name=initiator_person.display_name,
+            initiator_username=initiator_account.username,
+            expense_totals=expense_totals,
             affected_counts=affected_counts,
         )
 
