@@ -9,7 +9,12 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from splitnshare.application.dto import BalanceDTO, ExpenseDTO, SettleBalanceCommand
+from splitnshare.application.dto import (
+    ActivityItemDTO,
+    BalanceDTO,
+    ExpenseActivityDTO,
+    SettleBalanceCommand,
+)
 from splitnshare.domain.contexts import DirectExpenseContext
 from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import DomainError
@@ -17,10 +22,10 @@ from splitnshare.domain.money import Money
 from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.formatters import (
+    activity_text,
     balances_text,
     expense_text,
     person_balances_text,
-    transactions_text,
 )
 from splitnshare.presentation.helpers import (
     callback_message,
@@ -34,8 +39,8 @@ from splitnshare.presentation.keyboards import (
     cancel_keyboard,
     expense_details_keyboard,
     main_menu,
+    person_activity_keyboard,
     person_balance_keyboard,
-    person_history_keyboard,
     settlement_amount_keyboard,
 )
 from splitnshare.presentation.labels import participant_html
@@ -136,7 +141,9 @@ async def show_person_history(
     if person is None:
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
-    page = await services.expense_queries.list_shared(person.id, other_id)
+    page = await services.activities.list_for_person(
+        person.id, other_person_id=other_id
+    )
     settings = await services.user_settings.get_or_create(person.id)
     await target_message.edit_text(
         _person_history_text(
@@ -146,14 +153,14 @@ async def show_person_history(
             language,
             settings.timezone or "UTC",
         ),
-        reply_markup=person_history_keyboard(
+        reply_markup=person_activity_keyboard(
             page, other_id, language, settings.timezone or "UTC"
         ),
     )
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("bhp:"))
+@router.callback_query(F.data.startswith("ba:"))
 async def show_person_history_page(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
@@ -163,10 +170,10 @@ async def show_person_history_page(
     payload, target_message = callback_payload(callback)
     parts = payload.split(":")
     try:
-        if len(parts) != 3:
+        if len(parts) != 4:
             raise ValueError("Invalid shared-history callback.")
         other_id = uuid_from_token(parts[1])
-        cursor_id = uuid_from_token(parts[2])
+        cursor = f"{parts[2]}:{parts[3]}"
     except ValueError:
         await callback.answer(translate(language, "balance_person_stale"), show_alert=True)
         return
@@ -174,8 +181,8 @@ async def show_person_history_page(
     if person is None:
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
-    page = await services.expense_queries.list_shared(
-        person.id, other_id, cursor=str(cursor_id)
+    page = await services.activities.list_for_person(
+        person.id, other_person_id=other_id, cursor=cursor
     )
     settings = await services.user_settings.get_or_create(person.id)
     await target_message.edit_text(
@@ -186,7 +193,7 @@ async def show_person_history_page(
             language,
             settings.timezone or "UTC",
         ),
-        reply_markup=person_history_keyboard(
+        reply_markup=person_activity_keyboard(
             page, other_id, language, settings.timezone or "UTC"
         ),
     )
@@ -409,27 +416,37 @@ def _balances_with(
 
 
 def _person_history_text(
-    expenses: Sequence[ExpenseDTO],
+    items: Sequence[ActivityItemDTO],
     viewer_id: UUID,
     other_id: UUID,
     language: Language,
     timezone: str,
 ) -> str:
     """Render shared history with the selected participant in its heading."""
-    if not expenses:
+    if not items:
         return translate(language, "no_transactions_with_person")
-    other = next(
-        split
-        for expense in expenses
-        for split in expense.splits
-        if split.person_id == other_id
-    )
+    name, username = _activity_person_label(items[0], other_id)
     title = translate(
         language,
         "transactions_with",
-        name=participant_html(other.display_name, other.person_id, other.username),
+        name=participant_html(name, other_id, username),
     )
-    return transactions_text(expenses, viewer_id, language, timezone, title)
+    return activity_text(items, viewer_id, language, timezone, title)
+
+
+def _activity_person_label(
+    item: ActivityItemDTO, other_id: UUID
+) -> tuple[str, str | None]:
+    """Extract one counterparty label from an activity item."""
+    if isinstance(item, ExpenseActivityDTO):
+        split = next(
+            split for split in item.expense.splits if split.person_id == other_id
+        )
+        return split.display_name, split.username
+    settlement = item.settlement
+    if settlement.payer_person_id == other_id:
+        return item.payer_name, item.payer_username
+    return item.recipient_name, item.recipient_username
 
 
 def _find_balance(

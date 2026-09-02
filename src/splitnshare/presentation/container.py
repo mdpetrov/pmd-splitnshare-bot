@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from splitnshare.application.services import (
+    ActivityQueryService,
     BalanceQueryService,
     ExpenseQueryService,
     ExpenseService,
@@ -25,3 +26,4 @@ class Services:
     expense_queries: ExpenseQueryService
     balances: BalanceQueryService
     settlements: SettlementService
+    activities: ActivityQueryService

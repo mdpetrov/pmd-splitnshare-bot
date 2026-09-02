@@ -90,6 +90,8 @@ deterministic splitting, transaction history, and balances.
 ### Activity
 
 - **Activity** shows the registered user's active expense history.
+- Settlement payments appear in the same chronological feed and show who paid whom,
+  who recorded the payment, and the currency-specific amount.
 - History is cursor-paginated and provides a detailed view of each expense and its shares.
 - Only the expense creator can delete it.
 - Deletion is soft: the historical database record remains, while the expense is excluded
@@ -100,7 +102,7 @@ deterministic splitting, transaction history, and balances.
 - **Balances** separates amounts the current user owes from amounts owed to them.
 - Each balance is shown against the corresponding registered or unregistered friend.
 - Selecting a person opens their per-currency balance breakdown, settlement actions, and
-  cursor-paginated history of active transactions shared with that person.
+  cursor-paginated history of expenses and settlement payments shared with that person.
 - Balances remain separate by currency and are never converted or combined.
 - Soft-deleted expenses do not contribute to outstanding balances.
 

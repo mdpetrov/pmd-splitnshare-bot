@@ -202,6 +202,37 @@ class SettlementDTO:
 
 
 @dataclass(frozen=True, slots=True)
+class ExpenseActivityDTO:
+    """Wrap an expense for display in a heterogeneous activity feed."""
+
+    expense: ExpenseDTO
+
+
+@dataclass(frozen=True, slots=True)
+class SettlementActivityDTO:
+    """Expose a settlement with participant labels for activity display."""
+
+    settlement: SettlementDTO
+    recorded_by_name: str
+    recorded_by_username: str | None
+    payer_name: str
+    payer_username: str | None
+    recipient_name: str
+    recipient_username: str | None
+
+
+ActivityItemDTO = ExpenseActivityDTO | SettlementActivityDTO
+
+
+@dataclass(frozen=True, slots=True)
+class ActivityPage:
+    """Contain one cursor-paginated page of expenses and settlements."""
+
+    items: tuple[ActivityItemDTO, ...]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class UserSettingsDTO:
     """Expose a registered user's currency, language, and timezone choices."""
     person_id: UUID

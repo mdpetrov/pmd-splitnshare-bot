@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from splitnshare.application.ports import UnitOfWork, UnitOfWorkFactory
 from splitnshare.infrastructure.repositories import (
+    SqlAlchemyActivityRepository,
     SqlAlchemyExpenseRepository,
     SqlAlchemyFriendRepository,
     SqlAlchemyGuestRepository,
@@ -24,6 +25,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
     expenses: SqlAlchemyExpenseRepository
     friends: SqlAlchemyFriendRepository
     settlements: SqlAlchemySettlementRepository
+    activities: SqlAlchemyActivityRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         """Store the session factory used when entering the transaction scope."""
@@ -39,6 +41,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.expenses = SqlAlchemyExpenseRepository(self._session)
         self.friends = SqlAlchemyFriendRepository(self._session)
         self.settlements = SqlAlchemySettlementRepository(self._session)
+        self.activities = SqlAlchemyActivityRepository(self._session)
         return self
 
     async def __aexit__(

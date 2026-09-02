@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import and_, delete, func, literal, or_, select, union_all
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,9 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql import Select
 
 from splitnshare.application.dto import (
+    ActivityPage,
     BalanceDTO,
+    ExpenseActivityDTO,
     ExpenseDTO,
     ExpensePage,
     ExpenseSplitDTO,
@@ -24,6 +26,7 @@ from splitnshare.application.dto import (
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
+    SettlementActivityDTO,
     SettlementDTO,
     SharedTelegramUser,
     TelegramIdentity,
@@ -1212,6 +1215,189 @@ class SqlAlchemySettlementRepository:
         return _settlement_dto(settlement)
 
 
+class SqlAlchemyActivityRepository:
+    """Read expenses and settlement payments as one chronological feed."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        """Bind activity queries to one unit-of-work session."""
+        self._session = session
+
+    async def list_for_person(
+        self,
+        person_id: UUID,
+        other_person_id: UUID | None,
+        context: ExpenseContext | None,
+        cursor: str | None,
+        limit: int,
+    ) -> ActivityPage:
+        """Return unified activity optionally shared with one counterparty."""
+        expense_split = aliased(ExpenseSplitModel)
+        expense_statement = (
+            select(
+                literal("expense").label("kind"),
+                ExpenseModel.id.label("item_id"),
+                ExpenseModel.occurred_at.label("occurred_at"),
+            )
+            .join(expense_split, expense_split.expense_id == ExpenseModel.id)
+            .where(
+                expense_split.person_id == person_id,
+                ExpenseModel.deleted_at.is_(None),
+            )
+        )
+        if other_person_id is not None:
+            other_split = aliased(ExpenseSplitModel)
+            expense_statement = expense_statement.join(
+                other_split, other_split.expense_id == ExpenseModel.id
+            ).where(other_split.person_id == other_person_id)
+        expense_statement = _apply_context(expense_statement, context)
+
+        settlement_statement = select(
+            literal("settlement").label("kind"),
+            SettlementModel.id.label("item_id"),
+            SettlementModel.occurred_at.label("occurred_at"),
+        ).where(
+            or_(
+                SettlementModel.payer_person_id == person_id,
+                SettlementModel.recipient_person_id == person_id,
+            )
+        )
+        if other_person_id is not None:
+            settlement_statement = settlement_statement.where(
+                or_(
+                    and_(
+                        SettlementModel.payer_person_id == person_id,
+                        SettlementModel.recipient_person_id == other_person_id,
+                    ),
+                    and_(
+                        SettlementModel.payer_person_id == other_person_id,
+                        SettlementModel.recipient_person_id == person_id,
+                    ),
+                )
+            )
+        settlement_statement = _apply_settlement_context(
+            settlement_statement, context
+        )
+
+        combined = union_all(expense_statement, settlement_statement).subquery()
+        statement = select(
+            combined.c.kind, combined.c.item_id, combined.c.occurred_at
+        )
+        if cursor is not None:
+            cursor_kind, cursor_id = _decode_activity_cursor(cursor)
+            cursor_model = (
+                ExpenseModel if cursor_kind == "expense" else SettlementModel
+            )
+            cursor_date = await self._session.scalar(
+                select(cursor_model.occurred_at).where(cursor_model.id == cursor_id)
+            )
+            if cursor_date is None:
+                raise ValidationError("Invalid activity pagination cursor.")
+            statement = statement.where(
+                or_(
+                    combined.c.occurred_at < cursor_date,
+                    and_(
+                        combined.c.occurred_at == cursor_date,
+                        combined.c.item_id < cursor_id,
+                    ),
+                    and_(
+                        combined.c.occurred_at == cursor_date,
+                        combined.c.item_id == cursor_id,
+                        combined.c.kind < cursor_kind,
+                    ),
+                )
+            )
+        statement = statement.order_by(
+            combined.c.occurred_at.desc(),
+            combined.c.item_id.desc(),
+            combined.c.kind.desc(),
+        ).limit(limit + 1)
+        rows = list((await self._session.execute(statement)).all())
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        items = await self._hydrate_items(person_id, rows)
+        next_cursor = (
+            _encode_activity_cursor(rows[-1].kind, rows[-1].item_id)
+            if has_more and rows
+            else None
+        )
+        return ActivityPage(items=items, next_cursor=next_cursor)
+
+    async def _hydrate_items(
+        self, viewer_person_id: UUID, rows: Sequence[Any]
+    ) -> tuple[ExpenseActivityDTO | SettlementActivityDTO, ...]:
+        """Hydrate ordered union rows into strongly typed activity DTOs."""
+        expense_repository = SqlAlchemyExpenseRepository(self._session)
+        expense_ids = [row.item_id for row in rows if row.kind == "expense"]
+        settlement_ids = [row.item_id for row in rows if row.kind == "settlement"]
+        expenses = {
+            expense_id: ExpenseActivityDTO(
+                await expense_repository.get(viewer_person_id, expense_id)
+            )
+            for expense_id in expense_ids
+        }
+        settlements = await self._settlement_items(settlement_ids)
+        return tuple(
+            expenses[row.item_id]
+            if row.kind == "expense"
+            else settlements[row.item_id]
+            for row in rows
+        )
+
+    async def _settlement_items(
+        self, settlement_ids: Sequence[UUID]
+    ) -> dict[UUID, SettlementActivityDTO]:
+        """Load settlement rows and all participant labels in bounded queries."""
+        if not settlement_ids:
+            return {}
+        models = (
+            await self._session.execute(
+                select(SettlementModel).where(SettlementModel.id.in_(settlement_ids))
+            )
+        ).scalars().all()
+        person_ids = {
+            person_id
+            for model in models
+            for person_id in (
+                model.recorded_by_person_id,
+                model.payer_person_id,
+                model.recipient_person_id,
+            )
+        }
+        identity_rows = (
+            await self._session.execute(
+                select(PersonModel, UserAccountModel, GuestProfileModel)
+                .outerjoin(
+                    UserAccountModel, UserAccountModel.person_id == PersonModel.id
+                )
+                .outerjoin(
+                    GuestProfileModel, GuestProfileModel.person_id == PersonModel.id
+                )
+                .where(PersonModel.id.in_(person_ids))
+            )
+        ).all()
+        identities = {
+            person.id: (
+                person.display_name,
+                account.username
+                if account is not None
+                else guest.suggested_username if guest is not None else None,
+            )
+            for person, account, guest in identity_rows
+        }
+        return {
+            model.id: SettlementActivityDTO(
+                settlement=_settlement_dto(model),
+                recorded_by_name=identities[model.recorded_by_person_id][0],
+                recorded_by_username=identities[model.recorded_by_person_id][1],
+                payer_name=identities[model.payer_person_id][0],
+                payer_username=identities[model.payer_person_id][1],
+                recipient_name=identities[model.recipient_person_id][0],
+                recipient_username=identities[model.recipient_person_id][1],
+            )
+            for model in models
+        }
+
+
 async def _get_registered_row(
     session: AsyncSession, person_id: UUID, *, for_update: bool
 ) -> tuple[UserAccountModel, PersonModel]:
@@ -1408,6 +1594,22 @@ def _decode_cursor(cursor: str) -> UUID:
         return UUID(cursor)
     except ValueError as exc:
         raise ValidationError("Invalid pagination cursor.") from exc
+
+
+def _encode_activity_cursor(kind: str, item_id: UUID) -> str:
+    """Encode an activity type and stable identifier as a compact cursor."""
+    prefix = "e" if kind == "expense" else "s"
+    return f"{prefix}:{item_id}"
+
+
+def _decode_activity_cursor(cursor: str) -> tuple[str, UUID]:
+    """Decode and validate a compact heterogeneous activity cursor."""
+    try:
+        prefix, value = cursor.split(":", 1)
+        kind = {"e": "expense", "s": "settlement"}[prefix]
+        return kind, UUID(value)
+    except (KeyError, ValueError) as exc:
+        raise ValidationError("Invalid activity pagination cursor.") from exc
 
 
 def _as_utc(value: datetime) -> datetime:

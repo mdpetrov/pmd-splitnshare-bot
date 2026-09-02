@@ -135,8 +135,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "expense_created_notification": (
             "{creator} has just created an expense “{description}”. {relation}"
         ),
-        "no_expenses": "You do not have any active expenses yet.",
-        "no_active_expenses": "You do not have any active expenses.",
+        "no_expenses": "You do not have any activity yet.",
+        "no_active_expenses": "You do not have any activity.",
         "your_transactions": "Your activity:",
         "you": "You",
         "transaction_list_item": (
@@ -144,6 +144,11 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "transaction_you_owe": "🔴 ▼ You owe <b>{amount}</b>.",
         "transaction_you_are_owed": "🟢 ▲ You are owed <b>{amount}</b>.",
+        "activity_settlement_item": (
+            "• {date}: <b>Settlement</b>. {relation} Recorded by {recorder}."
+        ),
+        "activity_settlement_paid": "🔴 ▼ You paid {name} <b>{amount}</b>.",
+        "activity_settlement_received": "🟢 ▲ {name} paid you <b>{amount}</b>.",
         "balances_title": "<b>Balances</b>",
         "you_owe": "<b>You owe</b>",
         "you_are_owed": "<b>You are owed</b>",
@@ -155,7 +160,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "settle_amount_button": "Settle · {amount}",
         "transaction_history": "Activity history",
         "transactions_with": "<b>Activity with {name}</b>",
-        "no_transactions_with_person": "There are no active transactions with this person.",
+        "no_transactions_with_person": "There is no activity with this person.",
         "back_to_person_balance": "Back to person balance",
         "back_to_balances": "Back to balances",
         "settle_balance_button": "Settle {name} · {amount}",
@@ -384,8 +389,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "expense_created_notification": (
             "{creator} только что добавил(а) расход «{description}». {relation}"
         ),
-        "no_expenses": "У вас пока нет активных расходов.",
-        "no_active_expenses": "У вас нет активных расходов.",
+        "no_expenses": "У вас пока нет активности.",
+        "no_active_expenses": "У вас нет активности.",
         "your_transactions": "Ваша активность:",
         "you": "Вы",
         "transaction_list_item": (
@@ -394,6 +399,11 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "transaction_you_owe": "🔴 ▼ Вы должны <b>{amount}</b>.",
         "transaction_you_are_owed": "🟢 ▲ Вам должны <b>{amount}</b>.",
+        "activity_settlement_item": (
+            "• {date}: <b>Расчёт</b>. {relation} Записал(а): {recorder}."
+        ),
+        "activity_settlement_paid": "🔴 ▼ Вы заплатили {name} <b>{amount}</b>.",
+        "activity_settlement_received": "🟢 ▲ {name} заплатил(а) вам <b>{amount}</b>.",
         "balances_title": "<b>Балансы</b>",
         "you_owe": "<b>Вы должны</b>",
         "you_are_owed": "<b>Вам должны</b>",
@@ -405,7 +415,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "settle_amount_button": "Закрыть · {amount}",
         "transaction_history": "История активности",
         "transactions_with": "<b>Активность с {name}</b>",
-        "no_transactions_with_person": "С этим человеком нет активных транзакций.",
+        "no_transactions_with_person": "С этим человеком нет активности.",
         "back_to_person_balance": "Назад к балансу с человеком",
         "back_to_balances": "Назад к балансам",
         "settle_balance_button": "Закрыть долг: {name} · {amount}",

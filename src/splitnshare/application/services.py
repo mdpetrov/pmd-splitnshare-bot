@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from splitnshare.application.dto import (
+    ActivityPage,
     BalanceDTO,
     CreateExpenseCommand,
     ExpenseDTO,
@@ -392,6 +393,32 @@ class SettlementService:
             )
             await uow.commit()
             return settlement
+
+
+class ActivityQueryService:
+    """Provide a chronological view of expenses and settlement payments."""
+
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        """Initialize the query service with a unit-of-work factory."""
+        self._uow_factory = uow_factory
+
+    async def list_for_person(
+        self,
+        person_id: UUID,
+        other_person_id: UUID | None = None,
+        context: ExpenseContext | None = None,
+        cursor: str | None = None,
+        limit: int = 10,
+    ) -> ActivityPage:
+        """Return activity, optionally shared with a different person."""
+        if other_person_id == person_id:
+            raise ValidationError("Shared activity requires two different people.")
+        if not 1 <= limit <= 50:
+            raise ValidationError("Page size must be between 1 and 50.")
+        async with self._uow_factory() as uow:
+            return await uow.activities.list_for_person(
+                person_id, other_person_id, context, cursor, limit
+            )
 
 
 class BalanceQueryService:

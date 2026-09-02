@@ -9,6 +9,7 @@ from typing import Protocol
 from uuid import UUID
 
 from splitnshare.application.dto import (
+    ActivityPage,
     BalanceDTO,
     ExpenseDTO,
     ExpensePage,
@@ -199,6 +200,21 @@ class SettlementRepository(Protocol):
         ...
 
 
+class ActivityRepository(Protocol):
+    """Read a unified chronological feed of expenses and settlements."""
+
+    async def list_for_person(
+        self,
+        person_id: UUID,
+        other_person_id: UUID | None,
+        context: ExpenseContext | None,
+        cursor: str | None,
+        limit: int,
+    ) -> ActivityPage:
+        """Return activity optionally restricted to one counterparty."""
+        ...
+
+
 class UnitOfWork(Protocol):
     """Group repositories behind one atomic database transaction."""
 
@@ -208,6 +224,7 @@ class UnitOfWork(Protocol):
     friends: FriendRepository
     expenses: ExpenseRepository
     settlements: SettlementRepository
+    activities: ActivityRepository
 
     async def __aenter__(self) -> UnitOfWork:
         """Open the transactional repository scope."""

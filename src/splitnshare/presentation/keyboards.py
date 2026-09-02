@@ -11,7 +11,15 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
-from splitnshare.application.dto import BalanceDTO, ExpenseDTO, ExpensePage, FriendDTO, GuestDTO
+from splitnshare.application.dto import (
+    ActivityPage,
+    BalanceDTO,
+    ExpenseActivityDTO,
+    ExpenseDTO,
+    ExpensePage,
+    FriendDTO,
+    GuestDTO,
+)
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
 from splitnshare.presentation.callbacks import uuid_token
@@ -366,6 +374,48 @@ def expense_list_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def activity_list_keyboard(
+    page: ActivityPage,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
+) -> InlineKeyboardMarkup:
+    """Build expense links and pagination for heterogeneous activity."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=" · ".join(
+                    (
+                        format_local_datetime_compact(
+                            item.expense.occurred_at, timezone, language
+                        ),
+                        _short_button_text(item.expense.description),
+                    )
+                ),
+                callback_data=f"expense:view:{item.expense.id}",
+            )
+        ]
+        for item in page.items
+        if isinstance(item, ExpenseActivityDTO)
+    ]
+    if page.next_cursor:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "more"),
+                    callback_data=f"activity:page:{page.next_cursor}",
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "main_menu"), callback_data="menu:show"
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def person_history_keyboard(
     page: ExpensePage,
     other_person_id: UUID,
@@ -398,6 +448,53 @@ def person_history_keyboard(
                     callback_data=(
                         f"bhp:{person_token}:{uuid_token(page.next_cursor)}"
                     ),
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "back_to_person_balance"),
+                callback_data=f"balance:person:{person_token}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def person_activity_keyboard(
+    page: ActivityPage,
+    other_person_id: UUID,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
+) -> InlineKeyboardMarkup:
+    """Build person-scoped expense links and unified activity pagination."""
+    person_token = uuid_token(other_person_id)
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=" · ".join(
+                    (
+                        format_local_datetime_compact(
+                            item.expense.occurred_at, timezone, language
+                        ),
+                        _short_button_text(item.expense.description),
+                    )
+                ),
+                callback_data=(
+                    f"bhv:{person_token}:{uuid_token(item.expense.id)}"
+                ),
+            )
+        ]
+        for item in page.items
+        if isinstance(item, ExpenseActivityDTO)
+    ]
+    if page.next_cursor:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "more"),
+                    callback_data=f"ba:{person_token}:{page.next_cursor}",
                 )
             ]
         )

@@ -4,7 +4,14 @@ from collections.abc import Sequence
 from html import escape
 from uuid import UUID
 
-from splitnshare.application.dto import BalanceDTO, ExpenseDTO, TransferPreviewDTO
+from splitnshare.application.dto import (
+    ActivityItemDTO,
+    BalanceDTO,
+    ExpenseActivityDTO,
+    ExpenseDTO,
+    SettlementActivityDTO,
+    TransferPreviewDTO,
+)
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
 from splitnshare.presentation.datetimes import format_local_datetime
@@ -43,45 +50,126 @@ def transactions_text(
     timezone: str = "UTC",
     title: str | None = None,
 ) -> str:
-    """Render an expense page with a title and each viewer-specific effect."""
-    items = [title or translate(language, "your_transactions")]
-    for expense in expenses:
-        creator = (
-            translate(language, "you")
-            if expense.creator_person_id == viewer_person_id
-            else participant_html(
-                expense.creator_name,
-                expense.creator_person_id,
-                expense.creator_username,
+    """Render expense-only activity for callers using the legacy interface."""
+    return activity_text(
+        tuple(ExpenseActivityDTO(expense) for expense in expenses),
+        viewer_person_id,
+        language,
+        timezone,
+        title,
+    )
+
+
+def activity_text(
+    items: Sequence[ActivityItemDTO],
+    viewer_person_id: UUID,
+    language: Language = Language.ENGLISH,
+    timezone: str = "UTC",
+    title: str | None = None,
+) -> str:
+    """Render expenses and settlements as one chronological activity page."""
+    lines = [title or translate(language, "your_transactions")]
+    for item in items:
+        if isinstance(item, ExpenseActivityDTO):
+            lines.append(
+                _expense_activity_line(
+                    item.expense, viewer_person_id, language, timezone
+                )
             )
-        )
-        viewer_split = next(
-            split for split in expense.splits if split.person_id == viewer_person_id
-        )
-        if expense.payer_person_id == viewer_person_id:
-            relation_key = "transaction_you_are_owed"
-            relation_amount = expense.total.minor - viewer_split.owed_minor
         else:
-            relation_key = "transaction_you_owe"
-            relation_amount = viewer_split.owed_minor
-        items.append(
-            translate(
-                language,
-                "transaction_list_item",
-                date=escape(format_local_datetime(expense.occurred_at, timezone, language)),
-                creator=creator,
-                description=escape(expense.description),
-                total=escape(expense.total.format()),
-                relation=translate(
-                    language,
-                    relation_key,
-                    amount=escape(
-                        Money(relation_amount, expense.total.currency).format()
-                    ),
-                ),
+            lines.append(
+                _settlement_activity_line(
+                    item, viewer_person_id, language, timezone
+                )
             )
+    return "\n\n".join(lines)
+
+
+def _expense_activity_line(
+    expense: ExpenseDTO,
+    viewer_person_id: UUID,
+    language: Language,
+    timezone: str,
+) -> str:
+    """Render one expense's viewer-specific financial effect."""
+    creator = (
+        translate(language, "you")
+        if expense.creator_person_id == viewer_person_id
+        else participant_html(
+            expense.creator_name,
+            expense.creator_person_id,
+            expense.creator_username,
         )
-    return "\n\n".join(items)
+    )
+    viewer_split = next(
+        split for split in expense.splits if split.person_id == viewer_person_id
+    )
+    if expense.payer_person_id == viewer_person_id:
+        relation_key = "transaction_you_are_owed"
+        relation_amount = expense.total.minor - viewer_split.owed_minor
+    else:
+        relation_key = "transaction_you_owe"
+        relation_amount = viewer_split.owed_minor
+    return translate(
+        language,
+        "transaction_list_item",
+        date=escape(format_local_datetime(expense.occurred_at, timezone, language)),
+        creator=creator,
+        description=escape(expense.description),
+        total=escape(expense.total.format()),
+        relation=translate(
+            language,
+            relation_key,
+            amount=escape(
+                Money(relation_amount, expense.total.currency).format()
+            ),
+        ),
+    )
+
+
+def _settlement_activity_line(
+    item: SettlementActivityDTO,
+    viewer_person_id: UUID,
+    language: Language,
+    timezone: str,
+) -> str:
+    """Render one settlement from the viewer's payment direction."""
+    settlement = item.settlement
+    if viewer_person_id == settlement.payer_person_id:
+        relation_key = "activity_settlement_paid"
+        counterparty = participant_html(
+            item.recipient_name,
+            settlement.recipient_person_id,
+            item.recipient_username,
+        )
+    else:
+        relation_key = "activity_settlement_received"
+        counterparty = participant_html(
+            item.payer_name,
+            settlement.payer_person_id,
+            item.payer_username,
+        )
+    recorder = (
+        translate(language, "you")
+        if viewer_person_id == settlement.recorded_by_person_id
+        else participant_html(
+            item.recorded_by_name,
+            settlement.recorded_by_person_id,
+            item.recorded_by_username,
+        )
+    )
+    return translate(
+        language,
+        "activity_settlement_item",
+        date=escape(format_local_datetime(settlement.occurred_at, timezone, language)),
+        relation=translate(
+            language,
+            relation_key,
+            name=counterparty,
+            amount=escape(settlement.amount.format()),
+        ),
+        recorder=recorder,
+    )
 
 
 def expense_notification_text(

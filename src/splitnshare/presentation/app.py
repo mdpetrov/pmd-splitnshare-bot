@@ -7,6 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from splitnshare.application.services import (
+    ActivityQueryService,
     BalanceQueryService,
     ExpenseQueryService,
     ExpenseService,
@@ -44,6 +45,7 @@ def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]
         expense_queries=ExpenseQueryService(uow_factory),
         balances=BalanceQueryService(uow_factory),
         settlements=SettlementService(uow_factory),
+        activities=ActivityQueryService(uow_factory),
     )
     bot = Bot(
         token=settings.bot_token,
