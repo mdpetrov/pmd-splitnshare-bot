@@ -15,6 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Add optional IANA timezone settings for registered users."""
     op.add_column(
         "user_settings",
         sa.Column("timezone", sa.String(length=64), nullable=True),
@@ -25,4 +26,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove timezone settings from registered users."""
     op.drop_column("user_settings", "timezone")

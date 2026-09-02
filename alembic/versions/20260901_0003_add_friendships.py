@@ -15,6 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Create friendships and backfill relationships from existing expenses."""
     op.create_table(
         "friendships",
         sa.Column("owner_person_id", sa.Uuid(), nullable=False),
@@ -73,5 +74,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the friendship table and its supporting indexes."""
     op.drop_index("ix_friendships_friend_person_id", table_name="friendships")
     op.drop_table("friendships")

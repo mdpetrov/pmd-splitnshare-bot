@@ -26,10 +26,12 @@ INITIAL_TABLE_NAMES = (
 
 
 def _initial_tables():
+    """Return only the model tables that belong to the initial revision."""
     return [Base.metadata.tables[name] for name in INITIAL_TABLE_NAMES]
 
 
 def upgrade() -> None:
+    """Create the initial identity, group, expense, debt, and transfer schema."""
     # Keep this revision limited to the tables that existed when it was created.
     # Later model tables and columns belong to their own Alembic revisions.
     Base.metadata.create_all(bind=op.get_bind(), tables=_initial_tables())
@@ -68,6 +70,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop every table and index introduced by the initial revision."""
     op.drop_index("uq_active_guest_owner_suggested_tg", table_name="guest_profiles")
     op.drop_index("ix_guest_profiles_owner_person_id", table_name="guest_profiles")
     op.drop_table("guest_profiles")

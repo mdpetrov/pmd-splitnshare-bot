@@ -15,6 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Add an optional suggested Telegram username to guest profiles."""
     op.add_column(
         "guest_profiles",
         sa.Column("suggested_username", sa.String(length=64), nullable=True),
@@ -22,4 +23,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove suggested Telegram usernames from guest profiles."""
     op.drop_column("guest_profiles", "suggested_username")

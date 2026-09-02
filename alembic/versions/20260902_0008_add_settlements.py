@@ -15,6 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Create auditable settlement records and participant lookup indexes."""
     op.create_table(
         "settlements",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -79,6 +80,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop settlement indexes and the settlement table."""
     op.drop_index("ix_settlements_occurred_at_id", table_name="settlements")
     op.drop_index("ix_settlements_recipient_currency", table_name="settlements")
     op.drop_index("ix_settlements_payer_currency", table_name="settlements")

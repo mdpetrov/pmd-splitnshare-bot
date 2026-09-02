@@ -164,6 +164,7 @@ owner-scoped guests, explicit guest transfer, split consolidation, debt regenera
 membership consolidation, role preservation, and transfer authorization. Ruff and strict
 mypy configuration are included for source-quality and type checks.
 
-All package modules, classes, functions, and methods must include a concise docstring that
-explains their responsibility. Ruff checks public documentation, and the test suite also
-enforces descriptions for private helpers and constructors so future features remain readable.
+All package and Alembic modules, classes, functions, and methods must include a concise
+docstring that explains their responsibility. Ruff checks public documentation, and the test
+suite also enforces descriptions for private helpers, constructors, and migration functions so
+future features and schema changes remain readable.

@@ -15,6 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Create user settings and backfill defaults for existing accounts."""
     op.create_table(
         "user_settings",
         sa.Column("person_id", sa.Uuid(), nullable=False),
@@ -44,4 +45,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove the user-settings table and its constraints."""
     op.drop_table("user_settings")

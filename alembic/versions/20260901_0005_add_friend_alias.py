@@ -15,6 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Add owner-specific aliases to friendship records."""
     op.add_column(
         "friendships",
         sa.Column("alias", sa.String(length=160), nullable=True),
@@ -22,4 +23,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove owner-specific aliases from friendship records."""
     op.drop_column("friendships", "alias")

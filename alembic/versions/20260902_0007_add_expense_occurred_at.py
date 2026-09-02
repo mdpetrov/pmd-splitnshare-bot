@@ -15,18 +15,21 @@ depends_on = None
 
 
 def _column_exists(table_name: str, column_name: str) -> bool:
+    """Return whether the current database contains a named table column."""
     return column_name in {
         column["name"] for column in sa.inspect(op.get_bind()).get_columns(table_name)
     }
 
 
 def _index_exists(table_name: str, index_name: str) -> bool:
+    """Return whether the current database contains a named table index."""
     return index_name in {
         index["name"] for index in sa.inspect(op.get_bind()).get_indexes(table_name)
     }
 
 
 def upgrade() -> None:
+    """Add, backfill, constrain, and index real-world expense timestamps."""
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
         # The initial migration uses current model metadata on a brand-new database,
@@ -66,6 +69,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove the expense occurrence index and timestamp column."""
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
         op.execute("DROP INDEX IF EXISTS ix_expenses_occurred_at_id")
