@@ -254,7 +254,9 @@ async def view_person_history_expense(
                 if from_friend
                 else f"balance:history:{uuid_token(other_id)}"
             ),
-            back_label_key="transaction_history",
+            back_label_key=(
+                "back_to_activity" if from_friend else "transaction_history"
+            ),
         ),
     )
     await callback.answer()

@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from splitnshare.application.dto import UpdateUserSettingsCommand, UserSettingsDTO
-from splitnshare.domain.enums import Language
+from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
 from splitnshare.domain.errors import DomainError
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.formatters import welcome_text
@@ -249,7 +249,11 @@ async def set_timezone(
 
 
 @router.callback_query(F.data.startswith("settings:set_language:"))
-async def set_language(callback: CallbackQuery, services: Services) -> None:
+async def set_language(
+    callback: CallbackQuery,
+    services: Services,
+    language: Language,
+) -> None:
     """Persist the selected interface language and redraw settings."""
     if callback.from_user is None:
         return
@@ -258,7 +262,18 @@ async def set_language(callback: CallbackQuery, services: Services) -> None:
     if person is None:
         await callback.answer("Use /start first.", show_alert=True)
         return
-    selected = Language(payload.rsplit(":", 1)[1])
+    try:
+        selected = Language(payload.rsplit(":", 1)[1])
+    except ValueError:
+        await callback.answer(
+            translate(language, "language_unavailable"), show_alert=True
+        )
+        return
+    if selected not in SELECTABLE_LANGUAGES:
+        await callback.answer(
+            translate(language, "language_unavailable"), show_alert=True
+        )
+        return
     await services.user_settings.update(
         UpdateUserSettingsCommand(person_id=person.id, language=selected)
     )

@@ -20,7 +20,7 @@ from splitnshare.application.dto import (
     FriendDTO,
     GuestDTO,
 )
-from splitnshare.domain.enums import Language
+from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
 from splitnshare.domain.money import Money
 from splitnshare.presentation.callbacks import uuid_token
 from splitnshare.presentation.datetimes import format_local_datetime_compact
@@ -1034,12 +1034,21 @@ def currency_keyboard(language: Language) -> InlineKeyboardMarkup:
 
 
 def language_keyboard(language: Language) -> InlineKeyboardMarkup:
-    """Offer supported interface languages and settings navigation."""
+    """Offer currently selectable interface languages and settings navigation."""
+    labels = {
+        Language.ENGLISH: "English",
+        Language.RUSSIAN: "Русский",
+    }
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(text="English", callback_data="settings:set_language:en"),
-                InlineKeyboardButton(text="Русский", callback_data="settings:set_language:ru"),
+            *[
+                [
+                    InlineKeyboardButton(
+                        text=labels[choice],
+                        callback_data=f"settings:set_language:{choice.value}",
+                    )
+                ]
+                for choice in SELECTABLE_LANGUAGES
             ],
             [
                 InlineKeyboardButton(

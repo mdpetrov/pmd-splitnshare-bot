@@ -51,7 +51,7 @@ async def test_expense_notification_reaches_only_registered_non_creator(
         TelegramIdentity(telegram_user_id=1102, first_name="Maria")
     )
     guest = await guests.create_manual_guest(creator.id, "Offline guest")
-    await settings.get_or_create(recipient.id, preferred_language="ru")
+    await settings.get_or_create(recipient.id, preferred_language="en")
     expense = await expenses.create(
         CreateExpenseCommand(
             creator_person_id=creator.id,
@@ -72,7 +72,7 @@ async def test_expense_notification_reaches_only_registered_non_creator(
     assert telegram_id == 1102
     assert "John (@johndoe)" in text
     assert "Dinner &lt;night&gt;" in text
-    assert "🔴 ▼ Вы должны <b>4.00 USD</b>" in text
+    assert "🔴 ▼ You owe <b>4.00 USD</b>" in text
 
 
 async def test_expense_notification_uses_payer_effect(notification_services) -> None:

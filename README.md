@@ -29,8 +29,8 @@ deterministic splitting, transaction history, and balances.
 - Existing users receive `UTC` during migration and may change it from **Settings**.
 - The default currency is used when a new expense has no explicit currency code.
 - Changing the default currency never converts existing expenses or combines balances.
-- English and Russian interfaces are available; unsupported Telegram languages fall back
-  to English.
+- English is currently the only selectable interface language; the Russian translation
+  catalog is retained for later reactivation. Other Telegram languages fall back to English.
 
 ### Participant selection
 

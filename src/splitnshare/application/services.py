@@ -26,7 +26,12 @@ from splitnshare.application.dto import (
 )
 from splitnshare.application.ports import UnitOfWorkFactory
 from splitnshare.domain.contexts import ExpenseContext
-from splitnshare.domain.enums import FriendSource, Language, SplitMethod
+from splitnshare.domain.enums import (
+    SELECTABLE_LANGUAGES,
+    FriendSource,
+    Language,
+    SplitMethod,
+)
 from splitnshare.domain.errors import NotFoundError, ValidationError
 from splitnshare.domain.splitting import EqualSplitStrategy, ExactSplitStrategy
 from splitnshare.domain.timezones import SUPPORTED_TIMEZONES
@@ -73,7 +78,11 @@ class UserSettingsService:
         """Initialize the service with validated application defaults."""
         self._uow_factory = uow_factory
         self._default_currency = _normalize_currency(default_currency)
-        self._default_language = default_language
+        self._default_language = (
+            default_language
+            if default_language in SELECTABLE_LANGUAGES
+            else Language.ENGLISH
+        )
 
     async def get_or_create(
         self, person_id: UUID, *, preferred_language: str | None = None
@@ -113,6 +122,11 @@ class UserSettingsService:
             if command.timezone is not None
             else None
         )
+        if (
+            command.language is not None
+            and command.language not in SELECTABLE_LANGUAGES
+        ):
+            raise ValidationError("This interface language is temporarily unavailable.")
         async with self._uow_factory() as uow:
             if await uow.user_settings.get(command.person_id) is None:
                 raise NotFoundError("User settings not found.")
@@ -471,14 +485,15 @@ def _normalize_currency(value: str) -> str:
 
 
 def _supported_language(value: str | None) -> Language | None:
-    """Map a Telegram locale string to a supported interface language."""
+    """Map a Telegram locale string to a currently selectable language."""
     if not value:
         return None
     normalized = value.split("-", 1)[0].split("_", 1)[0].lower()
     try:
-        return Language(normalized)
+        language = Language(normalized)
     except ValueError:
         return None
+    return language if language in SELECTABLE_LANGUAGES else None
 
 
 def _normalize_timezone(value: str) -> str:

@@ -52,9 +52,14 @@ class TransferStatus(StrEnum):
 
 
 class Language(StrEnum):
-    """List languages supported by the Telegram interface."""
+    """List interface languages for which translation catalogs exist."""
     ENGLISH = "en"
     RUSSIAN = "ru"
+
+
+# Russian remains fully translated and database-compatible, but is intentionally
+# absent from this tuple until it is ready to be offered to users again.
+SELECTABLE_LANGUAGES: tuple[Language, ...] = (Language.ENGLISH,)
 
 
 class FriendSource(StrEnum):

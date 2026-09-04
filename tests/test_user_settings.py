@@ -13,6 +13,7 @@ from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.i18n import catalogs, translate
 from splitnshare.presentation.keyboards import (
+    language_keyboard,
     main_menu,
     main_menu_inline_keyboard,
     timezone_keyboard,
@@ -33,7 +34,7 @@ async def settings_services():
     await engine.dispose()
 
 
-async def test_settings_are_created_from_application_and_telegram_defaults(
+async def test_disabled_telegram_language_falls_back_to_application_default(
     settings_services,
 ) -> None:
     users, settings = settings_services
@@ -53,7 +54,7 @@ async def test_settings_are_created_from_application_and_telegram_defaults(
     )
 
     assert created.default_currency == "EUR"
-    assert created.language is Language.RUSSIAN
+    assert created.language is Language.ENGLISH
     assert created.timezone is None
     assert repeated == created
 
@@ -69,14 +70,13 @@ async def test_settings_can_be_updated_and_found_by_telegram_id(settings_service
         UpdateUserSettingsCommand(
             person_id=person.id,
             default_currency="usd",
-            language=Language.RUSSIAN,
             timezone="Europe/Madrid",
         )
     )
     loaded = await settings.find_by_telegram_id(502)
 
     assert updated.default_currency == "USD"
-    assert updated.language is Language.RUSSIAN
+    assert updated.language is Language.ENGLISH
     assert updated.timezone == "Europe/Madrid"
     assert loaded == updated
 
@@ -107,6 +107,22 @@ async def test_settings_reject_unsupported_timezone(settings_services) -> None:
         )
 
 
+async def test_settings_reject_temporarily_disabled_language(settings_services) -> None:
+    users, settings = settings_services
+    person = await users.register_or_update(
+        TelegramIdentity(telegram_user_id=505, first_name="User")
+    )
+    await settings.get_or_create(person.id)
+
+    with pytest.raises(ValidationError):
+        await settings.update(
+            UpdateUserSettingsCommand(
+                person_id=person.id,
+                language=Language.RUSSIAN,
+            )
+        )
+
+
 def test_locales_have_the_same_messages_and_localized_menu() -> None:
     available = catalogs()
     assert set(available[Language.ENGLISH]) == set(available[Language.RUSSIAN])
@@ -116,6 +132,19 @@ def test_locales_have_the_same_messages_and_localized_menu() -> None:
     assert keyboard.keyboard[0][0].text == "➕ Добавить расход"
     assert keyboard.keyboard[1][0].text == "💰 Балансы"
     assert keyboard.keyboard[2][0].text == "⚙️ Настройки"
+
+
+def test_language_keyboard_only_offers_english() -> None:
+    keyboard = language_keyboard(Language.ENGLISH)
+    callbacks = [
+        button.callback_data
+        for row in keyboard.inline_keyboard
+        for button in row
+        if button.callback_data is not None
+    ]
+
+    assert "settings:set_language:en" in callbacks
+    assert "settings:set_language:ru" not in callbacks
 
 
 def test_timezone_keyboard_uses_readable_utc_city_labels() -> None:
