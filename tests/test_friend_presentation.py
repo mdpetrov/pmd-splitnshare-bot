@@ -19,6 +19,7 @@ from splitnshare.presentation.keyboards import (
     guests_keyboard,
 )
 from splitnshare.presentation.routers.people import (
+    _find_telegram_friend,
     _friend_details_text,
     _friends_text,
     _guests_text,
@@ -57,6 +58,30 @@ def test_friends_screen_unifies_registered_and_unregistered_friends() -> None:
         f"friend:view:{unregistered.person_id}"
     )
     assert keyboard.inline_keyboard[-1][0].callback_data == "menu:show"
+
+
+def test_active_telegram_friend_is_detected_before_readding() -> None:
+    telegram_id = 9123
+    telegram_friend = FriendDTO(
+        person_id=uuid4(),
+        display_name="Bob",
+        kind=PersonKind.GUEST,
+        registered=False,
+        source=FriendSource.DIRECT,
+        telegram_user_id=telegram_id,
+    )
+    manual_friend = FriendDTO(
+        person_id=uuid4(),
+        display_name="Bob",
+        kind=PersonKind.GUEST,
+        registered=False,
+        source=FriendSource.DIRECT,
+    )
+
+    assert _find_telegram_friend((manual_friend, telegram_friend), telegram_id) == (
+        telegram_friend
+    )
+    assert _find_telegram_friend((manual_friend,), telegram_id) is None
 
 
 def test_guests_screen_lists_guest_names() -> None:

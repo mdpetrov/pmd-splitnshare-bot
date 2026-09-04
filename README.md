@@ -67,6 +67,8 @@ deterministic splitting, transaction history, and balances.
 - Adding someone does not automatically add the owner to the other user's Friends list.
 - Confirming an expense automatically adds its co-participants to the creator's Friends list.
 - Friends can also be added directly by selecting a Telegram user or entering a name.
+- Selecting an active Telegram contact already present in Friends reports the existing entry
+  instead of presenting the idempotent database operation as a new addition.
 - Repeated additions and repeated expenses never create duplicate friendships.
 - Any friend can be removed after an explicit confirmation.
 - Removing a friend archives only the private friendship: expenses, balances, identities,

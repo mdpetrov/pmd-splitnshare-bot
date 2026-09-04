@@ -368,6 +368,20 @@ async def receive_friend_user(
         return
     owner = await current_person(message, services)
     shared = message.users_shared.users[0]
+    existing_friend = _find_telegram_friend(
+        await services.friends.list_friends(owner.id), shared.user_id
+    )
+    if existing_friend is not None:
+        await state.clear()
+        await message.answer(
+            translate(
+                language,
+                "friend_already_added",
+                name=friend_html(existing_friend),
+            ),
+            reply_markup=main_menu(language),
+        )
+        return
     first_name = getattr(shared, "first_name", None) or f"Telegram user {shared.user_id}"
     try:
         friend = await services.friends.add_shared_user(
@@ -635,6 +649,20 @@ def _friends_text(friendships: tuple[FriendDTO, ...], language: Language) -> str
     lines.append("")
     lines.extend(f"• {friend_html(friend)}" for friend in friendships)
     return "\n".join(lines)
+
+
+def _find_telegram_friend(
+    friendships: Sequence[FriendDTO], telegram_user_id: int
+) -> FriendDTO | None:
+    """Find an active friend by registered or suggested Telegram user ID."""
+    return next(
+        (
+            friend
+            for friend in friendships
+            if friend.telegram_user_id == telegram_user_id
+        ),
+        None,
+    )
 
 
 def _friend_details_text(
