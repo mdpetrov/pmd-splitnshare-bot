@@ -66,3 +66,16 @@ def format_local_datetime_compact(
     local = value.astimezone(ZoneInfo(timezone))
     pattern = "%d.%m.%Y %H:%M" if language is Language.RUSSIAN else "%Y-%m-%d %H:%M"
     return local.strftime(pattern)
+
+
+def format_local_date(
+    value: datetime,
+    timezone: str,
+    language: Language,
+) -> str:
+    """Format only the user-local calendar date for compact activity views."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        value = value.replace(tzinfo=UTC)
+    local = value.astimezone(ZoneInfo(timezone))
+    pattern = "%d.%m.%Y" if language is Language.RUSSIAN else "%Y-%m-%d"
+    return local.strftime(pattern)

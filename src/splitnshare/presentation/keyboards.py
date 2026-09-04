@@ -23,7 +23,10 @@ from splitnshare.application.dto import (
 from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
 from splitnshare.domain.money import Money
 from splitnshare.presentation.callbacks import uuid_token
-from splitnshare.presentation.datetimes import format_local_datetime_compact
+from splitnshare.presentation.datetimes import (
+    format_local_date,
+    format_local_datetime_compact,
+)
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import friend_label, participant_label
 from splitnshare.presentation.timezones import TIMEZONE_CHOICES
@@ -385,7 +388,7 @@ def activity_list_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        format_local_datetime_compact(
+                        format_local_date(
                             item.expense.occurred_at, timezone, language
                         ),
                         _short_button_text(item.expense.description),
@@ -479,7 +482,7 @@ def person_activity_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        format_local_datetime_compact(
+                        format_local_date(
                             item.expense.occurred_at, timezone, language
                         ),
                         _short_button_text(item.expense.description),

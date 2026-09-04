@@ -241,6 +241,9 @@ async def test_activity_combines_expenses_and_settlements_with_person_filtering(
         debtor.id, other_person_id=creditor.id
     )
     debtor_text = activity_text(debtor_page.items[:1], debtor.id, Language.ENGLISH)
+    assert "📅 <b>2026-09-02</b>" in creditor_text
+    assert "12:00" not in creditor_text
+    assert "🤝 <b>Settlement</b>" in creditor_text
     assert "🟢 ▲ Debtor" in creditor_text
     assert "paid you <b>2.00 USD</b>" in creditor_text
     assert "🔴 ▼ You paid Creditor" in debtor_text

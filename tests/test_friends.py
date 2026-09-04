@@ -222,9 +222,10 @@ async def test_transaction_views_include_registered_and_guest_usernames(
     button_text = list_keyboard.inline_keyboard[0][0].text
     assert "Owner (@expense_owner)" in details
     assert "Guest (@expense_guest)" in details
-    assert "You added “Named participants” for <b>10.00 USD</b>" in owner_summary
+    assert "💳 <b>Named participants</b> · <b>10.00 USD</b>" in owner_summary
+    assert "👤 Added by You" in owner_summary
     assert "🟢 ▲ You are owed <b>5.00 USD</b>" in owner_summary
-    assert "Owner (@expense_owner) added “Named participants”" in guest_summary
+    assert "👤 Added by Owner (@expense_owner)" in guest_summary
     assert "🔴 ▼ You owe <b>5.00 USD</b>" in guest_summary
     assert button_text.endswith(" · Named participants")
     assert "10.00 USD" not in button_text

@@ -18,7 +18,7 @@ from splitnshare.application.dto import (
 )
 from splitnshare.domain.enums import Language
 from splitnshare.domain.money import Money
-from splitnshare.presentation.datetimes import format_local_datetime
+from splitnshare.presentation.datetimes import format_local_date, format_local_datetime
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.labels import participant_html
 
@@ -117,21 +117,23 @@ def activity_text(
     timezone: str = "UTC",
     title: str | None = None,
 ) -> str:
-    """Render expenses and settlements as one chronological activity page."""
+    """Render date-grouped expense and settlement cards for an activity page."""
     lines = [title or translate(language, "your_transactions")]
+    current_date: str | None = None
     for item in items:
         if isinstance(item, ExpenseActivityDTO):
-            lines.append(
-                _expense_activity_line(
-                    item.expense, viewer_person_id, language, timezone
-                )
+            occurred_at = item.expense.occurred_at
+            card = _expense_activity_line(
+                item.expense, viewer_person_id, language
             )
         else:
-            lines.append(
-                _settlement_activity_line(
-                    item, viewer_person_id, language, timezone
-                )
-            )
+            occurred_at = item.settlement.occurred_at
+            card = _settlement_activity_line(item, viewer_person_id, language)
+        item_date = format_local_date(occurred_at, timezone, language)
+        if item_date != current_date:
+            lines.append(f"📅 <b>{escape(item_date)}</b>")
+            current_date = item_date
+        lines.append(card)
     return "\n\n".join(lines)
 
 
@@ -139,9 +141,8 @@ def _expense_activity_line(
     expense: ExpenseDTO,
     viewer_person_id: UUID,
     language: Language,
-    timezone: str,
 ) -> str:
-    """Render one expense's viewer-specific financial effect."""
+    """Render one compact expense card with its viewer-specific effect."""
     creator = (
         translate(language, "you")
         if expense.creator_person_id == viewer_person_id
@@ -163,7 +164,6 @@ def _expense_activity_line(
     return translate(
         language,
         "transaction_list_item",
-        date=escape(format_local_datetime(expense.occurred_at, timezone, language)),
         creator=creator,
         description=escape(expense.description),
         total=escape(expense.total.format()),
@@ -181,9 +181,8 @@ def _settlement_activity_line(
     item: SettlementActivityDTO,
     viewer_person_id: UUID,
     language: Language,
-    timezone: str,
 ) -> str:
-    """Render one settlement from the viewer's payment direction."""
+    """Render one compact settlement card from the viewer's direction."""
     settlement = item.settlement
     if viewer_person_id == settlement.payer_person_id:
         relation_key = "activity_settlement_paid"
@@ -211,7 +210,6 @@ def _settlement_activity_line(
     return translate(
         language,
         "activity_settlement_item",
-        date=escape(format_local_datetime(settlement.occurred_at, timezone, language)),
         relation=translate(
             language,
             relation_key,

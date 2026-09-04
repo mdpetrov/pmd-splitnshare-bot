@@ -141,15 +141,19 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "no_expenses": "You do not have any activity yet.",
         "no_active_expenses": "You do not have any activity.",
-        "your_transactions": "Your activity:",
+        "your_transactions": "<b>Your activity</b>",
         "you": "You",
         "transaction_list_item": (
-            "• {date}: {creator} added “{description}” for <b>{total}</b>. {relation}"
+            "💳 <b>{description}</b> · <b>{total}</b>\n"
+            "👤 Added by {creator}\n"
+            "{relation}"
         ),
         "transaction_you_owe": "🔴 ▼ You owe <b>{amount}</b>.",
         "transaction_you_are_owed": "🟢 ▲ You are owed <b>{amount}</b>.",
         "activity_settlement_item": (
-            "• {date}: <b>Settlement</b>. {relation} Recorded by {recorder}."
+            "🤝 <b>Settlement</b>\n"
+            "{relation}\n"
+            "📝 Recorded by {recorder}"
         ),
         "activity_settlement_paid": "🔴 ▼ You paid {name} <b>{amount}</b>.",
         "activity_settlement_received": "🟢 ▲ {name} paid you <b>{amount}</b>.",
@@ -416,16 +420,19 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "no_expenses": "У вас пока нет активности.",
         "no_active_expenses": "У вас нет активности.",
-        "your_transactions": "Ваша активность:",
+        "your_transactions": "<b>Ваша активность</b>",
         "you": "Вы",
         "transaction_list_item": (
-            "• {date}: {creator} добавил(а) транзакцию «{description}» на сумму "
-            "<b>{total}</b>. {relation}"
+            "💳 <b>{description}</b> · <b>{total}</b>\n"
+            "👤 Добавил(а): {creator}\n"
+            "{relation}"
         ),
         "transaction_you_owe": "🔴 ▼ Вы должны <b>{amount}</b>.",
         "transaction_you_are_owed": "🟢 ▲ Вам должны <b>{amount}</b>.",
         "activity_settlement_item": (
-            "• {date}: <b>Расчёт</b>. {relation} Записал(а): {recorder}."
+            "🤝 <b>Расчёт</b>\n"
+            "{relation}\n"
+            "📝 Записал(а): {recorder}"
         ),
         "activity_settlement_paid": "🔴 ▼ Вы заплатили {name} <b>{amount}</b>.",
         "activity_settlement_received": "🟢 ▲ {name} заплатил(а) вам <b>{amount}</b>.",

@@ -13,7 +13,11 @@ from splitnshare.domain.money import Money
 from splitnshare.infrastructure.database import create_session_factory
 from splitnshare.infrastructure.models import Base
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
-from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
+from splitnshare.presentation.datetimes import (
+    format_local_date,
+    format_local_datetime,
+    parse_local_datetime,
+)
 from splitnshare.presentation.keyboards import expense_date_keyboard, person_history_keyboard
 
 
@@ -44,6 +48,9 @@ def test_custom_local_datetime_is_converted_to_utc_and_formatted_back() -> None:
     assert format_local_datetime(
         occurred_at, "Europe/Madrid", Language.ENGLISH
     ) == "2026-09-02 18:30 CEST"
+    assert format_local_date(
+        occurred_at, "Europe/Madrid", Language.ENGLISH
+    ) == "2026-09-02"
 
 
 def test_custom_datetime_can_omit_current_year() -> None:
