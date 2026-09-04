@@ -11,6 +11,8 @@ class AddExpenseStates(StatesGroup):
     custom_date = State()
     participants = State()
     manual_name = State()
+    payer = State()
+    split_method = State()
     exact_amount = State()
     confirm = State()
 

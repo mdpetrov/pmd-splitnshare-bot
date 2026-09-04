@@ -123,10 +123,15 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "enter_total_again": "Enter the total again.",
         "no_participants_remove": "There are no additional participants to remove.",
         "choose_remove": "Choose a participant to remove:",
-        "payer_remove": "The payer cannot be removed.",
+        "payer_remove": "The expense creator must remain a participant.",
         "add_one_participant": "Add at least one other participant.",
+        "choose_payer": "Who paid for this expense?",
+        "payer_selected": "Paid by: <b>{name}</b>",
+        "payer_selection_cancelled": "Choose the participants again.",
         "split_how": "How should the total be split?",
-        "owes_prompt": "How much does {name} owe? Enter 0 if the payer owes nothing.",
+        "owes_prompt": (
+            "How much does {name} owe? Enter 0 if this participant owes nothing."
+        ),
         "owes_next": "How much does {name} owe?",
         "split_again": "Choose the split again when ready.",
         "shares_mismatch": (
@@ -404,10 +409,15 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "enter_total_again": "Введите сумму ещё раз.",
         "no_participants_remove": "Нет дополнительных участников для удаления.",
         "choose_remove": "Выберите участника для удаления:",
-        "payer_remove": "Плательщика нельзя удалить.",
+        "payer_remove": "Создатель расхода должен остаться участником.",
         "add_one_participant": "Добавьте хотя бы одного участника.",
+        "choose_payer": "Кто оплатил этот расход?",
+        "payer_selected": "Оплатил(а): <b>{name}</b>",
+        "payer_selection_cancelled": "Снова выберите участников.",
         "split_how": "Как разделить сумму?",
-        "owes_prompt": "Сколько должен(на) {name}? Введите 0, если плательщик ничего не должен.",
+        "owes_prompt": (
+            "Сколько должен(на) {name}? Введите 0, если этот участник ничего не должен."
+        ),
         "owes_next": "Сколько должен(на) {name}?",
         "split_again": "Когда будете готовы, снова выберите способ разделения.",
         "shares_mismatch": "Сумма долей не равна {total}. Начните снова с {name}.",

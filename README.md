@@ -85,7 +85,8 @@ deterministic splitting, transaction history, and balances.
   custom local date and time interpreted in the creator's configured timezone.
 - Expense occurrence times are stored in UTC and displayed in each viewer's local timezone;
   the separate creation timestamp remains available for auditing.
-- The creator is included as the payer in the current Telegram flow.
+- After choosing participants, the creator selects which participant paid; the creator is
+  presented first as the convenient default choice.
 - Each expense supports 2–10 participants, including the payer.
 - Participants can be added, reviewed, and removed before confirmation.
 - Every multistep stage provides **Back** or **Cancel** navigation where applicable.

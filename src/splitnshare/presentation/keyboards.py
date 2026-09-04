@@ -279,9 +279,53 @@ def split_method_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboa
                     text=translate(language, "exact_amounts"),
                     callback_data="expense:split:exact",
                 ),
-            ]
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"),
+                    callback_data="expense:split:back",
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "cancel"),
+                    callback_data="expense:cancel",
+                ),
+            ],
         ]
     )
+
+
+def expense_payer_keyboard(
+    participants: Sequence[dict[str, str]],
+    creator_id: str,
+    language: Language = Language.ENGLISH,
+) -> InlineKeyboardMarkup:
+    """Offer every selected participant as the expense payer."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=(
+                    f"{translate(language, 'you')} · {participant['name']}"
+                    if participant["id"] == creator_id
+                    else participant["name"]
+                ),
+                callback_data=f"expense:setpayer:{participant['id']}",
+            )
+        ]
+        for participant in participants
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "back"),
+                callback_data="expense:payer:back",
+            ),
+            InlineKeyboardButton(
+                text=translate(language, "cancel"),
+                callback_data="expense:cancel",
+            ),
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMarkup:

@@ -46,6 +46,7 @@ from splitnshare.presentation.keyboards import (
     expense_date_keyboard,
     expense_details_keyboard,
     expense_friends_keyboard,
+    expense_payer_keyboard,
     main_menu,
     participant_keyboard,
     remove_participant_keyboard,
@@ -492,7 +493,7 @@ async def choose_participant_to_remove(
 async def remove_participant(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
-    """Remove a selected non-payer participant from the draft."""
+    """Remove a selected non-creator participant from the draft."""
     if await state.get_state() != AddExpenseStates.participants.state:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
@@ -516,15 +517,100 @@ async def remove_participant(
 async def participants_done(
     message: Message, state: FSMContext, language: Language
 ) -> None:
-    """Validate participant count and request a split method."""
+    """Validate participant count and ask who paid for the expense."""
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) < 2:
         await message.answer(translate(language, "add_one_participant"))
         return
+    await state.set_state(AddExpenseStates.payer)
     await message.answer(
-        translate(language, "split_how"), reply_markup=split_method_keyboard(language)
+        translate(language, "choose_payer"),
+        reply_markup=expense_payer_keyboard(
+            participants, str(data["creator_id"]), language
+        ),
     )
+
+
+@router.callback_query(F.data == "expense:payer:back")
+async def payer_back(
+    callback: CallbackQuery, state: FSMContext, language: Language
+) -> None:
+    """Return from payer selection to participant selection."""
+    if await state.get_state() != AddExpenseStates.payer.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    target_message = callback_message(callback)
+    data = await state.get_data()
+    participants: list[dict[str, str]] = data.get("participants", [])
+    await state.set_state(AddExpenseStates.participants)
+    await target_message.edit_text(translate(language, "payer_selection_cancelled"))
+    await target_message.answer(
+        _participant_summary(participants, language),
+        reply_markup=participant_keyboard(language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("expense:setpayer:"))
+async def choose_payer(
+    callback: CallbackQuery, state: FSMContext, language: Language
+) -> None:
+    """Store a selected participant as payer and request a split method."""
+    if await state.get_state() != AddExpenseStates.payer.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    payload, target_message = callback_payload(callback)
+    data = await state.get_data()
+    participants: list[dict[str, str]] = data.get("participants", [])
+    try:
+        payer_id = str(UUID(payload.rsplit(":", 1)[1]))
+    except ValueError:
+        await callback.answer(
+            translate(language, "person_unavailable"), show_alert=True
+        )
+        return
+    payer = next((item for item in participants if item["id"] == payer_id), None)
+    if payer is None:
+        await callback.answer(
+            translate(language, "person_unavailable"), show_alert=True
+        )
+        return
+    payer_name = (
+        translate(language, "you")
+        if payer_id == str(data["creator_id"])
+        else escape(payer["name"])
+    )
+    await state.update_data(payer_id=payer_id)
+    await state.set_state(AddExpenseStates.split_method)
+    await target_message.edit_text(
+        translate(language, "payer_selected", name=payer_name)
+        + "\n\n"
+        + translate(language, "split_how"),
+        reply_markup=split_method_keyboard(language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "expense:split:back")
+async def split_method_back(
+    callback: CallbackQuery, state: FSMContext, language: Language
+) -> None:
+    """Return from split-method selection to payer selection."""
+    if await state.get_state() != AddExpenseStates.split_method.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    target_message = callback_message(callback)
+    data = await state.get_data()
+    participants: list[dict[str, str]] = data.get("participants", [])
+    await state.set_state(AddExpenseStates.payer)
+    await target_message.edit_text(
+        translate(language, "choose_payer"),
+        reply_markup=expense_payer_keyboard(
+            participants, str(data["creator_id"]), language
+        ),
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data == "expense:split:equal")
@@ -533,9 +619,12 @@ async def choose_equal(
 ) -> None:
     """Allocate the draft equally and show its confirmation preview."""
     target_message = callback_message(callback)
+    if await state.get_state() != AddExpenseStates.split_method.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
     data = await state.get_data()
     participants: list[dict[str, str]] = data.get("participants", [])
-    if len(participants) < 2:
+    if len(participants) < 2 or "payer_id" not in data:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
     allocations = EqualSplitStrategy().allocate(
@@ -561,9 +650,12 @@ async def choose_exact(
 ) -> None:
     """Begin collecting exact participant shares in stable order."""
     target_message = callback_message(callback)
+    if await state.get_state() != AddExpenseStates.split_method.state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
     data = await state.get_data()
     participants: list[dict[str, str]] = data.get("participants", [])
-    if len(participants) < 2:
+    if len(participants) < 2 or "payer_id" not in data:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
     await state.update_data(split_method=SplitMethod.EXACT.value, exact_amounts={}, exact_index=0)
@@ -636,7 +728,7 @@ async def confirm_expense(
     """Create the reviewed expense and notify its registered participants."""
     target_message = callback_message(callback)
     data = await state.get_data()
-    if not data or "split_method" not in data:
+    if not data or not {"split_method", "payer_id"} <= data.keys():
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
     participants = tuple(UUID(item["id"]) for item in data["participants"])
@@ -648,6 +740,7 @@ async def confirm_expense(
         participant_ids=participants,
         split_method=SplitMethod(data["split_method"]),
         context=DirectExpenseContext(),
+        payer_person_id=UUID(data["payer_id"]),
         exact_amounts_minor={UUID(key): value for key, value in exact.items()} if exact else None,
         occurred_at=datetime.fromisoformat(data["occurred_at"]),
     )
@@ -876,7 +969,21 @@ def _review_text(
                 )
             ),
         ),
-        translate(language, "paid_you"),
+        translate(
+            language,
+            "expense_paid_by",
+            name=(
+                translate(language, "you")
+                if str(data["payer_id"]) == str(data["creator_id"])
+                else escape(
+                    next(
+                        item["name"]
+                        for item in participants
+                        if item["id"] == str(data["payer_id"])
+                    )
+                )
+            ),
+        ),
         "",
     ]
     lines.extend(
