@@ -57,6 +57,8 @@ deterministic splitting, transaction history, and balances.
 - Every friend appears as a button opening an extensible detail screen.
 - The detail screen shows the number of active shared transactions and a currency-separated
   balance summary, making the impact of a possible history transfer easier to understand.
+- Every friend detail screen links to shared activity history, including friends whose balance
+  has already been settled.
 - The detail screen supports a private rename, friend removal, and an owner-only
   **Transfer history** fallback for unregistered friends, including manually named profiles.
 - When the hinted Telegram account has registered, the transfer action identifies that

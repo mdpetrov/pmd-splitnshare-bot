@@ -689,9 +689,9 @@ def _friend_details_text(
             "friend_transaction_count",
             count=transaction_count,
         ),
-        translate(language, "friend_total_balance"),
     ]
     if balances:
+        lines.append(translate(language, "friend_total_balance"))
         lines.extend(
             translate(
                 language,

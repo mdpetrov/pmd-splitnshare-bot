@@ -165,6 +165,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "transactions_with": "<b>Activity with {name}</b>",
         "no_transactions_with_person": "There is no activity with this person.",
         "back_to_person_balance": "Back to person balance",
+        "back_to_friend": "Back to friend",
         "back_to_balances": "Back to balances",
         "settle_balance_button": "Settle {name} · {amount}",
         "settle_you_pay": (
@@ -438,6 +439,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "transactions_with": "<b>Активность с {name}</b>",
         "no_transactions_with_person": "С этим человеком нет активности.",
         "back_to_person_balance": "Назад к балансу с человеком",
+        "back_to_friend": "Назад к другу",
         "back_to_balances": "Назад к балансам",
         "settle_balance_button": "Закрыть долг: {name} · {amount}",
         "settle_you_pay": (

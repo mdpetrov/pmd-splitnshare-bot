@@ -14,8 +14,8 @@ from splitnshare.application.dto import (
     ActivityItemDTO,
     BalanceDTO,
     ExpenseActivityDTO,
-    SettlementDTO,
     SettleBalanceCommand,
+    SettlementDTO,
 )
 from splitnshare.domain.contexts import DirectExpenseContext
 from splitnshare.domain.enums import Language
@@ -128,6 +128,7 @@ async def show_person_balance(
 
 
 @router.callback_query(F.data.startswith("balance:history:"))
+@router.callback_query(F.data.startswith("friend:history:"))
 async def show_person_history(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
@@ -135,6 +136,7 @@ async def show_person_history(
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
+    origin = "friend" if payload.startswith("friend:history:") else "balance"
     try:
         other_id = uuid_from_token(payload.rsplit(":", 1)[1])
     except ValueError:
@@ -157,13 +159,18 @@ async def show_person_history(
             settings.timezone or "UTC",
         ),
         reply_markup=person_activity_keyboard(
-            page, other_id, language, settings.timezone or "UTC"
+            page,
+            other_id,
+            language,
+            settings.timezone or "UTC",
+            origin,
         ),
     )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("ba:"))
+@router.callback_query(F.data.startswith("fa:"))
 async def show_person_history_page(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
@@ -171,6 +178,7 @@ async def show_person_history_page(
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
+    origin = "friend" if payload.startswith("fa:") else "balance"
     parts = payload.split(":")
     try:
         if len(parts) != 4:
@@ -197,13 +205,18 @@ async def show_person_history_page(
             settings.timezone or "UTC",
         ),
         reply_markup=person_activity_keyboard(
-            page, other_id, language, settings.timezone or "UTC"
+            page,
+            other_id,
+            language,
+            settings.timezone or "UTC",
+            origin,
         ),
     )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("bhv:"))
+@router.callback_query(F.data.startswith("fhv:"))
 async def view_person_history_expense(
     callback: CallbackQuery, services: Services, language: Language
 ) -> None:
@@ -211,6 +224,7 @@ async def view_person_history_expense(
     if callback.from_user is None:
         return
     payload, target_message = callback_payload(callback)
+    from_friend = payload.startswith("fhv:")
     parts = payload.split(":")
     try:
         if len(parts) != 3:
@@ -235,7 +249,11 @@ async def view_person_history_expense(
             expense,
             person.id,
             language,
-            back_callback=f"balance:history:{uuid_token(other_id)}",
+            back_callback=(
+                f"friend:history:{uuid_token(other_id)}"
+                if from_friend
+                else f"balance:history:{uuid_token(other_id)}"
+            ),
             back_label_key="transaction_history",
         ),
     )

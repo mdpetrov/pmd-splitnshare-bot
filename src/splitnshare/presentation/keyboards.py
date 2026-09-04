@@ -467,9 +467,13 @@ def person_activity_keyboard(
     other_person_id: UUID,
     language: Language = Language.ENGLISH,
     timezone: str = "UTC",
+    origin: str = "balance",
 ) -> InlineKeyboardMarkup:
-    """Build person-scoped expense links and unified activity pagination."""
+    """Build person activity with navigation back to its originating screen."""
     person_token = uuid_token(other_person_id)
+    from_friend = origin == "friend"
+    expense_prefix = "fhv" if from_friend else "bhv"
+    page_prefix = "fa" if from_friend else "ba"
     rows = [
         [
             InlineKeyboardButton(
@@ -482,7 +486,7 @@ def person_activity_keyboard(
                     )
                 ),
                 callback_data=(
-                    f"bhv:{person_token}:{uuid_token(item.expense.id)}"
+                    f"{expense_prefix}:{person_token}:{uuid_token(item.expense.id)}"
                 ),
             )
         ]
@@ -494,15 +498,22 @@ def person_activity_keyboard(
             [
                 InlineKeyboardButton(
                     text=translate(language, "more"),
-                    callback_data=f"ba:{person_token}:{page.next_cursor}",
+                    callback_data=f"{page_prefix}:{person_token}:{page.next_cursor}",
                 )
             ]
         )
     rows.append(
         [
             InlineKeyboardButton(
-                text=translate(language, "back_to_person_balance"),
-                callback_data=f"balance:person:{person_token}",
+                text=translate(
+                    language,
+                    "back_to_friend" if from_friend else "back_to_person_balance",
+                ),
+                callback_data=(
+                    f"friend:view:{other_person_id}"
+                    if from_friend
+                    else f"balance:person:{person_token}"
+                ),
             )
         ]
     )
@@ -792,6 +803,14 @@ def friend_detail_keyboard(
                 )
             ]
         )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "transaction_history"),
+                callback_data=f"friend:history:{uuid_token(friend.person_id)}",
+            )
+        ]
+    )
     rows.append(
         [
             InlineKeyboardButton(
