@@ -10,7 +10,9 @@ from splitnshare.application.dto import (
     BalanceDTO,
     ExpenseActivityDTO,
     ExpenseDTO,
+    PersonDTO,
     SettlementActivityDTO,
+    SettlementDTO,
     TransferPreviewDTO,
     TransferResultDTO,
 )
@@ -217,6 +219,33 @@ def _settlement_activity_line(
             amount=escape(settlement.amount.format()),
         ),
         recorder=recorder,
+    )
+
+
+def settlement_notification_text(
+    settlement: SettlementDTO,
+    recorder: PersonDTO,
+    language: Language = Language.ENGLISH,
+) -> str:
+    """Render a counterparty notification for a recorded settlement."""
+    if settlement.recorded_by_person_id != recorder.id:
+        raise ValueError("Settlement recorder does not match the supplied person.")
+    if settlement.payer_person_id == recorder.id:
+        key = "settlement_notification_recorder_paid"
+    elif settlement.recipient_person_id == recorder.id:
+        key = "settlement_notification_recorder_received"
+    else:
+        raise ValueError("Settlement recorder is not one of its participants.")
+    recorder_label = participant_html(
+        recorder.display_name,
+        recorder.id,
+        recorder.username,
+    )
+    return translate(
+        language,
+        key,
+        recorder=recorder_label,
+        amount=escape(settlement.amount.format()),
     )
 
 

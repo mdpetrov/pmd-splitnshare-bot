@@ -130,6 +130,8 @@ deterministic splitting, transaction history, and balances.
   paid or money they received without manually choosing payer and recipient.
 - Settlements are stored as separate auditable payment records and immediately reduce both
   participants' balances.
+- After a settlement commits, its registered counterparty receives a localized, best-effort
+  notification showing who recorded it, the payment direction, amount, and currency.
 - A settlement cannot exceed the current outstanding amount and never combines currencies.
 - Registered and owner-managed unregistered friends can both participate in settlements.
 - Explicit guest transfer also moves settlement history to the selected registered identity.

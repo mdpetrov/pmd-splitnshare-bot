@@ -5,7 +5,8 @@ from datetime import UTC, datetime
 from html import escape
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -13,6 +14,7 @@ from splitnshare.application.dto import (
     ActivityItemDTO,
     BalanceDTO,
     ExpenseActivityDTO,
+    SettlementDTO,
     SettleBalanceCommand,
 )
 from splitnshare.domain.contexts import DirectExpenseContext
@@ -26,6 +28,7 @@ from splitnshare.presentation.formatters import (
     balances_text,
     expense_text,
     person_balances_text,
+    settlement_notification_text,
 )
 from splitnshare.presentation.helpers import (
     callback_message,
@@ -295,6 +298,7 @@ async def settle_full_balance(
     callback: CallbackQuery,
     state: FSMContext,
     services: Services,
+    bot: Bot,
     language: Language,
 ) -> None:
     """Record a payment for the complete outstanding balance."""
@@ -304,7 +308,7 @@ async def settle_full_balance(
     target_message = callback_message(callback)
     data = await state.get_data()
     try:
-        amount = await _record_settlement(
+        settlement = await _record_settlement(
             services, data, int(data["outstanding_minor"])
         )
     except DomainError:
@@ -315,12 +319,13 @@ async def settle_full_balance(
     actor_id = UUID(str(data["actor_id"]))
     current_balances = await services.balances.get_balances(actor_id)
     await target_message.edit_text(
-        translate(language, "settlement_saved", amount=amount.format())
+        translate(language, "settlement_saved", amount=settlement.amount.format())
         + "\n\n"
         + balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
     await callback.answer()
+    await _notify_settlement_counterparty(bot, services, settlement)
 
 
 @router.callback_query(F.data == "settle:partial")
@@ -364,6 +369,7 @@ async def receive_partial_settlement(
     message: Message,
     state: FSMContext,
     services: Services,
+    bot: Bot,
     language: Language,
 ) -> None:
     """Parse and record a user-entered partial settlement amount."""
@@ -388,7 +394,7 @@ async def receive_partial_settlement(
         )
         return
     try:
-        await _record_settlement(services, data, amount.minor)
+        settlement = await _record_settlement(services, data, amount.minor)
     except DomainError:
         await state.clear()
         await message.answer(translate(language, "settlement_stale"))
@@ -404,6 +410,7 @@ async def receive_partial_settlement(
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
+    await _notify_settlement_counterparty(bot, services, settlement)
 
 
 def _balances_with(
@@ -479,10 +486,10 @@ def _settlement_prompt(balance: BalanceDTO, language: Language) -> str:
 
 async def _record_settlement(
     services: Services, data: dict[str, object], amount_minor: int
-) -> Money:
-    """Persist one direct settlement and return its money value."""
+) -> SettlementDTO:
+    """Persist one direct settlement and return its committed record."""
     amount = Money(amount_minor, str(data["currency"]))
-    await services.settlements.settle(
+    return await services.settlements.settle(
         SettleBalanceCommand(
             actor_person_id=UUID(str(data["actor_id"])),
             other_person_id=UUID(str(data["other_id"])),
@@ -491,4 +498,50 @@ async def _record_settlement(
             occurred_at=datetime.now(UTC),
         )
     )
-    return amount
+
+
+async def _notify_settlement_counterparty(
+    bot: Bot,
+    services: Services,
+    settlement: SettlementDTO,
+) -> None:
+    """Best-effort notify the registered counterparty after settlement commit."""
+    registered = await services.users.list_registered(
+        (
+            settlement.recorded_by_person_id,
+            settlement.payer_person_id,
+            settlement.recipient_person_id,
+        )
+    )
+    people = {person.id: person for person in registered}
+    recorder = people.get(settlement.recorded_by_person_id)
+    counterparty_id = (
+        settlement.recipient_person_id
+        if settlement.payer_person_id == settlement.recorded_by_person_id
+        else settlement.payer_person_id
+    )
+    counterparty = people.get(counterparty_id)
+    if (
+        recorder is None
+        or counterparty is None
+        or counterparty.telegram_user_id is None
+    ):
+        return
+    settings = await services.user_settings.find_by_telegram_id(
+        counterparty.telegram_user_id
+    )
+    counterparty_language = (
+        settings.language if settings is not None else Language.ENGLISH
+    )
+    try:
+        await bot.send_message(
+            counterparty.telegram_user_id,
+            settlement_notification_text(
+                settlement,
+                recorder,
+                counterparty_language,
+            ),
+        )
+    except TelegramAPIError:
+        # The settlement is authoritative; notification delivery is best effort.
+        pass

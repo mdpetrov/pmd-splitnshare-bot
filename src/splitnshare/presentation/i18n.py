@@ -181,6 +181,12 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Enter a positive amount no greater than the outstanding {amount}."
         ),
         "settlement_saved": "Payment of <b>{amount}</b> recorded.",
+        "settlement_notification_recorder_paid": (
+            "{recorder} recorded a settlement: {recorder} paid you <b>{amount}</b>."
+        ),
+        "settlement_notification_recorder_received": (
+            "{recorder} recorded a settlement: you paid {recorder} <b>{amount}</b>."
+        ),
         "settlement_stale": (
             "That balance changed or is no longer available. Open Balances and try again."
         ),
@@ -448,6 +454,12 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Введите положительную сумму не больше остатка {amount}."
         ),
         "settlement_saved": "Платёж <b>{amount}</b> записан.",
+        "settlement_notification_recorder_paid": (
+            "{recorder} записал(а) расчёт: {recorder} заплатил(а) вам <b>{amount}</b>."
+        ),
+        "settlement_notification_recorder_received": (
+            "{recorder} записал(а) расчёт: вы заплатили {recorder} <b>{amount}</b>."
+        ),
         "settlement_stale": (
             "Баланс изменился или больше недоступен. Откройте Балансы и повторите."
         ),
