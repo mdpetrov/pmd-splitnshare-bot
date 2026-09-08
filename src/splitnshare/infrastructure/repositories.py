@@ -659,6 +659,9 @@ class SqlAlchemyGuestRepository:
         target_account, target_person = await _get_registered_row(
             self._session, target_person_id, for_update=True
         )
+        target_telegram_user_id = target_account.telegram_user_id
+        if target_telegram_user_id is None:
+            raise ConflictError("The registered transfer target has no Telegram ID.")
         initiator_account, initiator_person = await _get_registered_row(
             self._session, actor_person_id, for_update=False
         )
@@ -816,7 +819,7 @@ class SqlAlchemyGuestRepository:
         return TransferResultDTO(
             transfer_id=transfer.id,
             target_person_id=target_person.id,
-            target_telegram_user_id=target_account.telegram_user_id,
+            target_telegram_user_id=target_telegram_user_id,
             target_name=target_person.display_name,
             target_username=target_account.username,
             initiator_person_id=initiator_person.id,
