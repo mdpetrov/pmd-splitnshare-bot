@@ -150,6 +150,31 @@ async def test_settlement_changes_only_its_currency(settlement_services) -> None
     assert [(item.currency, item.net_minor) for item in current] == [("EUR", -500)]
 
 
+@pytest.mark.parametrize(
+    ("currency", "total", "share"), [("KRW", "1000", "500"), ("TND", "1.234", "0.617")]
+)
+async def test_new_currency_precision_survives_expense_and_settlement(
+    settlement_services, currency, total, share,
+) -> None:
+    users, _, expenses, settlements, balances, _ = settlement_services
+    creditor = await _register(users, 1201, "Creditor")
+    debtor = await _register(users, 1202, "Debtor")
+    expense = await expenses.create(CreateExpenseCommand(
+        creator_person_id=creditor.id, description="Currency precision",
+        total=Money.parse(total, currency), participant_ids=(creditor.id, debtor.id),
+        split_method=SplitMethod.EQUAL, context=DirectExpenseContext(),
+    ))
+    assert expense.total.format() == f"{total} {currency}"
+    debtor_balance = (await balances.get_balances(debtor.id))[0]
+    assert debtor_balance.net_minor == -Money.parse(share, currency).minor
+    settlement = await settlements.settle(SettleBalanceCommand(
+        actor_person_id=debtor.id, other_person_id=creditor.id,
+        amount=Money.parse(share, currency), context=DirectExpenseContext(),
+    ))
+    assert settlement.amount.format() == f"{share} {currency}"
+    assert await balances.get_balances(debtor.id) == ()
+
+
 async def test_guest_transfer_moves_settlement_history(settlement_services) -> None:
     users, guests, expenses, settlements, balances, _ = settlement_services
     owner = await _register(users, 1105, "Owner")

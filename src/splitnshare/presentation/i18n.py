@@ -41,8 +41,10 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Language: <b>{language}</b>\nTimezone: <b>{timezone}</b>\n\n"
             "The currency is used only when a new expense has no explicit currency."
         ),
-        "choose_currency": "Choose your default currency or enter another ISO code.",
-        "enter_currency": "Enter a three-letter currency code, for example CAD.",
+        "choose_currency": "Choose your default currency. Use /currencies for all supported codes.",
+        "enter_currency": "Enter a supported currency code, such as CAD. See /currencies.",
+        "supported_currencies": "<b>Supported currencies</b>\nMaximum decimal places per currency:",
+        "currency_precision": "<b>{digits} decimal places</b>",
         "currency_saved": "Default currency changed to <b>{currency}</b>.",
         "choose_language": "Choose the interface language.",
         "language_saved": "Language changed to English.",
@@ -131,7 +133,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "timezone_singapore": "UTC+8 (Singapore, Beijing)",
         "timezone_tokyo": "UTC+9 (Tokyo, Seoul)",
         "timezone_sydney": "UTC+10 (Sydney, Melbourne)",
-        "invalid_currency": "Enter exactly three Latin letters, for example CAD.",
+        "invalid_currency": "Unsupported currency. Enter a code such as CAD. See /currencies.",
         "expense_for": "What is this expense for?",
         "back_main": "Back at the main menu.",
         "description_invalid": "Enter a description between 1 and 240 characters.",
@@ -371,8 +373,10 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Язык: <b>{language}</b>\nЧасовой пояс: <b>{timezone}</b>\n\n"
             "Валюта используется только для новых расходов без явно указанной валюты."
         ),
-        "choose_currency": "Выберите валюту по умолчанию или введите другой код ISO.",
-        "enter_currency": "Введите трёхбуквенный код валюты, например CAD.",
+        "choose_currency": "Выберите валюту по умолчанию. Все доступные коды: /currencies.",
+        "enter_currency": "Введите код поддерживаемой валюты, например CAD. Список: /currencies.",
+        "supported_currencies": "<b>Поддерживаемые валюты</b>\nМаксимум знаков после запятой:",
+        "currency_precision": "<b>Знаков после запятой: {digits}</b>",
         "currency_saved": "Валюта по умолчанию изменена на <b>{currency}</b>.",
         "choose_language": "Выберите язык интерфейса.",
         "language_saved": "Язык изменён на русский.",
@@ -463,7 +467,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "timezone_singapore": "UTC+8 (Сингапур, Пекин)",
         "timezone_tokyo": "UTC+9 (Токио, Сеул)",
         "timezone_sydney": "UTC+10 (Сидней, Мельбурн)",
-        "invalid_currency": "Введите ровно три латинские буквы, например CAD.",
+        "invalid_currency": "Валюта не поддерживается. Введите код, например CAD. См. /currencies.",
         "expense_for": "На что был этот расход?",
         "back_main": "Вы вернулись в главное меню.",
         "description_invalid": "Введите описание длиной от 1 до 240 символов.",

@@ -81,7 +81,8 @@ async def test_settings_can_be_updated_and_found_by_telegram_id(settings_service
     assert loaded == updated
 
 
-async def test_settings_reject_invalid_currency(settings_services) -> None:
+@pytest.mark.parametrize("currency", ["EURO", "ZZZ", "BTC", "BGN", "XXX", "XAU"])
+async def test_settings_reject_invalid_currency(settings_services, currency) -> None:
     users, settings = settings_services
     person = await users.register_or_update(
         TelegramIdentity(telegram_user_id=503, first_name="User")
@@ -90,8 +91,9 @@ async def test_settings_reject_invalid_currency(settings_services) -> None:
 
     with pytest.raises(ValidationError):
         await settings.update(
-            UpdateUserSettingsCommand(person_id=person.id, default_currency="EURO")
+            UpdateUserSettingsCommand(person_id=person.id, default_currency=currency)
         )
+    assert (await settings.find_by_telegram_id(503)).default_currency == "EUR"
 
 
 async def test_settings_reject_unsupported_timezone(settings_services) -> None:

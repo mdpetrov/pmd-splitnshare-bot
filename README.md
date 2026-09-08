@@ -33,6 +33,8 @@ deterministic splitting, transaction history, and balances.
   city-based timezone, allowing daylight-saving changes to be applied correctly.
 - Existing users receive `UTC` during migration and may change it from **Settings**.
 - The default currency is used when a new expense has no explicit currency code.
+- Currency settings and expense amounts accept only the 156 codes in the verified currency
+  registry. `/currencies` lists them with their allowed decimal places without clearing a draft.
 - Changing the default currency never converts existing expenses or combines balances.
 - English is currently the only selectable interface language; the Russian translation
   catalog is retained for later reactivation. Other Telegram languages fall back to English.
@@ -108,6 +110,10 @@ deterministic splitting, transaction history, and balances.
 - Exact splitting requires an amount for every participant and rejects totals that do not
   reconcile exactly with the expense total.
 - Money is stored as integer minor units rather than binary floating-point values.
+- Precision follows the supported ISO 4217 registry: for example, KRW and VND use whole units,
+  USD and EUR use two decimal places, and TND and KWD use three. Excess precision is rejected.
+- Currency sources, exclusions, and required upgrade steps are documented in
+  [Supported currencies](docs/currencies.md).
 - Balances and debts remain isolated by ISO currency code; currencies are never combined or
   converted automatically.
 

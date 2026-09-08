@@ -110,7 +110,7 @@ def test_friendship_migration_backfills_existing_expense_participants(
         }
 
     assert rows == [(owner_id, friend_id, "expense")]
-    assert revision == ("20260907_0009",)
+    assert revision == ("20260908_0010",)
     assert "suggested_username" in guest_columns
     assert "alias" in friendship_columns
     assert "timezone" in settings_columns

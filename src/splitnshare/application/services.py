@@ -26,6 +26,7 @@ from splitnshare.application.dto import (
 )
 from splitnshare.application.ports import UnitOfWorkFactory
 from splitnshare.domain.contexts import ExpenseContext
+from splitnshare.domain.currencies import normalize_currency
 from splitnshare.domain.enums import (
     SELECTABLE_LANGUAGES,
     FriendSource,
@@ -84,7 +85,7 @@ class UserSettingsService:
     ) -> None:
         """Initialize the service with validated application defaults."""
         self._uow_factory = uow_factory
-        self._default_currency = _normalize_currency(default_currency)
+        self._default_currency = normalize_currency(default_currency)
         self._default_language = (
             default_language
             if default_language in SELECTABLE_LANGUAGES
@@ -120,7 +121,7 @@ class UserSettingsService:
         ):
             raise ValidationError("At least one setting must be changed.")
         currency = (
-            _normalize_currency(command.default_currency)
+            normalize_currency(command.default_currency)
             if command.default_currency is not None
             else None
         )
@@ -481,14 +482,6 @@ class BalanceQueryService:
         """Calculate balances from active expense debts and settlements."""
         async with self._uow_factory() as uow:
             return await uow.expenses.balances(person_id, context)
-
-
-def _normalize_currency(value: str) -> str:
-    """Normalize and validate a three-letter ASCII currency code."""
-    currency = value.strip().upper()
-    if len(currency) != 3 or not currency.isalpha() or not currency.isascii():
-        raise ValidationError("Currency must be a three-letter ISO code.")
-    return currency
 
 
 def _supported_language(value: str | None) -> Language | None:

@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from splitnshare.application.dto import UpdateUserSettingsCommand, UserSettingsDTO
+from splitnshare.domain.currencies import CURRENCY_EXPONENTS
 from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
 from splitnshare.domain.errors import DomainError
 from splitnshare.presentation.container import Services
@@ -32,6 +33,20 @@ from splitnshare.presentation.timezones import (
 router = Router(name="settings")
 router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
+
+
+@router.message(Command("currencies"))
+async def show_supported_currencies(message: Message, language: Language) -> None:
+    """List accepted currency codes and precision without interrupting a draft."""
+    sections = [translate(language, "supported_currencies")]
+    for exponent in sorted(set(CURRENCY_EXPONENTS.values())):
+        codes = ", ".join(
+            code for code, digits in CURRENCY_EXPONENTS.items() if digits == exponent
+        )
+        sections.append(
+            translate(language, "currency_precision", digits=exponent) + "\n" + codes
+        )
+    await message.answer("\n\n".join(sections))
 
 
 @router.message(Command("settings"))
@@ -117,9 +132,13 @@ async def set_currency(
         await callback.answer("Use /start first.", show_alert=True)
         return
     currency = payload.rsplit(":", 1)[1]
-    updated = await services.user_settings.update(
-        UpdateUserSettingsCommand(person_id=person.id, default_currency=currency)
-    )
+    try:
+        updated = await services.user_settings.update(
+            UpdateUserSettingsCommand(person_id=person.id, default_currency=currency)
+        )
+    except DomainError:
+        await callback.answer(translate(language, "invalid_currency"), show_alert=True)
+        return
     await target_message.edit_text(
         translate(language, "currency_saved", currency=escape(updated.default_currency)),
         reply_markup=settings_keyboard(language),
