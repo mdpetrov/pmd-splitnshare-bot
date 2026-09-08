@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, delete, func, literal, or_, select, union_all
+from sqlalchemy import and_, delete, func, literal, or_, select, union_all, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,7 +113,10 @@ class SqlAlchemyUserRepository:
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
-            .where(UserAccountModel.telegram_user_id == telegram_user_id)
+            .where(
+                UserAccountModel.telegram_user_id == telegram_user_id,
+                PersonModel.inactive_at.is_(None),
+            )
         )
         row = (await self._session.execute(statement)).one_or_none()
         return _person_dto(row[1], row[0]) if row else None
@@ -123,7 +126,11 @@ class SqlAlchemyUserRepository:
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
-            .where(UserAccountModel.person_id == person_id)
+            .where(
+                UserAccountModel.person_id == person_id,
+                UserAccountModel.telegram_user_id.is_not(None),
+                PersonModel.inactive_at.is_(None),
+            )
         )
         if for_update:
             statement = statement.with_for_update()
@@ -141,7 +148,11 @@ class SqlAlchemyUserRepository:
         statement = (
             select(UserAccountModel, PersonModel)
             .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
-            .where(UserAccountModel.person_id.in_(set(person_ids)))
+            .where(
+                UserAccountModel.person_id.in_(set(person_ids)),
+                UserAccountModel.telegram_user_id.is_not(None),
+                PersonModel.inactive_at.is_(None),
+            )
         )
         rows = (await self._session.execute(statement)).all()
         people = {
@@ -153,6 +164,87 @@ class SqlAlchemyUserRepository:
             for person_id in dict.fromkeys(person_ids)
             if person_id in people
         )
+
+    async def anonymize(self, person_id: UUID) -> bool:
+        """Remove identifying account data while preserving shared financial records."""
+        row = (
+            await self._session.execute(
+                select(UserAccountModel, PersonModel)
+                .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
+                .where(UserAccountModel.person_id == person_id)
+                .with_for_update()
+            )
+        ).one_or_none()
+        if row is None:
+            return False
+        account, person = row
+        if account.telegram_user_id is None or person.inactive_at is not None:
+            return False
+
+        now = datetime.now(UTC)
+        telegram_user_id = account.telegram_user_id
+        owned_guest_ids = tuple(
+            await self._session.scalars(
+                select(GuestProfileModel.person_id).where(
+                    GuestProfileModel.owner_person_id == person_id
+                )
+            )
+        )
+        affected_people = (person_id, *owned_guest_ids)
+
+        await self._session.execute(
+            update(GuestProfileModel)
+            .where(
+                GuestProfileModel.suggested_telegram_user_id == telegram_user_id
+            )
+            .values(
+                suggested_telegram_user_id=None,
+                suggested_username=None,
+            )
+        )
+        if owned_guest_ids:
+            await self._session.execute(
+                update(PersonModel)
+                .where(PersonModel.id.in_(owned_guest_ids))
+                .values(
+                    display_name="Deleted participant",
+                    inactive_at=now,
+                    updated_at=now,
+                )
+            )
+            await self._session.execute(
+                update(GuestTransferModel)
+                .where(
+                    GuestTransferModel.source_guest_person_id.in_(owned_guest_ids)
+                )
+                .values(source_name_snapshot="Deleted participant")
+            )
+
+        await self._session.execute(
+            delete(FriendshipModel).where(
+                or_(
+                    FriendshipModel.owner_person_id.in_(affected_people),
+                    FriendshipModel.friend_person_id.in_(affected_people),
+                )
+            )
+        )
+        await self._session.execute(
+            update(GroupMembershipModel)
+            .where(GroupMembershipModel.person_id.in_(affected_people))
+            .values(status=MembershipStatus.INACTIVE, updated_at=now)
+        )
+        await self._session.execute(
+            delete(UserSettingsModel).where(UserSettingsModel.person_id == person_id)
+        )
+
+        person.display_name = "Deleted user"
+        person.inactive_at = now
+        account.telegram_user_id = None
+        account.username = None
+        account.first_name = "Deleted user"
+        account.last_name = None
+        await self._session.flush()
+        return True
 
 
 class SqlAlchemyUserSettingsRepository:
@@ -1500,7 +1592,11 @@ async def _get_registered_row(
     statement = (
         select(UserAccountModel, PersonModel)
         .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
-        .where(UserAccountModel.person_id == person_id)
+        .where(
+            UserAccountModel.person_id == person_id,
+            UserAccountModel.telegram_user_id.is_not(None),
+            PersonModel.inactive_at.is_(None),
+        )
     )
     if for_update:
         statement = statement.with_for_update()
@@ -1515,7 +1611,12 @@ async def _require_registered(session: AsyncSession, person_id: UUID) -> None:
     if not await session.scalar(
         select(func.count())
         .select_from(UserAccountModel)
-        .where(UserAccountModel.person_id == person_id)
+        .join(PersonModel, PersonModel.id == UserAccountModel.person_id)
+        .where(
+            UserAccountModel.person_id == person_id,
+            UserAccountModel.telegram_user_id.is_not(None),
+            PersonModel.inactive_at.is_(None),
+        )
     ):
         raise PermissionDeniedError("A registered bot user is required.")
 
@@ -1601,7 +1702,11 @@ def _person_dto(
         id=person.id,
         display_name=person.display_name,
         kind=person.kind,
-        registered=account is not None,
+        registered=(
+            account is not None
+            and account.telegram_user_id is not None
+            and person.inactive_at is None
+        ),
         username=account.username if account else username,
         telegram_user_id=account.telegram_user_id if account else telegram_user_id,
     )

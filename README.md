@@ -9,6 +9,11 @@ deterministic splitting, transaction history, and balances.
 ### Registration and identity
 
 - `/start` creates or updates the caller's registered Telegram identity.
+- `/privacy` works without registration and explains what data is stored, why it is needed,
+  administrator access, retention, soft deletion, and how to request data access or deletion.
+- `/settings` opens the registered user's currency, language, and timezone settings.
+- `/delete_account` requires explicit confirmation, removes the Telegram identity and private
+  settings, and anonymizes the user while retaining shared financial history.
 - After setup, `/start` shows a visible main menu for expenses, activity, balances,
   friends, and settings. It can also be used to reopen the menu later.
 - The returning-user welcome summarizes total amounts owed and receivable separately for

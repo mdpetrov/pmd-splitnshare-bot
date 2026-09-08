@@ -78,7 +78,9 @@ class UserAccountModel(Base):
     person_id: Mapped[UUID] = mapped_column(
         ForeignKey("persons.id", ondelete="RESTRICT"), primary_key=True
     )
-    telegram_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    telegram_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, unique=True, nullable=True
+    )
     username: Mapped[str | None] = mapped_column(String(64))
     first_name: Mapped[str] = mapped_column(String(64), nullable=False)
     last_name: Mapped[str | None] = mapped_column(String(64))

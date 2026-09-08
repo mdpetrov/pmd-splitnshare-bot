@@ -52,6 +52,50 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "russian": "Russian",
         "main_menu": "Main menu",
         "main_menu_prompt": "<b>Main menu</b>\nChoose what you want to do.",
+        "privacy_notice": (
+            "🔐 <b>Privacy notice</b>\n\n"
+            "<b>Data the bot stores</b>\n"
+            "• Telegram user ID, name, username, and account timestamps.\n"
+            "• Currency, language, and timezone settings.\n"
+            "• Friends and temporary participant profiles.\n"
+            "• Expenses, shares, debts, settlements, group memberships, and transfer "
+            "audit records.\n\n"
+            "<b>Why it is stored</b>\n"
+            "The data is used to maintain activity history, calculate balances, transfer "
+            "temporary profiles, and send requested notifications.\n\n"
+            "<b>Access and processing</b>\n"
+            "Data is stored in the bot operator’s database. Authorized administrators may "
+            "technically access it when required to operate, secure, back up, or repair the "
+            "service. Messages are also processed by Telegram. The bot is not designed to "
+            "sell data or use it for advertising. Bot conversations are not end-to-end "
+            "encrypted Secret Chats.\n\n"
+            "<b>Retention and deletion</b>\n"
+            "Records are retained while the service operates. Deleting an expense currently "
+            "soft-deletes it: it disappears from active history and balances but remains in "
+            "the database for audit purposes. Use /delete_account to remove your Telegram "
+            "link and anonymize your profile. Shared financial and audit records are retained "
+            "because they affect other participants. Contact the bot operator to request "
+            "access, correction, or export.\n\n"
+            "Do not enter bank credentials, payment-card numbers, passwords, or other highly "
+            "sensitive information in expense descriptions."
+        ),
+        "delete_account_warning": (
+            "⚠️ <b>Delete your account?</b>\n\n"
+            "This permanently removes your Telegram link, name, username, settings, and "
+            "Friends list. Guest profiles owned by you are anonymized and disabled.\n\n"
+            "Shared expenses, debts, balances, settlements, group history, and audit records "
+            "remain because deleting them would change other participants’ records. Your "
+            "identity in that history becomes <b>Deleted user</b>.\n\n"
+            "This cannot be undone. Using /start later creates a new, empty account."
+        ),
+        "confirm_delete_account": "Delete account permanently",
+        "keep_account": "Keep my account",
+        "delete_account_complete": (
+            "Your account was deleted and anonymized. Shared financial history was retained "
+            "under “Deleted user”. You can use /start to create a new account."
+        ),
+        "delete_account_cancelled": "Account deletion cancelled.",
+        "delete_account_expired": "This account-deletion request is no longer active.",
         "currency": "💱 Currency",
         "language": "🌐 Language",
         "timezone": "🕒 Timezone",
@@ -338,6 +382,52 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "russian": "Русский",
         "main_menu": "Главное меню",
         "main_menu_prompt": "<b>Главное меню</b>\nВыберите действие.",
+        "privacy_notice": (
+            "🔐 <b>Уведомление о конфиденциальности</b>\n\n"
+            "<b>Какие данные хранит бот</b>\n"
+            "• Telegram ID, имя, имя пользователя и временные метки учётной записи.\n"
+            "• Настройки валюты, языка и часового пояса.\n"
+            "• Друзей и временные профили участников.\n"
+            "• Расходы, доли, долги, расчёты, членство в группах и аудит переносов.\n\n"
+            "<b>Зачем они хранятся</b>\n"
+            "Данные используются для ведения истории, расчёта балансов, переноса временных "
+            "профилей и отправки запрошенных уведомлений.\n\n"
+            "<b>Доступ и обработка</b>\n"
+            "Данные хранятся в базе данных оператора бота. Авторизованные администраторы "
+            "могут технически получить к ним доступ для работы, защиты, резервного "
+            "копирования или восстановления сервиса. Сообщения также обрабатываются "
+            "Telegram. Бот не предназначен для продажи данных или использования их в "
+            "рекламе. Диалоги с ботом не являются секретными чатами со сквозным шифрованием.\n\n"
+            "<b>Хранение и удаление</b>\n"
+            "Записи хранятся, пока работает сервис. Удаление расхода сейчас является мягким: "
+            "он исчезает из активной истории и балансов, но остаётся в базе данных для "
+            "аудита. Используйте /delete_account, чтобы удалить привязку Telegram и "
+            "анонимизировать профиль. Общие финансовые записи и аудит сохраняются, потому "
+            "что они затрагивают других участников. Обратитесь к оператору бота, чтобы "
+            "запросить доступ, исправление или экспорт.\n\n"
+            "Не вводите банковские данные, номера платёжных карт, пароли или другую особо "
+            "конфиденциальную информацию в описаниях расходов."
+        ),
+        "delete_account_warning": (
+            "⚠️ <b>Удалить вашу учётную запись?</b>\n\n"
+            "Это навсегда удалит привязку Telegram, имя, имя пользователя, настройки и "
+            "список друзей. Принадлежащие вам гостевые профили будут анонимизированы и "
+            "отключены.\n\n"
+            "Общие расходы, долги, балансы, расчёты, история групп и аудит сохранятся, так "
+            "как их удаление изменило бы записи других участников. В этой истории ваше имя "
+            "будет заменено на <b>Удалённый пользователь</b>.\n\n"
+            "Это действие нельзя отменить. Если позже использовать /start, будет создана "
+            "новая пустая учётная запись."
+        ),
+        "confirm_delete_account": "Удалить учётную запись навсегда",
+        "keep_account": "Сохранить мою учётную запись",
+        "delete_account_complete": (
+            "Ваша учётная запись удалена и анонимизирована. Общая финансовая история "
+            "сохранена под именем «Удалённый пользователь». Используйте /start, чтобы "
+            "создать новую учётную запись."
+        ),
+        "delete_account_cancelled": "Удаление учётной записи отменено.",
+        "delete_account_expired": "Этот запрос на удаление больше не активен.",
         "currency": "💱 Валюта",
         "language": "🌐 Язык",
         "timezone": "🕒 Часовой пояс",

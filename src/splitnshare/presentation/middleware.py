@@ -7,7 +7,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, User
 
 from splitnshare.application.services import UserSettingsService
-from splitnshare.domain.enums import Language
+from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
 
 
 class UserSettingsMiddleware(BaseMiddleware):
@@ -40,7 +40,10 @@ def _telegram_language(user: User | None) -> Language:
     if user is not None and user.language_code:
         code = user.language_code.split("-", 1)[0].lower()
         try:
-            return Language(code)
+            language = Language(code)
         except ValueError:
             pass
+        else:
+            if language in SELECTABLE_LANGUAGES:
+                return language
     return Language.ENGLISH

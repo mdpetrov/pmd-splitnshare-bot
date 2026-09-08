@@ -49,6 +49,10 @@ class UserRepository(Protocol):
         """Return registered accounts among the supplied participant IDs."""
         ...
 
+    async def anonymize(self, person_id: UUID) -> bool:
+        """Deactivate and anonymize an account while retaining shared history."""
+        ...
+
 
 class UserSettingsRepository(Protocol):
     """Persist locale, currency, and timezone settings for registered users."""

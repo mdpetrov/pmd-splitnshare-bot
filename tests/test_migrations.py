@@ -104,9 +104,13 @@ def test_friendship_migration_backfills_existing_expense_participants(
         settlement_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(settlements)")
         }
+        account_columns = {
+            row[1]: row
+            for row in connection.execute("PRAGMA table_info(user_accounts)")
+        }
 
     assert rows == [(owner_id, friend_id, "expense")]
-    assert revision == ("20260902_0008",)
+    assert revision == ("20260907_0009",)
     assert "suggested_username" in guest_columns
     assert "alias" in friendship_columns
     assert "timezone" in settings_columns
@@ -121,3 +125,4 @@ def test_friendship_migration_backfills_existing_expense_participants(
         "currency",
         "occurred_at",
     } <= settlement_columns
+    assert account_columns["telegram_user_id"][3] == 0

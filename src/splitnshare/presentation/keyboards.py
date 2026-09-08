@@ -745,6 +745,26 @@ def guests_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def delete_account_confirm_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Require explicit confirmation before irreversible account anonymization."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "confirm_delete_account"),
+                    callback_data="account:delete:confirm",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "keep_account"),
+                    callback_data="account:delete:cancel",
+                )
+            ],
+        ]
+    )
+
+
 def registered_friends_keyboard(
     friends: Sequence[FriendDTO], language: Language
 ) -> InlineKeyboardMarkup:

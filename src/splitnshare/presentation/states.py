@@ -44,3 +44,9 @@ class FriendStates(StatesGroup):
     choosing = State()
     manual_name = State()
     renaming = State()
+
+
+class DeleteAccountStates(StatesGroup):
+    """Require explicit confirmation before anonymizing a user account."""
+
+    confirm = State()

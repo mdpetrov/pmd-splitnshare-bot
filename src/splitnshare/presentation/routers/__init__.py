@@ -4,9 +4,11 @@ from aiogram import Router
 from aiogram.types import ErrorEvent
 
 from splitnshare.domain.errors import DomainError
+from splitnshare.presentation.routers.account import router as account_router
 from splitnshare.presentation.routers.balances import router as balances_router
 from splitnshare.presentation.routers.expenses import router as expenses_router
 from splitnshare.presentation.routers.people import router as friends_router
+from splitnshare.presentation.routers.privacy import router as privacy_router
 from splitnshare.presentation.routers.settings import router as settings_router
 from splitnshare.presentation.routers.start import router as start_router
 
@@ -15,7 +17,13 @@ def build_router() -> Router:
     """Combine every private-chat feature router under one root router."""
     router = Router(name="root")
     router.include_routers(
-        start_router, settings_router, expenses_router, friends_router, balances_router
+        start_router,
+        privacy_router,
+        account_router,
+        settings_router,
+        expenses_router,
+        friends_router,
+        balances_router,
     )
 
     @router.error()
