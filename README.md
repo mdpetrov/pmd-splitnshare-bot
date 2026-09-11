@@ -89,6 +89,15 @@ deterministic splitting, transaction history, and balances.
 
 ### Expense creation
 
+- Active conversation steps and entered values are stored in PostgreSQL and survive bot restarts.
+- **Drafts** (or `/drafts`) lists unfinished expenses. Users can resume the saved step, reopen
+  fields with **Edit**, or explicitly delete a draft after confirmation.
+- Starting another expense, opening the main menu, using `/start`, or cancelling an expense
+  keeps its draft. Multiple unfinished expenses can be kept independently.
+- Drafts are checkpointed after each accepted input and do not affect history or balances.
+- Saving an expense consumes its draft in the same database transaction. Account deletion
+  removes the account's conversation state and drafts along with its other private data.
+
 - The **Add expense** flow collects a description, total, optional ISO currency code, and
   participants.
 - The flow records when the expense happened using **Now**, relative-time presets, or a
@@ -199,8 +208,10 @@ deterministic splitting, transaction history, and balances.
 - Recurring expenses.
 - AI-assisted expense parsing.
 
-The current FSM storage is in memory and is intended for a single bot process. Durable FSM
-storage such as Redis will be needed before running multiple bot instances.
+FSM state and expense drafts use the existing PostgreSQL database and its persistent disk volume.
+No Redis service or separate local draft files are required. The bot still runs as a single
+polling process; per-conversation event isolation prevents overlapping updates in that process.
+See [Persistent drafts](docs/drafts.md) for deployment and recovery details.
 
 ## Automated coverage
 

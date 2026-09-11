@@ -13,6 +13,20 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "balances": "💰 Balances",
         "friends": "👥 Friends",
         "settings": "⚙️ Settings",
+        "drafts": "📝 Drafts",
+        "drafts_help": (
+            "<b>Unfinished expenses</b>\nSelect a draft to resume where you left off. "
+            "Edit reopens its fields; Delete requires confirmation. "
+            "Drafts are saved automatically, including when you start another expense."
+        ),
+        "drafts_empty": "You have no unfinished expenses.",
+        "untitled_draft": "New expense",
+        "edit_draft": "Edit",
+        "save_draft_exit": "Save draft & exit",
+        "draft_paused": "Your unfinished expense is saved. Open Drafts to continue.",
+        "cancelled_drafts_kept": "Cancelled. Unfinished expenses remain available in Drafts.",
+        "discard_draft_question": "Delete this unfinished expense? This cannot be undone.",
+        "draft_current_description": "Saved description: {value}\nEnter a description to continue.",
         "cancel": "Cancel",
         "back": "Back",
         "add_manual": "Add person by name",
@@ -59,6 +73,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "<b>Data the bot stores</b>\n"
             "• Telegram user ID, name, username, and account timestamps.\n"
             "• Currency, language, and timezone settings.\n"
+            "• Unfinished expense drafts and active conversation steps.\n"
             "• Friends and temporary participant profiles.\n"
             "• Expenses, shares, debts, settlements, group memberships, and transfer "
             "audit records.\n\n"
@@ -352,6 +367,20 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "balances": "💰 Балансы",
         "friends": "👥 Друзья",
         "settings": "⚙️ Настройки",
+        "drafts": "📝 Черновики",
+        "drafts_help": (
+            "<b>Незавершённые расходы</b>\nВыберите черновик, чтобы продолжить. "
+            "Кнопка «Изменить» открывает поля заново; удаление требует подтверждения. "
+            "Черновики сохраняются автоматически, в том числе при создании другого расхода."
+        ),
+        "drafts_empty": "У вас нет незавершённых расходов.",
+        "untitled_draft": "Новый расход",
+        "edit_draft": "Изменить",
+        "save_draft_exit": "Сохранить черновик и выйти",
+        "draft_paused": "Незавершённый расход сохранён. Откройте Черновики, чтобы продолжить.",
+        "cancelled_drafts_kept": "Отменено. Незавершённые расходы доступны в Черновиках.",
+        "discard_draft_question": "Удалить этот незавершённый расход? Это действие нельзя отменить.",
+        "draft_current_description": "Сохранённое описание: {value}\nВведите описание для продолжения.",
         "cancel": "Отмена",
         "back": "Назад",
         "add_manual": "Добавить человека по имени",
@@ -398,6 +427,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "<b>Какие данные хранит бот</b>\n"
             "• Telegram ID, имя, имя пользователя и временные метки учётной записи.\n"
             "• Настройки валюты, языка и часового пояса.\n"
+            "• Черновики расходов и текущие этапы диалога.\n"
             "• Друзей и временные профили участников.\n"
             "• Расходы, доли, долги, расчёты, членство в группах и аудит переносов.\n\n"
             "<b>Зачем они хранятся</b>\n"

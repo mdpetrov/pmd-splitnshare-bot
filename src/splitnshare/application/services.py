@@ -325,6 +325,7 @@ class ExpenseService:
                 payer_person_id=payer_id,
                 exact_amounts_minor=command.exact_amounts_minor,
                 occurred_at=occurred_at,
+                draft_id=command.draft_id,
             ),
             payer_person_id=payer_id,
             allocations=tuple(allocations),

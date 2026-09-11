@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum as PythonEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -59,6 +60,30 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ConversationStateModel(TimestampMixin, Base):
+    """Persist a Telegram conversation's active state and entered data."""
+
+    __tablename__ = "conversation_states"
+
+    key: Mapped[str] = mapped_column(String(512), primary_key=True)
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    state: Mapped[str | None] = mapped_column(String(100))
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class ExpenseDraftModel(TimestampMixin, Base):
+    """Keep unfinished expense snapshots independently of the active conversation."""
+
+    __tablename__ = "expense_drafts"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    conversation_key: Mapped[str] = mapped_column(
+        ForeignKey("conversation_states.key", ondelete="CASCADE"), index=True, nullable=False
+    )
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
 
 class PersonModel(TimestampMixin, Base):

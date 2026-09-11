@@ -54,7 +54,9 @@ from splitnshare.domain.errors import (
 )
 from splitnshare.domain.money import Money
 from splitnshare.infrastructure.models import (
+    ConversationStateModel,
     DebtModel,
+    ExpenseDraftModel,
     ExpenseModel,
     ExpenseSplitModel,
     FriendshipModel,
@@ -188,6 +190,19 @@ class SqlAlchemyUserRepository:
 
         now = datetime.now(UTC)
         telegram_user_id = account.telegram_user_id
+        conversation_keys = select(ConversationStateModel.key).where(
+            ConversationStateModel.telegram_user_id == telegram_user_id
+        )
+        await self._session.execute(
+            delete(ExpenseDraftModel).where(
+                ExpenseDraftModel.conversation_key.in_(conversation_keys)
+            )
+        )
+        await self._session.execute(
+            delete(ConversationStateModel).where(
+                ConversationStateModel.telegram_user_id == telegram_user_id
+            )
+        )
         owned_guest_ids = tuple(
             await self._session.scalars(
                 select(GuestProfileModel.person_id).where(
@@ -906,6 +921,13 @@ class SqlAlchemyExpenseRepository:
         """Insert an expense with its participant splits and derived debts."""
         command = record.command
         await _require_registered(self._session, command.creator_person_id)
+        draft = None
+        if command.draft_id is not None:
+            draft = await self._session.get(
+                ExpenseDraftModel, command.draft_id, with_for_update=True
+            )
+            if draft is None or draft.data.get("creator_id") != str(command.creator_person_id):
+                raise ConflictError("This draft has already been saved or is no longer available.")
         rows = (
             await self._session.execute(
                 select(PersonModel.id, PersonModel.inactive_at).where(
@@ -971,6 +993,14 @@ class SqlAlchemyExpenseRepository:
                     )
                 )
         await self._session.flush()
+        if draft is not None:
+            conversation = await self._session.get(
+                ConversationStateModel, draft.conversation_key, with_for_update=True
+            )
+            if conversation is not None and conversation.data.get("draft_id") == str(draft.id):
+                conversation.state, conversation.data = None, {}
+            await self._session.delete(draft)
+            await self._session.flush()
         return await self._to_dto(expense)
 
     async def soft_delete(self, actor_person_id: UUID, expense_id: UUID) -> bool:

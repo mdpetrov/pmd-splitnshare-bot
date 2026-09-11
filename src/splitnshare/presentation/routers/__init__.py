@@ -6,6 +6,7 @@ from aiogram.types import ErrorEvent
 from splitnshare.domain.errors import DomainError
 from splitnshare.presentation.routers.account import router as account_router
 from splitnshare.presentation.routers.balances import router as balances_router
+from splitnshare.presentation.routers.drafts import router as drafts_router
 from splitnshare.presentation.routers.expenses import router as expenses_router
 from splitnshare.presentation.routers.people import router as friends_router
 from splitnshare.presentation.routers.privacy import router as privacy_router
@@ -21,6 +22,7 @@ def build_router() -> Router:
         privacy_router,
         account_router,
         settings_router,
+        drafts_router,
         expenses_router,
         friends_router,
         balances_router,

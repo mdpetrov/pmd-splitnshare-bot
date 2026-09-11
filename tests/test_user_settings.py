@@ -183,6 +183,7 @@ def test_main_menu_has_all_primary_actions() -> None:
         "menu:balances",
         "menu:friends",
         "menu:settings",
+        "menu:drafts",
     }
     assert "📋 Activity" in labels
     assert "📋 Transactions" not in labels

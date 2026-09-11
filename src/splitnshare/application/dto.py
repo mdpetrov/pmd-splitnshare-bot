@@ -95,6 +95,7 @@ class CreateExpenseCommand:
     payer_person_id: UUID | None = None
     exact_amounts_minor: dict[UUID, int] | None = None
     occurred_at: datetime | None = None
+    draft_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)

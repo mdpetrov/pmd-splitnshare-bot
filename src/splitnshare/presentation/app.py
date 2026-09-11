@@ -3,7 +3,7 @@
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.memory import SimpleEventIsolation
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from splitnshare.application.services import (
@@ -20,9 +20,10 @@ from splitnshare.application.services import (
 from splitnshare.config import Settings
 from splitnshare.domain.enums import Language
 from splitnshare.infrastructure.database import create_engine, create_session_factory
+from splitnshare.infrastructure.fsm_storage import SqlAlchemyFSMStorage
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.container import Services
-from splitnshare.presentation.middleware import UserSettingsMiddleware
+from splitnshare.presentation.middleware import DraftNavigationMiddleware, UserSettingsMiddleware
 from splitnshare.presentation.routers import build_router
 
 
@@ -51,7 +52,12 @@ def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dispatcher = Dispatcher(storage=MemoryStorage(), services=services)
+    dispatcher = Dispatcher(
+        storage=SqlAlchemyFSMStorage(session_factory),
+        events_isolation=SimpleEventIsolation(),
+        services=services,
+    )
     dispatcher.update.outer_middleware(UserSettingsMiddleware(user_settings))
+    dispatcher.update.outer_middleware(DraftNavigationMiddleware())
     dispatcher.include_router(build_router())
     return bot, dispatcher, engine

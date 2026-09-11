@@ -102,4 +102,6 @@ async def cancel(message: Message, state: FSMContext, language: Language) -> Non
         )
         return
     await state.clear()
-    await message.answer(translate(language, "cancelled"), reply_markup=main_menu(language))
+    await message.answer(
+        translate(language, "cancelled_drafts_kept"), reply_markup=main_menu(language)
+    )

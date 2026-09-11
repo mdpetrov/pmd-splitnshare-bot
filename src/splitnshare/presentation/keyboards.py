@@ -56,6 +56,7 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
             ],
             [
                 KeyboardButton(text=translate(language, "settings")),
+                KeyboardButton(text=translate(language, "drafts")),
             ],
         ],
         resize_keyboard=True,
@@ -90,7 +91,10 @@ def main_menu_inline_keyboard(language: Language) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=translate(language, "settings"),
                     callback_data="menu:settings",
-                )
+                ),
+                InlineKeyboardButton(
+                    text=translate(language, "drafts"), callback_data="menu:drafts",
+                ),
             ],
         ]
     )
@@ -361,18 +365,21 @@ def remove_participant_keyboard(
     )
 
 
-def expense_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
+def expense_confirm_keyboard(
+    language: Language = Language.ENGLISH, draft_id: str | None = None,
+) -> InlineKeyboardMarkup:
     """Build final confirmation and cancellation actions for an expense."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=translate(language, "confirm"), callback_data="expense:confirm"
+                    text=translate(language, "confirm"),
+                    callback_data=f"expense:confirm:{draft_id}" if draft_id else "expense:confirm",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=translate(language, "cancel"), callback_data="expense:cancel"
+                    text=translate(language, "save_draft_exit"), callback_data="expense:cancel"
                 )
             ],
         ]

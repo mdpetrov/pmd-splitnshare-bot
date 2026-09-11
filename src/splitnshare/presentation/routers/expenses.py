@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, ReplyKeyboardMarkup
 
 from splitnshare.application.dto import (
     CreateExpenseCommand,
@@ -19,7 +19,7 @@ from splitnshare.application.dto import (
 )
 from splitnshare.domain.contexts import DirectExpenseContext
 from splitnshare.domain.enums import Language, SplitMethod
-from splitnshare.domain.errors import DomainError
+from splitnshare.domain.errors import DomainError, ValidationError
 from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import EqualSplitStrategy
 from splitnshare.presentation.container import Services
@@ -61,6 +61,68 @@ router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
 
 
+async def render_expense_draft(message: Message, state: FSMContext, language: Language) -> None:
+    """Recreate the current expense prompt from persisted values without resetting them."""
+    step = await state.get_state()
+    data = await state.get_data()
+    participants = data.get("participants", [])
+    markup: InlineKeyboardMarkup | ReplyKeyboardMarkup = cancel_keyboard(language)
+    if step == AddExpenseStates.exact_amount.state:
+        index = int(data.get("exact_index", 0))
+        if index >= len(participants):
+            if sum(data.get("exact_amounts", {}).values()) == data.get("total_minor"):
+                await state.set_state(AddExpenseStates.confirm)
+                step = AddExpenseStates.confirm.state
+            else:
+                await state.update_data(exact_index=0)
+                data["exact_index"] = 0
+    if step == AddExpenseStates.description.state:
+        text = translate(language, "expense_for")
+        if data.get("description"):
+            text += "\n\n" + translate(
+                language, "draft_current_description", value=escape(data["description"])
+            )
+        markup = cancel_keyboard(language, include_back=False)
+    elif step == AddExpenseStates.total.state:
+        text = translate(language, "enter_total")
+        if "total_minor" in data:
+            text += "\n\n" + Money(data["total_minor"], data["currency"]).format()
+    elif step == AddExpenseStates.expense_date.state:
+        text, markup = translate(language, "choose_expense_date"), expense_date_keyboard(language)
+    elif step == AddExpenseStates.custom_date.state:
+        text = translate(
+            language, "enter_custom_date",
+            timezone=escape(timezone_label(data.get("timezone", "UTC"), language)),
+        )
+    elif step == AddExpenseStates.participants.state:
+        text, markup = _participant_summary(participants, language), participant_keyboard(language)
+    elif step == AddExpenseStates.manual_name.state:
+        text = translate(language, "guest_name")
+    elif step == AddExpenseStates.payer.state:
+        text = translate(language, "choose_payer")
+        markup = expense_payer_keyboard(participants, data["creator_id"], language)
+    elif step == AddExpenseStates.split_method.state:
+        text, markup = translate(language, "split_how"), split_method_keyboard(language)
+    elif step == AddExpenseStates.exact_amount.state:
+        index = int(data.get("exact_index", 0))
+        if not participants:
+            raise ValidationError("Draft participants are missing. Edit the draft to continue.")
+        text = translate(language, "owes_next", name=escape(participants[index]["name"]))
+    elif step == AddExpenseStates.confirm.state:
+        if data["split_method"] == SplitMethod.EQUAL.value:
+            allocations = EqualSplitStrategy().allocate(
+                data["total_minor"], [UUID(item["id"]) for item in participants]
+            )
+            amounts = {str(item.person_id): item.owed_minor for item in allocations}
+        else:
+            amounts = data["exact_amounts"]
+        text = _review_text(data, participants, amounts, language)
+        markup = expense_confirm_keyboard(language, data["draft_id"])
+    else:
+        raise ValidationError("This draft step is unavailable. Edit the draft to continue.")
+    await message.answer(text, reply_markup=markup)
+
+
 @router.message(F.text.in_(button_values("add_expense")))
 async def begin_expense(
     message: Message, state: FSMContext, services: Services, language: Language
@@ -69,6 +131,7 @@ async def begin_expense(
     person = await current_person(message, services)
     await state.clear()
     await state.update_data(
+        draft_id=str(uuid4()),
         creator_id=str(person.id),
         participants=[
             {
@@ -101,6 +164,7 @@ async def begin_expense_callback(
         return
     await state.clear()
     await state.update_data(
+        draft_id=str(uuid4()),
         creator_id=str(person.id),
         participants=[
             {
@@ -639,7 +703,7 @@ async def choose_equal(
             {str(a.person_id): a.owed_minor for a in allocations},
             language,
         ),
-        reply_markup=expense_confirm_keyboard(language),
+        reply_markup=expense_confirm_keyboard(language, data.get("draft_id")),
     )
     await callback.answer()
 
@@ -684,6 +748,9 @@ async def receive_exact_amount(
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     index: int = data["exact_index"]
+    if index >= len(participants):
+        await render_expense_draft(message, state, language)
+        return
     total = Money(data["total_minor"], data["currency"])
     try:
         amount = parse_share_minor(message.text or "", total)
@@ -713,11 +780,11 @@ async def receive_exact_amount(
     await state.set_state(AddExpenseStates.confirm)
     await message.answer(
         _review_text(data, participants, exact, language),
-        reply_markup=expense_confirm_keyboard(language),
+        reply_markup=expense_confirm_keyboard(language, data.get("draft_id")),
     )
 
 
-@router.callback_query(F.data == "expense:confirm")
+@router.callback_query(F.data.startswith("expense:confirm"))
 async def confirm_expense(
     callback: CallbackQuery,
     state: FSMContext,
@@ -728,7 +795,13 @@ async def confirm_expense(
     """Create the reviewed expense and notify its registered participants."""
     target_message = callback_message(callback)
     data = await state.get_data()
-    if not data or not {"split_method", "payer_id"} <= data.keys():
+    draft_id = data.get("draft_id")
+    if (
+        await state.get_state() != AddExpenseStates.confirm.state
+        or not draft_id
+        or callback.data != f"expense:confirm:{draft_id}"
+        or not {"split_method", "payer_id"} <= data.keys()
+    ):
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
     participants = tuple(UUID(item["id"]) for item in data["participants"])
@@ -743,6 +816,7 @@ async def confirm_expense(
         payer_person_id=UUID(data["payer_id"]),
         exact_amounts_minor={UUID(key): value for key, value in exact.items()} if exact else None,
         occurred_at=datetime.fromisoformat(data["occurred_at"]),
+        draft_id=UUID(draft_id),
     )
     try:
         expense = await services.expenses.create(command)
@@ -765,11 +839,11 @@ async def confirm_expense(
 async def cancel_expense_callback(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
-    """Cancel an inline expense draft and restore the main reply menu."""
+    """Pause an inline expense draft and restore the main reply menu."""
     target_message = callback_message(callback)
     await state.clear()
     await target_message.answer(
-        translate(language, "cancelled"), reply_markup=main_menu(language)
+        translate(language, "draft_paused"), reply_markup=main_menu(language)
     )
     await callback.answer()
 
