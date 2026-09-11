@@ -144,7 +144,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "expense_for": "What is this expense for?",
         "back_main": "Back at the main menu.",
         "description_invalid": "Enter a description between 1 and 240 characters.",
-        "enter_total": "Enter the total, for example 12.50 or 12.50 USD.",
+        "enter_total": "Enter the total, for example 12.50 or 15 USD.",
         "choose_expense_date": "When did this expense happen?",
         "date_now": "Now",
         "date_30_minutes_ago": "30 min ago",
@@ -266,7 +266,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "is also available for manual profiles or as a fallback: it replaces the profile "
             "with one registered user across every expense, balance, friendship, and group "
             "membership. It does not send money or merge groups, requires confirmation, and "
-            "cannot currently be reversed."
+            "cannot be reversed."
         ),
         "registration_suggestion": (
             "↳ Telegram account is registered as {target}. Review this remaining profile "
