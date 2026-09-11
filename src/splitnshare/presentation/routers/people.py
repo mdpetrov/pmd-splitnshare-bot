@@ -581,7 +581,7 @@ async def confirm_transfer(
     bot: Bot,
     language: Language,
 ) -> None:
-    """Commit the confirmed guest transfer and notify its target."""
+    """Commit the guest transfer and notify its target only when expenses moved."""
     target_message = callback_message(callback)
     data = await state.get_data()
     if "target_id" not in data:
@@ -610,6 +610,9 @@ async def confirm_transfer(
         ),
         reply_markup=main_menu(language),
     )
+    if result.affected_counts["expenses"] == 0:
+        await callback.answer()
+        return
     try:
         target_settings = await services.user_settings.find_by_telegram_id(
             result.target_telegram_user_id

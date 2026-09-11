@@ -183,9 +183,11 @@ deterministic splitting, transaction history, and balances.
 - When both already belong to a group, the target's existing membership and role are
   preserved.
 - A completed guest becomes inactive and cannot be selected for new expenses.
-- The target receives a best-effort informational Telegram message after a successful
-  transfer naming its initiator and showing active transferred expense totals separately by
-  currency; their approval is not required.
+- The target receives a best-effort informational Telegram message only when a successful
+  transfer includes at least one expense. Transfers with zero expenses still complete and
+  show confirmation to their initiator, but do not notify the target. The notification names
+  the initiator and shows active transferred expense totals separately by currency;
+  the target's approval is not required.
 - Transfers cannot be reversed through the current Telegram interface.
 
 ## Architecture already prepared for expansion
