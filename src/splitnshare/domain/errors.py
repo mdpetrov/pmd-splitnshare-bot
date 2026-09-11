@@ -23,3 +23,14 @@ class PermissionDeniedError(DomainError):
 class ConflictError(DomainError):
     """Indicate that current state conflicts with the requested operation."""
     pass
+
+
+class UnsettledAccountError(ConflictError):
+    """Reject account deletion while any counterparty balance remains outstanding."""
+
+    def __init__(self) -> None:
+        """Explain that both payable and receivable balances must be settled."""
+        super().__init__(
+            "Settle all amounts you owe and are owed in every currency "
+            "before deleting your account."
+        )

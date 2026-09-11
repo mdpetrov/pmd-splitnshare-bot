@@ -50,7 +50,7 @@ class UserRepository(Protocol):
         ...
 
     async def anonymize(self, person_id: UUID) -> bool:
-        """Deactivate and anonymize an account while retaining shared history."""
+        """Lock and anonymize an account, rejecting any outstanding balance."""
         ...
 
 

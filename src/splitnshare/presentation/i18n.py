@@ -83,6 +83,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "delete_account_warning": (
             "⚠️ <b>Delete your account?</b>\n\n"
+            "You can delete your account only when you owe nothing and nobody owes you "
+            "anything in any currency. Balances will be checked again when you confirm.\n\n"
             "This permanently removes your Telegram link, name, username, settings, and "
             "Friends list. Guest profiles owned by you are anonymized and disabled.\n\n"
             "Shared expenses, debts, balances, settlements, group history, and audit records "
@@ -98,6 +100,11 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "delete_account_cancelled": "Account deletion cancelled.",
         "delete_account_expired": "This account-deletion request is no longer active.",
+        "delete_account_unsettled": (
+            "You can delete your account only after fully settling up. "
+            "Open Balances and settle all amounts you owe and are owed, "
+            "with every person in every currency. Your account has not been deleted."
+        ),
         "currency": "💱 Currency",
         "language": "🌐 Language",
         "timezone": "🕒 Timezone",
@@ -414,6 +421,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "delete_account_warning": (
             "⚠️ <b>Удалить вашу учётную запись?</b>\n\n"
+            "Удаление доступно, только если вы никому не должны и никто не должен вам "
+            "ни в одной валюте. При подтверждении балансы будут проверены повторно.\n\n"
             "Это навсегда удалит привязку Telegram, имя, имя пользователя, настройки и "
             "список друзей. Принадлежащие вам гостевые профили будут анонимизированы и "
             "отключены.\n\n"
@@ -432,6 +441,11 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "delete_account_cancelled": "Удаление учётной записи отменено.",
         "delete_account_expired": "Этот запрос на удаление больше не активен.",
+        "delete_account_unsettled": (
+            "Удалить учётную запись можно только после полного расчёта. "
+            "Откройте Балансы и погасите все суммы, которые вы должны или должны вам, "
+            "с каждым участником в каждой валюте. Учётная запись не удалена."
+        ),
         "currency": "💱 Валюта",
         "language": "🌐 Язык",
         "timezone": "🕒 Часовой пояс",

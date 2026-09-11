@@ -66,7 +66,7 @@ class UserService:
             return await uow.users.list_registered(person_ids)
 
     async def delete_account(self, person_id: UUID) -> bool:
-        """Anonymize a registered account without altering shared financial history."""
+        """Anonymize a fully settled account while preserving shared financial history."""
         async with self._uow_factory() as uow:
             deleted = await uow.users.anonymize(person_id)
             await uow.commit()

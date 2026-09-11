@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from splitnshare.domain.enums import Language
+from splitnshare.domain.errors import UnsettledAccountError
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.helpers import callback_message
 from splitnshare.presentation.i18n import translate
@@ -35,6 +36,13 @@ async def request_account_deletion(
         await message.answer(translate(language, "use_start"))
         return
     await state.clear()
+    balances = await services.balances.get_balances(person.id)
+    if any(balance.net_minor != 0 for balance in balances):
+        await message.answer(
+            translate(language, "delete_account_unsettled"),
+            reply_markup=main_menu(language),
+        )
+        return
     await state.set_state(DeleteAccountStates.confirm)
     await message.answer(
         translate(language, "delete_account_warning"),
@@ -65,7 +73,17 @@ async def confirm_account_deletion(
             translate(language, "delete_account_expired"), show_alert=True
         )
         return
-    deleted = await services.users.delete_account(person.id)
+    try:
+        deleted = await services.users.delete_account(person.id)
+    except UnsettledAccountError:
+        await state.clear()
+        await target_message.edit_reply_markup(reply_markup=None)
+        await target_message.answer(
+            translate(language, "delete_account_unsettled"),
+            reply_markup=main_menu(language),
+        )
+        await callback.answer()
+        return
     await state.clear()
     if not deleted:
         await callback.answer(

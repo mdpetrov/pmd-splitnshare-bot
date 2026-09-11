@@ -12,8 +12,11 @@ deterministic splitting, transaction history, and balances.
 - `/privacy` works without registration and explains what data is stored, why it is needed,
   administrator access, retention, soft deletion, and how to request data access or deletion.
 - `/settings` opens the registered user's currency, language, and timezone settings.
-- `/delete_account` requires explicit confirmation, removes the Telegram identity and private
-  settings, and anonymizes the user while retaining shared financial history.
+- `/delete_account` is available only after fully settling up with every person in every
+  currency, including both amounts owed and receivable. Balances are checked before the
+  confirmation prompt and again in the deletion transaction. Explicit confirmation removes
+  the Telegram identity and private settings and anonymizes the user while retaining shared
+  financial history.
 - After setup, `/start` shows a visible main menu for expenses, activity, balances,
   friends, and settings. It can also be used to reopen the menu later.
 - The returning-user welcome summarizes total amounts owed and receivable separately for

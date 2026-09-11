@@ -49,6 +49,7 @@ from splitnshare.domain.errors import (
     ConflictError,
     NotFoundError,
     PermissionDeniedError,
+    UnsettledAccountError,
     ValidationError,
 )
 from splitnshare.domain.money import Money
@@ -166,7 +167,7 @@ class SqlAlchemyUserRepository:
         )
 
     async def anonymize(self, person_id: UUID) -> bool:
-        """Remove identifying account data while preserving shared financial records."""
+        """Anonymize a locked account only after all its balances have been settled."""
         row = (
             await self._session.execute(
                 select(UserAccountModel, PersonModel)
@@ -180,6 +181,10 @@ class SqlAlchemyUserRepository:
         account, person = row
         if account.telegram_user_id is None or person.inactive_at is not None:
             return False
+
+        balances = await SqlAlchemyExpenseRepository(self._session).balances(person_id, None)
+        if any(balance.net_minor != 0 for balance in balances):
+            raise UnsettledAccountError()
 
         now = datetime.now(UTC)
         telegram_user_id = account.telegram_user_id
