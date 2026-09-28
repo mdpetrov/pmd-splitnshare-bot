@@ -45,7 +45,11 @@ def group_ui(monkeypatch):
         ),
     )
     state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=501, user_id=501))
-    message = SimpleNamespace(answer=AsyncMock(), from_user=SimpleNamespace(id=501))
+    message = SimpleNamespace(
+        answer=AsyncMock(),
+        edit_text=AsyncMock(),
+        from_user=SimpleNamespace(id=501),
+    )
     callback = SimpleNamespace(
         from_user=SimpleNamespace(id=501), answer=AsyncMock(),
         data=f"g:expense:{uuid_token(group.id)}",

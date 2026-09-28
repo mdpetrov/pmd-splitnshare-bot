@@ -420,7 +420,9 @@ async def receive_partial_settlement(
         settlement = await _record_settlement(services, data, amount.minor)
     except DomainError:
         await state.clear()
-        await message.answer(translate(language, "settlement_stale"))
+        await message.answer(
+            translate(language, "settlement_stale"), reply_markup=main_menu(language)
+        )
         return
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))

@@ -170,6 +170,7 @@ async def custom_currency_back(
     await state.clear()
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(person.id)
+    await message.answer(translate(language, "settings"), reply_markup=main_menu(language))
     await message.answer(
         _settings_text(settings, language),
         reply_markup=settings_keyboard(language),

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "splitnshare-bot"
-version = "0.9.0"
-description = "An asynchronous Splitwise-like Telegram bot with explicit guest transfers"
+version = "0.9.1"
+description = "An asynchronous Telegram bot for tracking debts and splitting expenses with others"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -60,6 +60,7 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=translate(language, "settings")),
                 KeyboardButton(text=translate(language, "drafts")),
             ],
+            [KeyboardButton(text=translate(language, "main_menu"))],
         ],
         resize_keyboard=True,
     )
@@ -232,15 +233,20 @@ def settlement_amount_keyboard(
 
 
 def cancel_keyboard(
-    language: Language = Language.ENGLISH, *, include_back: bool = True
+    language: Language = Language.ENGLISH, *, include_back: bool = True,
+    include_keep: bool = False,
 ) -> ReplyKeyboardMarkup:
     """Build flow navigation with Cancel and an optional Back button."""
     buttons = [KeyboardButton(text=translate(language, "back"))] if include_back else []
+    if include_keep:
+        buttons.append(KeyboardButton(text=translate(language, "keep")))
     buttons.append(KeyboardButton(text=translate(language, "cancel")))
     return ReplyKeyboardMarkup(keyboard=[buttons], resize_keyboard=True)
 
 
-def participant_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
+def participant_keyboard(
+    language: Language = Language.ENGLISH, *, include_keep: bool = False
+) -> ReplyKeyboardMarkup:
     """Build participant-selection actions for a new expense."""
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -264,6 +270,7 @@ def participant_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboard
                 KeyboardButton(text=translate(language, "remove_participant")),
                 KeyboardButton(text=translate(language, "done")),
             ],
+            *([[KeyboardButton(text=translate(language, "keep"))]] if include_keep else []),
             [
                 KeyboardButton(text=translate(language, "back")),
                 KeyboardButton(text=translate(language, "cancel")),
@@ -273,7 +280,9 @@ def participant_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboard
     )
 
 
-def split_method_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
+def split_method_keyboard(
+    language: Language = Language.ENGLISH, *, include_keep: bool = False
+) -> InlineKeyboardMarkup:
     """Offer equal or exact expense allocation strategies."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -297,6 +306,11 @@ def split_method_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboa
                     callback_data="expense:cancel",
                 ),
             ],
+            *(
+                [[InlineKeyboardButton(
+                    text=translate(language, "keep"), callback_data="expense:keep",
+                )]] if include_keep else []
+            ),
         ]
     )
 
@@ -305,6 +319,7 @@ def expense_payer_keyboard(
     participants: Sequence[dict[str, str]],
     creator_id: str,
     language: Language = Language.ENGLISH,
+    *, include_keep: bool = False,
 ) -> InlineKeyboardMarkup:
     """Offer every selected participant as the expense payer."""
     rows = [
@@ -332,6 +347,10 @@ def expense_payer_keyboard(
             ),
         ]
     )
+    if include_keep:
+        rows.insert(-1, [InlineKeyboardButton(
+            text=translate(language, "keep"), callback_data="expense:keep",
+        )])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -380,15 +399,13 @@ def expense_confirm_keyboard(
             [InlineKeyboardButton(
                 text=translate(language, "group_edit_expense"), callback_data="eg:edit",
             )],
+            [InlineKeyboardButton(
+                text=translate(language, "save_draft_exit"), callback_data="expense:cancel"
+            )],
             [
                 InlineKeyboardButton(
-                    text=translate(language, "confirm"),
+                    text=translate(language, "confirm_create_expense"),
                     callback_data=f"expense:confirm:{draft_id}" if draft_id else "expense:confirm",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=translate(language, "save_draft_exit"), callback_data="expense:cancel"
                 )
             ],
         ]
@@ -594,7 +611,9 @@ def _short_button_text(value: str, limit: int = 40) -> str:
     return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
 
 
-def expense_date_keyboard(language: Language) -> InlineKeyboardMarkup:
+def expense_date_keyboard(
+    language: Language, *, include_keep: bool = False
+) -> InlineKeyboardMarkup:
     """Offer common transaction-time presets and custom date entry."""
     choices = (
         ("date_now", "now"),
@@ -629,6 +648,11 @@ def expense_date_keyboard(language: Language) -> InlineKeyboardMarkup:
                     callback_data="expense:date:custom",
                 ),
             ],
+            *(
+                [[InlineKeyboardButton(
+                    text=translate(language, "keep"), callback_data="expense:keep",
+                )]] if include_keep else []
+            ),
             [
                 InlineKeyboardButton(
                     text=translate(language, "back"),

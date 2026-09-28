@@ -47,12 +47,12 @@ def format_local_datetime(
     timezone: str,
     language: Language,
 ) -> str:
-    """Format a timestamp in the user's timezone with its zone abbreviation."""
+    """Format a timestamp in the user's selected timezone."""
     if value.tzinfo is None or value.utcoffset() is None:
         value = value.replace(tzinfo=UTC)
     local = value.astimezone(ZoneInfo(timezone))
     pattern = "%d.%m.%Y %H:%M" if language is Language.RUSSIAN else "%Y-%m-%d %H:%M"
-    return f"{local.strftime(pattern)} {local.tzname() or timezone}"
+    return local.strftime(pattern)
 
 
 def format_local_datetime_compact(

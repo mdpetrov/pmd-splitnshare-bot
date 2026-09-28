@@ -15,14 +15,18 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "settings": "⚙️ Settings",
         "drafts": "📝 Drafts",
         "drafts_help": (
-            "<b>Unfinished expenses</b>\nSelect a draft to resume where you left off. "
-            "Edit reopens its fields; Delete requires confirmation. "
+            "<b>Unfinished expenses</b>\nSelect a draft to review it. "
             "Drafts are saved automatically, including when you start another expense."
         ),
+        "draft_summary": "<b>Draft Summary</b>",
+        "draft_missing": "Not set yet",
+        "draft_continue": "Continue",
+        "confirm_create_expense": "Confirm & Create Transaction",
+        "split_choice_saved": "Split: <b>{method}</b>",
         "drafts_empty": "You have no unfinished expenses.",
         "untitled_draft": "New expense",
         "edit_draft": "Edit",
-        "save_draft_exit": "Save draft & exit",
+        "save_draft_exit": "Save Draft",
         "draft_paused": "Your unfinished expense is saved. Open Drafts to continue.",
         "cancelled_drafts_kept": "Cancelled. Unfinished expenses remain available in Drafts.",
         "discard_draft_question": "Delete this unfinished expense? This cannot be undone.",
@@ -66,7 +70,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "other_currency": "Other currency",
         "english": "English",
         "russian": "Russian",
-        "main_menu": "Main menu",
+        "main_menu": "Main Menu",
         "main_menu_prompt": "<b>Main menu</b>\nChoose what you want to do.",
         "privacy_notice": (
             "🔐 <b>Privacy notice</b>\n\n"
@@ -171,7 +175,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "enter_custom_date": (
             "Enter the local date and time as <code>DD.MM.YYYY HH:MM</code> or "
             "<code>YYYY-MM-DD HH:MM</code>. You may omit the year: "
-            "<code>DD.MM HH:MM</code>.\nTimezone: <b>{timezone}</b>."
+            "<code>DD.MM HH:MM</code>."
         ),
         "invalid_custom_date": (
             "Enter a valid local date and time, for example "
@@ -369,14 +373,18 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "settings": "⚙️ Настройки",
         "drafts": "📝 Черновики",
         "drafts_help": (
-            "<b>Незавершённые расходы</b>\nВыберите черновик, чтобы продолжить. "
-            "Кнопка «Изменить» открывает поля заново; удаление требует подтверждения. "
+            "<b>Незавершённые расходы</b>\nВыберите черновик, чтобы проверить его. "
             "Черновики сохраняются автоматически, в том числе при создании другого расхода."
         ),
+        "draft_summary": "<b>Сводка черновика</b>",
+        "draft_missing": "Пока не указано",
+        "draft_continue": "Продолжить",
+        "confirm_create_expense": "Подтвердить и создать расход",
+        "split_choice_saved": "Разделение: <b>{method}</b>",
         "drafts_empty": "У вас нет незавершённых расходов.",
         "untitled_draft": "Новый расход",
         "edit_draft": "Изменить",
-        "save_draft_exit": "Сохранить черновик и выйти",
+        "save_draft_exit": "Сохранить черновик",
         "draft_paused": (
             "Незавершённый расход сохранён. "
             "Откройте Черновики, чтобы продолжить."
@@ -534,7 +542,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "enter_custom_date": (
             "Введите местные дату и время в формате <code>ДД.ММ.ГГГГ ЧЧ:ММ</code> "
             "или <code>ГГГГ-ММ-ДД ЧЧ:ММ</code>. Год можно не указывать: "
-            "<code>ДД.ММ ЧЧ:ММ</code>.\nЧасовой пояс: <b>{timezone}</b>."
+            "<code>ДД.ММ ЧЧ:ММ</code>."
         ),
         "invalid_custom_date": (
             "Введите корректные местные дату и время, например "
@@ -753,7 +761,7 @@ _TEXTS[Language.ENGLISH].update({
     "group_settled": "Group payments recorded.",
     "group_no_debts": "All settled up.",
     "group_no_person_debts": "You have no outstanding balances in this group.",
-    "group_choose": "Select a group",
+    "group_choose": "Add group",
     "group_none": "No group",
     "group_back": "Back to group",
     "group_expense_members": "Choose group members",
@@ -767,7 +775,7 @@ _TEXTS[Language.ENGLISH].update({
     "group_empty": "You have no groups yet.",
     "group_invites_saved": "Participants added.",
     "group_members_title": "Group members",
-    "group_edit_expense": "Edit participants / payer",
+    "group_edit_expense": "Edit",
 })
 _TEXTS[Language.RUSSIAN].update({
     "groups": "👥 Группы",
@@ -801,7 +809,7 @@ _TEXTS[Language.RUSSIAN].update({
     "group_settled": "Платежи группы записаны.",
     "group_no_debts": "Все расчёты закрыты.",
     "group_no_person_debts": "У вас нет незакрытых расчётов в этой группе.",
-    "group_choose": "Выбрать группу",
+    "group_choose": "Добавить группу",
     "group_none": "Без группы",
     "group_back": "Назад к группе",
     "group_expense_members": "Выбрать участников группы",
@@ -815,7 +823,7 @@ _TEXTS[Language.RUSSIAN].update({
     "group_empty": "У вас пока нет групп.",
     "group_invites_saved": "Участники добавлены.",
     "group_members_title": "Участники группы",
-    "group_edit_expense": "Изменить участников / плательщика",
+    "group_edit_expense": "Изменить",
 })
 
 

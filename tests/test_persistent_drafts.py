@@ -197,7 +197,11 @@ async def test_account_deletion_purges_drafts_without_recreating_identity(draft_
     assert await draft_backend.storage.list_drafts(_key()) == ()
 
 
-async def test_navigation_does_not_overwrite_expense_description(draft_backend):
+async def test_navigation_does_not_overwrite_expense_description(
+    draft_backend, monkeypatch
+):
+    answer = AsyncMock()
+    monkeypatch.setattr(Message, "answer", answer)
     identifier, state = await _seed(draft_backend.storage, _key())
     await state.set_state(AddExpenseStates.description)
     event = Update(update_id=1, message=Message(

@@ -374,6 +374,7 @@ async def group_members_back(
     language: Language,
 ) -> None:
     """Cancel pending invitations and return to groups."""
+    await message.answer(translate(language, "groups"), reply_markup=main_menu(language))
     await groups_menu(message, state, services, language)
 
 
@@ -387,7 +388,7 @@ async def group_review(message: Message, state: FSMContext, language: Language) 
     text = escape(data.get("name", translate(language, "group_invite")))
     if data.get("currency"):
         text += " · " + data["currency"]
-    await message.answer(text, reply_markup=cancel_keyboard(language, include_back=False))
+    await message.answer(text, reply_markup=main_menu(language))
     members = data["members"]
     for offset in range(0, len(members), 20):
         names = ("• " + escape(m["name"]) for m in members[offset:offset + 20])

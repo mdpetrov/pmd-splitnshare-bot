@@ -84,11 +84,39 @@ async def show_main_menu_callback(
         await callback.answer()
         return
     await state.clear()
+    await target_message.answer(
+        translate(language, "main_menu"), reply_markup=main_menu(language)
+    )
     await target_message.edit_text(
         translate(language, "main_menu_prompt"),
         reply_markup=main_menu_inline_keyboard(language),
     )
     await callback.answer()
+
+
+@router.message(F.text.in_(button_values("main_menu")))
+async def show_main_menu_message(
+    message: Message, state: FSMContext, services: Services, language: Language
+) -> None:
+    """Restore the persistent main keyboard from its own button."""
+    if message.from_user is None:
+        return
+    settings = await services.user_settings.find_by_telegram_id(message.from_user.id)
+    if settings is None or settings.timezone is None:
+        await state.set_state(OnboardingStates.timezone)
+        await message.answer(
+            translate(language, "onboarding_timezone_required"),
+            reply_markup=timezone_keyboard(language, include_back=False),
+        )
+        return
+    await state.clear()
+    await message.answer(
+        translate(language, "main_menu_prompt"), reply_markup=main_menu(language)
+    )
+    await message.answer(
+        translate(language, "main_menu_prompt"),
+        reply_markup=main_menu_inline_keyboard(language),
+    )
 
 
 @router.message(Command("cancel"))

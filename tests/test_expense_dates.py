@@ -47,7 +47,7 @@ def test_custom_local_datetime_is_converted_to_utc_and_formatted_back() -> None:
     assert occurred_at == datetime(2026, 9, 2, 16, 30, tzinfo=UTC)
     assert format_local_datetime(
         occurred_at, "Europe/Madrid", Language.ENGLISH
-    ) == "2026-09-02 18:30 CEST"
+    ) == "2026-09-02 18:30"
     assert format_local_date(
         occurred_at, "Europe/Madrid", Language.ENGLISH
     ) == "2026-09-02"

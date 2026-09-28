@@ -1258,7 +1258,7 @@ class SqlAlchemyExpenseRepository:
                     .outerjoin(GuestProfileModel, GuestProfileModel.person_id == PersonModel.id)
                     .where(PersonModel.id.in_(person_ids))
                 )
-            ).tuples().all()
+            ).all()
             people = {
                 other_id: (display_name, account_username or guest_username)
                 for other_id, display_name, account_username, guest_username in name_rows

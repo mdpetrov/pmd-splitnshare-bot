@@ -568,6 +568,9 @@ async def receive_target(
     await state.update_data(target_id=str(target.id))
     await state.set_state(TransferGuestStates.confirm)
     await message.answer(
+        translate(language, "main_menu"), reply_markup=main_menu(language)
+    )
+    await message.answer(
         transfer_preview_text(preview, language),
         reply_markup=transfer_confirm_keyboard(language),
     )
