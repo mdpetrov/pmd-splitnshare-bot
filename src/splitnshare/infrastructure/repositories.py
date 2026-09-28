@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, delete, func, literal, or_, select, union_all, update
+from sqlalchemy import and_, delete, false, func, literal, or_, select, union_all, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1532,7 +1532,7 @@ class SqlAlchemyActivityRepository:
                     ExpenseModel.payer_person_id == person_id,
                     ExpenseModel.creator_person_id == person_id,
                     ExpenseModel.group_id == context.group_id
-                    if isinstance(context, GroupExpenseContext) else False,
+                    if isinstance(context, GroupExpenseContext) else false(),
                 ),
                 ExpenseModel.deleted_at.is_(None),
             )
@@ -1558,7 +1558,7 @@ class SqlAlchemyActivityRepository:
                 SettlementModel.payer_person_id == person_id,
                 SettlementModel.recipient_person_id == person_id,
                 SettlementModel.group_id == context.group_id
-                if isinstance(context, GroupExpenseContext) else False,
+                if isinstance(context, GroupExpenseContext) else false(),
             )
         )
         if other_person_id is not None:

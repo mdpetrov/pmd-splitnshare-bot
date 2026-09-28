@@ -56,7 +56,9 @@ async def register(services, telegram_id, name):
     return await services.users.register_or_update(TelegramIdentity(telegram_id, name))
 
 
-async def expense(services, owner, participants, group_id=None, payer=None, currency="EUR", date=None):
+async def expense(
+    services, owner, participants, group_id=None, payer=None, currency="EUR", date=None
+):
     return await services.expenses.create(CreateExpenseCommand(
         creator_person_id=owner.id, description="Dinner", total=Money(1200, currency),
         participant_ids=tuple(p.id for p in participants), split_method=SplitMethod.EQUAL,

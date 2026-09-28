@@ -34,7 +34,27 @@ def upgrade() -> None:
     """Create the initial identity, group, expense, debt, and transfer schema."""
     # Keep this revision limited to the tables that existed when it was created.
     # Later model tables and columns belong to their own Alembic revisions.
-    Base.metadata.create_all(bind=op.get_bind(), tables=_initial_tables())
+    bind = op.get_bind()
+    Base.metadata.create_all(
+        bind=bind,
+        tables=[Base.metadata.tables[name] for name in ("persons", "user_accounts")],
+    )
+    # Freeze the original group schema: default_currency belongs to revision 0012.
+    op.create_table(
+        "groups",
+        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("name", sa.String(120), nullable=False),
+        sa.Column("creator_person_id", sa.Uuid(), nullable=False),
+        sa.Column("status", sa.String(8), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(),
+                  nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(),
+                  nullable=False),
+        sa.ForeignKeyConstraint(["creator_person_id"], ["persons.id"], ondelete="RESTRICT"),
+    )
+    Base.metadata.create_all(
+        bind=bind, tables=[table for table in _initial_tables() if table.name != "groups"]
+    )
     op.create_table(
         "guest_profiles",
         sa.Column("person_id", sa.Uuid(), nullable=False),

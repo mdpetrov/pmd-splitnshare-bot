@@ -24,6 +24,10 @@ def test_friendship_migration_backfills_existing_expense_participants(
     friend_id = uuid4().hex
     expense_id = uuid4().hex
     with sqlite3.connect(database_path) as connection:
+        initial_group_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(groups)")
+        }
+        assert "default_currency" not in initial_group_columns
         guest_columns_before = {
             row[1] for row in connection.execute("PRAGMA table_info(guest_profiles)")
         }
@@ -132,3 +136,43 @@ def test_friendship_migration_backfills_existing_expense_participants(
         "occurred_at",
     } <= settlement_columns
     assert account_columns["telegram_user_id"][3] == 0
+
+
+def test_group_currency_migration_resumes_without_overwriting_existing_values(
+    monkeypatch, tmp_path,
+) -> None:
+    """Recover a partially added SQLite column and preserve populated currencies."""
+    project_root = Path(__file__).parents[1]
+    database_path = tmp_path / "partial-group-currency.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{database_path.as_posix()}")
+    config = Config(project_root / "alembic.ini")
+    command.upgrade(config, "20260911_0011")
+    owner_id = uuid4().hex
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("ALTER TABLE groups ADD COLUMN default_currency VARCHAR(3)")
+        connection.execute(
+            "INSERT INTO persons (id, display_name, kind) VALUES (?, 'Owner', 'user')",
+            (owner_id,),
+        )
+        connection.execute(
+            "INSERT INTO user_accounts (person_id, telegram_user_id, first_name) "
+            "VALUES (?, 9001, 'Owner')", (owner_id,),
+        )
+        connection.execute(
+            "INSERT INTO user_settings (person_id, default_currency, language) "
+            "VALUES (?, 'EUR', 'en')", (owner_id,),
+        )
+        for name, currency in (("Pending", None), ("Configured", "JPY")):
+            connection.execute(
+                "INSERT INTO groups (id, name, creator_person_id, status, default_currency) "
+                "VALUES (?, ?, ?, 'active', ?)", (uuid4().hex, name, owner_id, currency),
+            )
+
+    command.upgrade(config, "head")
+
+    with sqlite3.connect(database_path) as connection:
+        assert dict(connection.execute("SELECT name, default_currency FROM groups")) == {
+            "Pending": "EUR", "Configured": "JPY",
+        }
+        columns = {row[1]: row for row in connection.execute("PRAGMA table_info(groups)")}
+        assert columns["default_currency"][3] == 1

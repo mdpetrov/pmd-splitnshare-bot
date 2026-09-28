@@ -12,12 +12,16 @@ depends_on = None
 
 def upgrade() -> None:
     """Backfill existing groups before requiring a default currency."""
-    op.add_column("groups", sa.Column("default_currency", sa.String(3), nullable=True))
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("groups")}
+    # SQLite can retain an added column after a later migration statement fails.
+    if "default_currency" not in columns:
+        op.add_column("groups", sa.Column("default_currency", sa.String(3), nullable=True))
     op.execute(
         sa.text(
             "UPDATE groups SET default_currency = COALESCE("
             "(SELECT default_currency FROM user_settings "
-            "WHERE person_id = groups.creator_person_id), 'USD')"
+            "WHERE person_id = groups.creator_person_id), 'USD') "
+            "WHERE default_currency IS NULL"
         )
     )
     with op.batch_alter_table("groups") as batch:

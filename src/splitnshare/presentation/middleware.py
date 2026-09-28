@@ -32,7 +32,8 @@ class DraftNavigationMiddleware(BaseMiddleware):
         menu_values = {
             value
             for name in (
-                "add_expense", "transactions", "balances", "friends", "settings", "drafts", "groups",
+                "add_expense", "transactions", "balances", "friends", "settings", "drafts", 
+                "groups",
             )
             for value in button_values(name)
         }
