@@ -7,7 +7,6 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
-    KeyboardButtonRequestUsers,
     ReplyKeyboardMarkup,
 )
 
@@ -47,7 +46,7 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
     """Build the persistent reply keyboard for top-level features."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=translate(language, "groups"))],
+            [KeyboardButton(text=translate(language, "main_menu"))],
             [
                 KeyboardButton(text=translate(language, "add_expense")),
                 KeyboardButton(text=translate(language, "transactions")),
@@ -60,9 +59,10 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=translate(language, "settings")),
                 KeyboardButton(text=translate(language, "drafts")),
             ],
-            [KeyboardButton(text=translate(language, "main_menu"))],
+            [KeyboardButton(text=translate(language, "groups"))],
         ],
         resize_keyboard=True,
+        is_persistent=True,
     )
 
 
@@ -235,49 +235,34 @@ def settlement_amount_keyboard(
 def cancel_keyboard(
     language: Language = Language.ENGLISH, *, include_back: bool = True,
     include_keep: bool = False,
-) -> ReplyKeyboardMarkup:
-    """Build flow navigation with Cancel and an optional Back button."""
-    buttons = [KeyboardButton(text=translate(language, "back"))] if include_back else []
+) -> InlineKeyboardMarkup:
+    """Offer inline navigation without changing the persistent main keyboard."""
+    choices = []
+    if include_back:
+        choices.append(("back", "flow:back"))
     if include_keep:
-        buttons.append(KeyboardButton(text=translate(language, "keep")))
-    buttons.append(KeyboardButton(text=translate(language, "cancel")))
-    return ReplyKeyboardMarkup(keyboard=[buttons], resize_keyboard=True)
+        choices.append(("keep", "flow:keep"))
+    choices.append(("cancel", "flow:cancel"))
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=translate(language, key), callback_data=payload)
+        for key, payload in choices
+    ]])
 
 
 def participant_keyboard(
-    language: Language = Language.ENGLISH, *, include_keep: bool = False
-) -> ReplyKeyboardMarkup:
-    """Build participant-selection actions for a new expense."""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(
-                    text=translate(language, "choose_telegram_users"),
-                    request_users=KeyboardButtonRequestUsers(
-                        request_id=1001,
-                        user_is_bot=False,
-                        max_quantity=9,
-                        request_name=True,
-                        request_username=True,
-                    ),
-                )
-            ],
-            [
-                KeyboardButton(text=translate(language, "add_manual")),
-                KeyboardButton(text=translate(language, "add_from_friends")),
-            ],
-            [
-                KeyboardButton(text=translate(language, "remove_participant")),
-                KeyboardButton(text=translate(language, "done")),
-            ],
-            *([[KeyboardButton(text=translate(language, "keep"))]] if include_keep else []),
-            [
-                KeyboardButton(text=translate(language, "back")),
-                KeyboardButton(text=translate(language, "cancel")),
-            ],
-        ],
-        resize_keyboard=True,
-    )
+    language: Language = Language.ENGLISH, *, include_keep: bool = False,
+) -> InlineKeyboardMarkup:
+    """Offer inline contact, friend, and manual group invitations."""
+    choices = [
+        [("choose_telegram_users", "flow:contact")],
+        [("add_manual", "flow:manual"), ("add_from_friends", "flow:friends")],
+        [("remove_participant", "flow:remove"), ("done", "flow:done")],
+        [("back", "flow:back"), ("cancel", "flow:cancel")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=translate(language, key), callback_data=payload)
+        for key, payload in row
+    ] for row in choices])
 
 
 def split_method_keyboard(
@@ -354,7 +339,9 @@ def expense_payer_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMarkup:
+def expense_friends_keyboard(
+    friends: Sequence[FriendDTO], language: Language = Language.ENGLISH,
+) -> InlineKeyboardMarkup:
     """Build expense participant buttons from the user's friends."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -365,12 +352,14 @@ def expense_friends_keyboard(friends: Sequence[FriendDTO]) -> InlineKeyboardMark
                 )
             ]
             for friend in friends
-        ]
+        ] + [[InlineKeyboardButton(text=translate(language, "back"),
+                                  callback_data="expense:participants:home")]]
     )
 
 
 def remove_participant_keyboard(
-    participants: Sequence[dict[str, str]], creator_id: str
+    participants: Sequence[dict[str, str]], creator_id: str,
+    language: Language = Language.ENGLISH,
 ) -> InlineKeyboardMarkup:
     """Build removal actions for non-creator draft participants."""
     return InlineKeyboardMarkup(
@@ -383,7 +372,8 @@ def remove_participant_keyboard(
             ]
             for participant in participants
             if participant["id"] != creator_id
-        ]
+        ] + [[InlineKeyboardButton(text=translate(language, "back"),
+                                  callback_data="expense:participants:home")]]
     )
 
 
@@ -393,6 +383,8 @@ def expense_confirm_keyboard(
     """Build final confirmation and cancellation actions for an expense."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text=translate(language, "back"),
+                                  callback_data="expense:review:back")],
             [InlineKeyboardButton(
                 text=translate(language, "group_choose"), callback_data="eg:list:0",
             )],
@@ -1000,58 +992,36 @@ def back_to_friends_keyboard(language: Language) -> InlineKeyboardMarkup:
     )
 
 
-def add_friend_keyboard(language: Language) -> ReplyKeyboardMarkup:
-    """Offer Telegram sharing or manual naming when adding a friend."""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(
-                    text=translate(language, "choose_friend_telegram"),
-                    request_users=KeyboardButtonRequestUsers(
-                        request_id=3001,
-                        user_is_bot=False,
-                        max_quantity=1,
-                        request_name=True,
-                        request_username=True,
-                    ),
-                )
-            ],
-            [KeyboardButton(text=translate(language, "add_named_guest"))],
-            [
-                KeyboardButton(text=translate(language, "back")),
-                KeyboardButton(text=translate(language, "cancel")),
-            ],
-        ],
-        resize_keyboard=True,
-    )
+def add_friend_keyboard(language: Language) -> InlineKeyboardMarkup:
+    """Offer adding a shared contact or named guest with inline navigation."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=translate(language, "choose_friend_telegram"),
+                              callback_data="flow:contact")],
+        [InlineKeyboardButton(text=translate(language, "add_named_guest"),
+                              callback_data="flow:manual")],
+        [InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back"),
+         InlineKeyboardButton(text=translate(language, "cancel"), callback_data="flow:cancel")],
+    ])
 
 
-def transfer_target_keyboard(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
-    """Request a registered Telegram user as a guest-transfer target."""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(
-                    text=translate(language, "choose_registered"),
-                    request_users=KeyboardButtonRequestUsers(
-                        request_id=2001,
-                        user_is_bot=False,
-                        max_quantity=1,
-                        request_name=True,
-                        request_username=True,
-                    ),
-                )
-            ],
-            [KeyboardButton(text=translate(language, "cancel"))],
-        ],
-        resize_keyboard=True,
-    )
+def transfer_target_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
+    """Choose a registered friend or share a Telegram contact as transfer target."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=translate(language, "add_from_friends"),
+                              callback_data="flow:friends")],
+        [InlineKeyboardButton(text=translate(language, "choose_registered"),
+                              callback_data="flow:contact")],
+        [InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back"),
+         InlineKeyboardButton(text=translate(language, "cancel"), callback_data="flow:cancel")],
+    ])
 
 
 def transfer_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
     """Build irreversible guest-transfer confirmation controls."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text=translate(language, "back"),
+                                  callback_data="flow:back")],
             [
                 InlineKeyboardButton(
                     text=translate(language, "transfer_everything"),

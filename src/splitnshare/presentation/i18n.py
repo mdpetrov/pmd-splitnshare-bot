@@ -70,7 +70,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "other_currency": "Other currency",
         "english": "English",
         "russian": "Russian",
-        "main_menu": "Main Menu",
+        "main_menu": "🏠 Main Menu",
         "main_menu_prompt": "<b>Main menu</b>\nChoose what you want to do.",
         "privacy_notice": (
             "🔐 <b>Privacy notice</b>\n\n"
@@ -165,6 +165,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "description_invalid": "Enter a description between 1 and 240 characters.",
         "enter_total": "Enter the total, for example 12.50 or 12.50 USD.",
         "choose_expense_date": "When did this expense happen?",
+        "current_expense_datetime": "Current date and time: <b>{date}</b>",
         "date_now": "Now",
         "date_30_minutes_ago": "30 min ago",
         "date_1_hour_ago": "1 hour ago",
@@ -183,6 +184,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "expense_date": "Date: {date}",
         "add_people": "Add up to nine registered or unregistered friends.",
+        "share_contact_hint": "To select someone from Telegram, open the attachment menu (paperclip), choose Contact, and send their contact here. You can also go back and choose an existing friend or add a name.",
+        "contact_requires_telegram_id": "This contact has no Telegram ID. Add them by name instead.",
         "participants": "Participants:",
         "guest_name": "Enter the friend's display name.",
         "no_recent": "No recent co-participants yet.",
@@ -205,6 +208,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "How much does {name} owe? Enter 0 if this participant owes nothing."
         ),
         "owes_next": "How much does {name} owe?",
+        "owes_you": "How much do you owe?",
+        "exact_first_share_invalid": "That share leaves an invalid amount for the other person. Enter a different amount.",
         "split_again": "Choose the split again when ready.",
         "shares_mismatch": (
             "Those shares do not total {total}. Start again with {name}."
@@ -435,7 +440,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "other_currency": "Другая валюта",
         "english": "Английский",
         "russian": "Русский",
-        "main_menu": "Главное меню",
+        "main_menu": "🏠 Главное меню",
         "main_menu_prompt": "<b>Главное меню</b>\nВыберите действие.",
         "privacy_notice": (
             "🔐 <b>Уведомление о конфиденциальности</b>\n\n"
@@ -532,6 +537,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "description_invalid": "Введите описание длиной от 1 до 240 символов.",
         "enter_total": "Введите сумму, например 12.50 или 12.50 USD.",
         "choose_expense_date": "Когда произошёл этот расход?",
+        "current_expense_datetime": "Текущая дата и время: <b>{date}</b>",
         "date_now": "Сейчас",
         "date_30_minutes_ago": "30 минут назад",
         "date_1_hour_ago": "1 час назад",
@@ -550,6 +556,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "expense_date": "Дата: {date}",
         "add_people": "Добавьте до девяти зарегистрированных или незарегистрированных друзей.",
+        "share_contact_hint": "Чтобы выбрать человека из Telegram, откройте меню вложений (скрепка), выберите «Контакт» и отправьте его сюда. Или вернитесь назад, чтобы выбрать друга или добавить имя.",
+        "contact_requires_telegram_id": "У этого контакта нет Telegram ID. Добавьте его по имени.",
         "participants": "Участники:",
         "guest_name": "Введите отображаемое имя друга.",
         "no_recent": "Недавних соучастников пока нет.",
@@ -572,6 +580,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "Сколько должен(на) {name}? Введите 0, если этот участник ничего не должен."
         ),
         "owes_next": "Сколько должен(на) {name}?",
+        "owes_you": "Сколько вы должны?",
+        "exact_first_share_invalid": "После этого останется недопустимая сумма для второго участника. Введите другую сумму.",
         "split_again": "Когда будете готовы, снова выберите способ разделения.",
         "shares_mismatch": "Сумма долей не равна {total}. Начните снова с {name}.",
         "review": "Проверьте <b>{description}</b>",
@@ -769,6 +779,8 @@ _TEXTS[Language.ENGLISH].update({
         "Group selected: {name}. Check participants and payer again. The entered "
         "amount and currency are unchanged."
     ),
+    "group_selected": "Group: <b>{name}</b>. Review the expense below.",
+    "group_expense_members_required": "All selected participants and the payer must be members of this group. Edit them first.",
     "group_review_label": "Group: {name}",
     "group_history_row": "👥 {name} · {balance}",
     "group_member_only": "Choose participants from this group's member list.",
@@ -817,6 +829,8 @@ _TEXTS[Language.RUSSIAN].update({
         "Выбрана группа: {name}. Проверьте участников и плательщика. Сумма и валюта "
         "не изменились."
     ),
+    "group_selected": "Группа: <b>{name}</b>. Проверьте расход ниже.",
+    "group_expense_members_required": "Все участники и плательщик должны состоять в этой группе. Сначала измените их.",
     "group_review_label": "Группа: {name}",
     "group_history_row": "👥 {name} · {balance}",
     "group_member_only": "Выберите участников из списка этой группы.",

@@ -15,6 +15,7 @@ from splitnshare.domain.errors import PermissionDeniedError, ValidationError
 from splitnshare.domain.money import Money
 from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.flow_messages import show
 from splitnshare.presentation.helpers import callback_message, current_person
 from splitnshare.presentation.i18n import button_values, translate
 from splitnshare.presentation.keyboards import cancel_keyboard, main_menu, participant_keyboard
@@ -28,10 +29,24 @@ router.callback_query.filter(F.message.chat.type == "private")
 
 
 def _keyboard(choices: list[tuple[str, str]]) -> InlineKeyboardMarkup:
-    """Build a compact one-action-per-row inline keyboard."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=label[:80], callback_data=payload)] for label, payload in choices
-    ])
+    """Build two-column group controls with a visible icon on every action."""
+    icons = {
+        "g:view:": "👥", "g:new": "➕", "menu:show": "🏠",
+        "g:expense:": "🧾", "g:summary:": "📊", "g:members:": "👥",
+        "g:settle:": "💸", "g:invite:": "➕", "g:pay:": "💸",
+        "g:paid:": "✅", "menu:groups": "↩️", "g:list:": "➡️",
+    }
+    buttons = [
+        InlineKeyboardButton(
+            text=(
+                label if label.startswith(("🏠", "👥", "➕", "🧾", "📊", "💸", "✅", "↩️", "➡️"))
+                else f"{next((icon for prefix, icon in icons.items() if payload.startswith(prefix)), '🔹')} {label}"
+            )[:80],
+            callback_data=payload,
+        )
+        for label, payload in choices
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=[buttons[i:i + 2] for i in range(0, len(buttons), 2)])
 
 
 async def _actor(callback: CallbackQuery, services: Services) -> PersonDTO:
@@ -83,7 +98,7 @@ async def _list(
         choices.append((translate(language, "more"), f"g:list:{page + 1}"))
     choices.extend([(translate(language, "group_create"), "g:new"),
                     (translate(language, "main_menu"), "menu:show")])
-    await message.answer(
+    await show(message,
         translate(language, "groups" if groups else "group_empty"),
         reply_markup=_keyboard(choices),
     )
@@ -130,7 +145,7 @@ async def group_details(
     group_id = uuid_from_token((callback.data or "").rsplit(":", 1)[1])
     group = await services.groups.get(actor.id, group_id)
     await state.clear()
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         _details(group, language), reply_markup=_actions(group, actor.id, language)
     )
     await callback.answer()
@@ -150,9 +165,9 @@ async def begin_group(
         actor_id=str(actor.id), members=[_member(actor)], token=uuid_token(uuid4())
     )
     await state.set_state(GroupStates.name)
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "group_name_prompt"),
-        reply_markup=cancel_keyboard(language, include_back=False),
+        reply_markup=cancel_keyboard(language),
     )
     await callback.answer()
 
@@ -172,9 +187,9 @@ async def group_name(
     settings = await services.user_settings.get_or_create(actor.id)
     await state.update_data(name=name)
     await state.set_state(GroupStates.currency)
-    await message.answer(
+    await show(message,
         translate(language, "group_currency_prompt", currency=settings.default_currency),
-        reply_markup=cancel_keyboard(language, include_back=False),
+        reply_markup=cancel_keyboard(language),
     )
 
 
@@ -184,7 +199,7 @@ async def group_currency(message: Message, state: FSMContext, language: Language
     currency = normalize_currency(message.text or "")
     await state.update_data(currency=currency)
     await state.set_state(GroupStates.members)
-    await message.answer(
+    await show(message,
         translate(language, "group_members_prompt"), reply_markup=participant_keyboard(language)
     )
 
@@ -207,7 +222,7 @@ async def group_invite(
         actor_id=str(actor.id), group_id=str(group.id), members=[], token=uuid_token(uuid4())
     )
     await state.set_state(GroupStates.members)
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "group_members_prompt"), reply_markup=participant_keyboard(language)
     )
     await callback.answer()
@@ -226,7 +241,7 @@ async def _add_member(
         members.append(_member(person))
     await state.update_data(members=members)
     await state.set_state(GroupStates.members)
-    await message.answer(translate(language, "group_members_selected", names=escape(
+    await show(message, translate(language, "group_members_selected", names=escape(
         ", ".join(m["name"] for m in members[-15:])
     )), reply_markup=participant_keyboard(language))
 
@@ -255,9 +270,9 @@ async def group_shared_users(
 async def group_manual_prompt(message: Message, state: FSMContext, language: Language) -> None:
     """Prompt for a named guest invitation."""
     await state.set_state(GroupStates.manual_name)
-    await message.answer(
+    await show(message,
         translate(language, "guest_name"),
-        reply_markup=cancel_keyboard(language, include_back=False),
+        reply_markup=cancel_keyboard(language),
     )
 
 
@@ -301,7 +316,10 @@ async def _friends(
     ]
     if len(friends) > (page + 1) * 20:
         choices.append((translate(language, "more"), f"g:friends:{page + 1}"))
-    await message.answer(
+    if page:
+        choices.append(("←", f"g:friends:{page - 1}"))
+    choices.append((translate(language, "back"), "flow:members"))
+    await show(message,
         translate(language, "choose_friend" if friends else "no_friends"),
         reply_markup=_keyboard(choices) if choices else None,
     )
@@ -350,9 +368,9 @@ async def group_remove_choices(message: Message, state: FSMContext, language: La
         (m["name"], f"g:remove:{uuid_token(UUID(m['id']))}")
         for m in data["members"] if m["id"] != data["actor_id"]
     ]
-    await message.answer(
+    await show(message,
         translate(language, "choose_remove"),
-        reply_markup=_keyboard(choices[:90]) if choices else None,
+        reply_markup=_keyboard(choices[:90] + [(translate(language, "back"), "flow:members")]),
     )
 
 
@@ -363,6 +381,7 @@ async def group_remove(callback: CallbackQuery, state: FSMContext, language: Lan
     person_id = str(uuid_from_token((callback.data or "").rsplit(":", 1)[1]))
     if person_id != data["actor_id"]:
         await state.update_data(members=[m for m in data["members"] if m["id"] != person_id])
+    await group_remove_choices(callback_message(callback), state, language)
     await callback.answer()
 
 
@@ -374,7 +393,7 @@ async def group_members_back(
     language: Language,
 ) -> None:
     """Cancel pending invitations and return to groups."""
-    await message.answer(translate(language, "groups"), reply_markup=main_menu(language))
+    await show(message, translate(language, "groups"), reply_markup=main_menu_inline_keyboard(language))
     await groups_menu(message, state, services, language)
 
 
@@ -388,13 +407,13 @@ async def group_review(message: Message, state: FSMContext, language: Language) 
     text = escape(data.get("name", translate(language, "group_invite")))
     if data.get("currency"):
         text += " · " + data["currency"]
-    await message.answer(text, reply_markup=main_menu(language))
+    await show(message, text, reply_markup=main_menu_inline_keyboard(language))
     members = data["members"]
     for offset in range(0, len(members), 20):
         names = ("• " + escape(m["name"]) for m in members[offset:offset + 20])
-        await message.answer("\n".join(names))
+        await show(message, "\n".join(names))
     action = translate(language, "group_invite" if data.get("group_id") else "group_confirm")
-    await message.answer(action, reply_markup=_keyboard([
+    await show(message, action, reply_markup=_keyboard([
         (action, f"g:save:{data['token']}"), (translate(language, "back"), "g:edit"),
     ]))
 
@@ -403,7 +422,7 @@ async def group_review(message: Message, state: FSMContext, language: Language) 
 async def group_edit(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
     """Return to invitee selection without discarding entered preferences."""
     await state.set_state(GroupStates.members)
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "group_members_prompt"), reply_markup=participant_keyboard(language)
     )
     await callback.answer()
@@ -433,10 +452,10 @@ async def group_save(
         group = await services.groups.create(actor.id, data["name"], data["currency"], ids)
         added = tuple(m.id for m in group.participants if m.id != actor.id)
     await state.clear()
-    await callback_message(callback).answer(
-        _details(group, language), reply_markup=main_menu(language)
+    await show(callback_message(callback),
+        _details(group, language), reply_markup=main_menu_inline_keyboard(language)
     )
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "group_invites_saved"), reply_markup=_actions(group, actor.id, language)
     )
     await callback.answer()
@@ -475,10 +494,9 @@ async def group_expense(
         group_members=[_member(m) for m in group.participants],
     )
     await state.set_state(AddExpenseStates.description)
-    await callback_message(callback).answer(
-        translate(language, "expense_for"),
-        reply_markup=cancel_keyboard(language, include_back=False),
-    )
+    from splitnshare.presentation.routers.expenses import render_expense_draft
+
+    await render_expense_draft(callback_message(callback), state, language)
     await callback.answer()
 
 
@@ -522,7 +540,7 @@ async def group_subscreen(callback: CallbackQuery, services: Services, language:
         choices.append((translate(language, "more"), f"g:{screen}:{token}:{page + 1}"))
     choices.append((translate(language, "group_back"), f"g:view:{token}"))
     visible = lines[page * 20:(page + 1) * 20] if screen != "settle" else lines
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         _details(group, language) + "\n\n"
         + ("\n".join(visible) or translate(language, "group_no_debts")),
         reply_markup=_keyboard(choices),
@@ -562,14 +580,14 @@ async def group_payment_review(
         amount=Money(abs(b.net_minor), b.currency).format(),
     ) for b in selected]
     for offset in range(0, len(lines), 15):
-        await callback_message(callback).answer(translate(
+        await show(callback_message(callback), translate(
             language, "group_settle_review", group=escape(group.name),
             payments="\n".join(lines[offset:offset + 15]),
         ))
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "group_settle_confirm"), reply_markup=_keyboard([
             (translate(language, "group_settle_confirm"), f"g:paid:{confirmation}"),
-            (translate(language, "group_back"), f"g:view:{token}"),
+            (translate(language, "back"), "flow:back"),
         ]),
     )
     await callback.answer()
@@ -599,7 +617,7 @@ async def group_payment_save(
     settlements = await services.groups.settle(actor.id, UUID(data["group_id"]), expected,
                                                UUID(data["other_id"]) if data["other_id"] else None)
     await state.clear()
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "group_settled"), reply_markup=_keyboard([
             (translate(language, "group_back"), f"g:view:{uuid_token(UUID(data['group_id']))}"),
         ]),

@@ -20,6 +20,7 @@ from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import DomainError
 from splitnshare.domain.money import Money
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.flow_messages import show
 from splitnshare.presentation.formatters import (
     transfer_notification_text,
     transfer_preview_text,
@@ -34,7 +35,7 @@ from splitnshare.presentation.keyboards import (
     friend_remove_confirm_keyboard,
     friends_list_keyboard,
     guests_keyboard,
-    main_menu,
+    main_menu_inline_keyboard,
     registered_friends_keyboard,
     transfer_confirm_keyboard,
     transfer_target_keyboard,
@@ -52,7 +53,7 @@ async def friends(message: Message, services: Services, language: Language) -> N
     """Show the user's unified registered and guest friends list."""
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await message.answer(
+    await show(message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -72,7 +73,7 @@ async def friends_callback(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await target_message.edit_text(
+    await show(target_message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -119,7 +120,7 @@ async def view_friend(
     friend_balances = tuple(
         balance for balance in balances if balance.other_person_id == friend.person_id
     )
-    await target_message.edit_text(
+    await show(target_message,
         _friend_details_text(
             friend,
             transfer_guest,
@@ -150,7 +151,7 @@ async def registered_friends(
         if friend.registered
     ]
     text = _registered_friends_text(registered, language)
-    await target_message.edit_text(
+    await show(target_message,
         text, reply_markup=registered_friends_keyboard(registered, language)
     )
     await callback.answer()
@@ -173,7 +174,7 @@ async def owned_guests(
         friend.person_id for friend in await services.friends.list_friends(owner.id)
     }
     text = _guests_text(guests, language)
-    await target_message.edit_text(
+    await show(target_message,
         text,
         reply_markup=guests_keyboard(guests, language, active_friend_ids),
     )
@@ -214,7 +215,7 @@ async def ask_remove_friend(
             translate(language, "remove_friend_warning"),
         )
     )
-    await target_message.edit_text(
+    await show(target_message,
         text,
         reply_markup=friend_remove_confirm_keyboard(friend.person_id, origin, language),
     )
@@ -249,7 +250,7 @@ async def remove_friend(
             "friend_removed",
             name=friend_html(friend),
         )
-    await target_message.edit_text(
+    await show(target_message,
         text, reply_markup=back_to_friends_keyboard(language)
     )
     await callback.answer()
@@ -282,7 +283,7 @@ async def begin_rename_friend(
     await state.clear()
     await state.update_data(friend_id=str(friend_id))
     await state.set_state(FriendStates.renaming)
-    await target_message.answer(
+    await show(target_message,
         translate(language, "rename_friend_prompt"),
         reply_markup=cancel_keyboard(language),
     )
@@ -297,8 +298,8 @@ async def rename_friend_back(
     await state.clear()
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await message.answer(translate(language, "friends"), reply_markup=main_menu(language))
-    await message.answer(
+    await show(message, translate(language, "friends"), reply_markup=main_menu_inline_keyboard(language))
+    await show(message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -317,9 +318,9 @@ async def rename_friend(
     friend_id_text = data.get("friend_id")
     if not isinstance(friend_id_text, str):
         await state.clear()
-        await message.answer(
+        await show(message,
             translate(language, "friend_already_removed"),
-            reply_markup=main_menu(language),
+            reply_markup=main_menu_inline_keyboard(language),
         )
         return
     try:
@@ -327,15 +328,15 @@ async def rename_friend(
             owner.id, UUID(friend_id_text), message.text or ""
         )
     except DomainError as exc:
-        await message.answer(str(exc))
+        await show(message, str(exc))
         return
     await state.clear()
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await message.answer(
+    await show(message,
         translate(language, "friend_renamed", name=friend_html(renamed)),
-        reply_markup=main_menu(language),
+        reply_markup=main_menu_inline_keyboard(language),
     )
-    await message.answer(
+    await show(message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -349,7 +350,7 @@ async def begin_add_friend(
     target_message = callback_message(callback)
     await state.clear()
     await state.set_state(FriendStates.choosing)
-    await target_message.answer(
+    await show(target_message,
         translate(language, "add_friend_prompt"),
         reply_markup=add_friend_keyboard(language),
     )
@@ -373,13 +374,13 @@ async def receive_friend_user(
     )
     if existing_friend is not None:
         await state.clear()
-        await message.answer(
+        await show(message,
             translate(
                 language,
                 "friend_already_added",
                 name=friend_html(existing_friend),
             ),
-            reply_markup=main_menu(language),
+            reply_markup=back_to_friends_keyboard(language),
         )
         return
     first_name = getattr(shared, "first_name", None) or f"Telegram user {shared.user_id}"
@@ -394,16 +395,16 @@ async def receive_friend_user(
             ),
         )
     except DomainError as exc:
-        await message.answer(str(exc))
+        await show(message, str(exc))
         return
     await state.clear()
-    await message.answer(
+    await show(message,
         translate(
             language,
             "friend_added",
             name=friend_html(friend),
         ),
-        reply_markup=main_menu(language),
+        reply_markup=back_to_friends_keyboard(language),
     )
 
 
@@ -413,7 +414,7 @@ async def request_friend_name(
 ) -> None:
     """Prompt for the display name of a manually created guest friend."""
     await state.set_state(FriendStates.manual_name)
-    await message.answer(
+    await show(message,
         translate(language, "friend_name"), reply_markup=cancel_keyboard(language)
     )
 
@@ -427,8 +428,8 @@ async def add_friend_back(
     await state.clear()
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await message.answer(translate(language, "friends"), reply_markup=main_menu(language))
-    await message.answer(
+    await show(message, translate(language, "friends"), reply_markup=back_to_friends_keyboard(language))
+    await show(message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -446,16 +447,16 @@ async def receive_friend_name(
     try:
         friend = await services.friends.add_manual_guest(owner.id, message.text or "")
     except DomainError as exc:
-        await message.answer(str(exc))
+        await show(message, str(exc))
         return
     await state.clear()
-    await message.answer(
+    await show(message,
         translate(
             language,
             "friend_added",
             name=friend_html(friend),
         ),
-        reply_markup=main_menu(language),
+        reply_markup=back_to_friends_keyboard(language),
     )
 
 
@@ -503,7 +504,7 @@ async def choose_suggested_transfer(
         target_id=str(guest.suggested_target_person_id),
     )
     await state.set_state(TransferGuestStates.confirm)
-    await target_message.answer(
+    await show(target_message,
         transfer_preview_text(preview, language),
         reply_markup=transfer_confirm_keyboard(language),
     )
@@ -529,7 +530,7 @@ async def choose_guest(
     await state.clear()
     await state.update_data(owner_id=str(owner.id), guest_id=str(guest_id))
     await state.set_state(TransferGuestStates.target)
-    await target_message.answer(
+    await show(target_message,
         translate(language, "choose_transfer_target"),
         reply_markup=transfer_target_keyboard(language),
     )
@@ -550,7 +551,7 @@ async def receive_target(
     shared = message.users_shared.users[0]
     target = await services.users.find_registered_target(shared.user_id)
     if target is None:
-        await message.answer(
+        await show(message,
             translate(language, "target_not_registered")
         )
         return
@@ -562,15 +563,15 @@ async def receive_target(
     try:
         preview = await services.guests.preview_transfer(command)
     except DomainError as exc:
-        await message.answer(str(exc), reply_markup=main_menu(language))
+        await show(message, str(exc), reply_markup=main_menu_inline_keyboard(language))
         await state.clear()
         return
     await state.update_data(target_id=str(target.id))
     await state.set_state(TransferGuestStates.confirm)
-    await message.answer(
-        translate(language, "main_menu"), reply_markup=main_menu(language)
+    await show(message,
+        translate(language, "main_menu"), reply_markup=main_menu_inline_keyboard(language)
     )
-    await message.answer(
+    await show(message,
         transfer_preview_text(preview, language),
         reply_markup=transfer_confirm_keyboard(language),
     )
@@ -587,7 +588,7 @@ async def confirm_transfer(
     """Commit the guest transfer and notify its target only when expenses moved."""
     target_message = callback_message(callback)
     data = await state.get_data()
-    if "target_id" not in data:
+    if await state.get_state() != TransferGuestStates.confirm.state or not data.get("target_id"):
         await callback.answer(translate(language, "transfer_expired"), show_alert=True)
         return
     command = TransferGuestCommand(
@@ -601,7 +602,7 @@ async def confirm_transfer(
         await callback.answer(str(exc), show_alert=True)
         return
     await state.clear()
-    await target_message.answer(
+    await show(target_message,
         translate(
             language,
             "transfer_completed",
@@ -611,7 +612,7 @@ async def confirm_transfer(
                 result.target_name, result.target_person_id, result.target_username
             ),
         ),
-        reply_markup=main_menu(language),
+        reply_markup=main_menu_inline_keyboard(language),
     )
     if result.affected_counts["expenses"] == 0:
         await callback.answer()
@@ -640,8 +641,8 @@ async def cancel_transfer(
     """Clear the transfer draft and report cancellation."""
     target_message = callback_message(callback)
     await state.clear()
-    await target_message.answer(
-        translate(language, "transfer_cancelled"), reply_markup=main_menu(language)
+    await show(target_message,
+        translate(language, "transfer_cancelled"), reply_markup=main_menu_inline_keyboard(language)
     )
     await callback.answer()
 

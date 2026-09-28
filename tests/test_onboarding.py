@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from splitnshare.application.dto import BalanceDTO, PersonDTO, UserSettingsDTO
 from splitnshare.domain.enums import Language, PersonKind
@@ -55,13 +55,13 @@ async def test_new_user_selects_timezone_before_main_menu() -> None:
     await start(message, state, _services(None))
 
     state.set_state.assert_awaited_once_with(OnboardingStates.timezone)
-    assert message.answer.await_count == 2
+    assert message.answer.await_count == 3
     first_markup = message.answer.await_args_list[0].kwargs["reply_markup"]
-    second_markup = message.answer.await_args_list[1].kwargs["reply_markup"]
-    assert isinstance(first_markup, ReplyKeyboardRemove)
+    second_markup = message.answer.await_args_list[2].kwargs["reply_markup"]
+    assert isinstance(first_markup)
     assert isinstance(second_markup, InlineKeyboardMarkup)
     assert "Currency and language can be changed later" in (
-        message.answer.await_args_list[0].args[0]
+        message.answer.await_args_list[1].args[0]
     )
 
 
@@ -72,13 +72,15 @@ async def test_existing_user_with_timezone_receives_main_menu() -> None:
     await start(message, state, _services("Europe/Madrid"))
 
     state.set_state.assert_not_awaited()
-    assert message.answer.await_count == 2
+    assert message.answer.await_count == 3
     quick_markup = message.answer.await_args_list[0].kwargs["reply_markup"]
-    menu_markup = message.answer.await_args_list[1].kwargs["reply_markup"]
+    menu_markup = message.answer.await_args_list[2].kwargs["reply_markup"]
     assert isinstance(quick_markup, ReplyKeyboardMarkup)
     assert isinstance(menu_markup, InlineKeyboardMarkup)
-    assert "Hi, New User!" in message.answer.await_args_list[0].args[0]
-    assert "no outstanding balances" in message.answer.await_args_list[0].args[0]
+    assert quick_markup.keyboard[0][0].text == "🏠 Main Menu"
+    assert quick_markup.keyboard[-1][0].text == "👥 Groups"
+    assert "Hi, New User!" in message.answer.await_args_list[1].args[0]
+    assert "no outstanding balances" in message.answer.await_args_list[1].args[0]
 
 
 async def test_existing_user_welcome_summarizes_both_balance_directions() -> None:
@@ -94,6 +96,6 @@ async def test_existing_user_welcome_summarizes_both_balance_directions() -> Non
 
     await start(message, state, _services("Europe/Madrid", balances))
 
-    welcome = message.answer.await_args_list[0].args[0]
+    welcome = message.answer.await_args_list[1].args[0]
     assert "🔴 ▼ You owe: <b>7.50 USD</b>" in welcome
     assert "🟢 ▲ You are owed: <b>3.00 EUR, 12.00 USD</b>" in welcome

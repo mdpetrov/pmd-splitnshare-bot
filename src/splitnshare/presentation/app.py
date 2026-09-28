@@ -24,6 +24,7 @@ from splitnshare.infrastructure.database import create_engine, create_session_fa
 from splitnshare.infrastructure.fsm_storage import SqlAlchemyFSMStorage
 from splitnshare.infrastructure.unit_of_work import SqlAlchemyUnitOfWorkFactory
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.flow_messages import FlowMessageMiddleware
 from splitnshare.presentation.middleware import DraftNavigationMiddleware, UserSettingsMiddleware
 from splitnshare.presentation.routers import build_router
 
@@ -60,6 +61,7 @@ def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]
         services=services,
     )
     dispatcher.update.outer_middleware(UserSettingsMiddleware(user_settings))
+    dispatcher.update.outer_middleware(FlowMessageMiddleware())
     dispatcher.update.outer_middleware(DraftNavigationMiddleware())
     dispatcher.include_router(build_router())
     return bot, dispatcher, engine

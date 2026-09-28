@@ -3,16 +3,17 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message
 
 from splitnshare.domain.enums import Language
 from splitnshare.domain.errors import UnsettledAccountError
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.flow_messages import forget_flow, show, show_markup
 from splitnshare.presentation.helpers import callback_message
 from splitnshare.presentation.i18n import translate
 from splitnshare.presentation.keyboards import (
     delete_account_confirm_keyboard,
-    main_menu,
+    main_menu_inline_keyboard,
 )
 from splitnshare.presentation.states import DeleteAccountStates
 
@@ -33,18 +34,18 @@ async def request_account_deletion(
         return
     person = await services.users.find_registered_target(message.from_user.id)
     if person is None:
-        await message.answer(translate(language, "use_start"))
+        await show(message, translate(language, "use_start"))
         return
     await state.clear()
     balances = await services.balances.get_balances(person.id)
     if any(balance.net_minor != 0 for balance in balances):
-        await message.answer(
+        await show(message,
             translate(language, "delete_account_unsettled"),
-            reply_markup=main_menu(language),
+            reply_markup=main_menu_inline_keyboard(language),
         )
         return
     await state.set_state(DeleteAccountStates.confirm)
-    await message.answer(
+    await show(message,
         translate(language, "delete_account_warning"),
         reply_markup=delete_account_confirm_keyboard(language),
     )
@@ -57,7 +58,7 @@ async def confirm_account_deletion(
     services: Services,
     language: Language,
 ) -> None:
-    """Anonymize the authenticated account and remove its Telegram menu."""
+    """Anonymize the authenticated account and update its confirmation message."""
     if await state.get_state() != DeleteAccountStates.confirm.state:
         await callback.answer(
             translate(language, "delete_account_expired"), show_alert=True
@@ -77,10 +78,10 @@ async def confirm_account_deletion(
         deleted = await services.users.delete_account(person.id)
     except UnsettledAccountError:
         await state.clear()
-        await target_message.edit_reply_markup(reply_markup=None)
-        await target_message.answer(
+        await show_markup(target_message, reply_markup=None)
+        await show(target_message,
             translate(language, "delete_account_unsettled"),
-            reply_markup=main_menu(language),
+            reply_markup=main_menu_inline_keyboard(language),
         )
         await callback.answer()
         return
@@ -90,10 +91,10 @@ async def confirm_account_deletion(
             translate(language, "delete_account_expired"), show_alert=True
         )
         return
-    await target_message.edit_reply_markup(reply_markup=None)
-    await target_message.answer(
+    forget_flow()
+    await show_markup(target_message, reply_markup=None)
+    await show(target_message,
         translate(language, "delete_account_complete"),
-        reply_markup=ReplyKeyboardRemove(),
     )
     await callback.answer()
 
@@ -107,9 +108,9 @@ async def cancel_account_deletion(
     """Keep the account and restore its main reply menu."""
     target_message = callback_message(callback)
     await state.clear()
-    await target_message.edit_text(translate(language, "delete_account_cancelled"))
-    await target_message.answer(
+    await show(target_message, translate(language, "delete_account_cancelled"))
+    await show(target_message,
         translate(language, "main_menu_prompt"),
-        reply_markup=main_menu(language),
+        reply_markup=main_menu_inline_keyboard(language),
     )
     await callback.answer()

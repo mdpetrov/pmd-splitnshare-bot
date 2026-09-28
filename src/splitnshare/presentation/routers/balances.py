@@ -24,6 +24,7 @@ from splitnshare.domain.errors import DomainError
 from splitnshare.domain.money import Money
 from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.flow_messages import show
 from splitnshare.presentation.formatters import (
     activity_text,
     balances_text,
@@ -42,7 +43,7 @@ from splitnshare.presentation.keyboards import (
     balances_keyboard,
     cancel_keyboard,
     expense_details_keyboard,
-    main_menu,
+    main_menu_inline_keyboard,
     person_activity_keyboard,
     person_balance_keyboard,
     settlement_amount_keyboard,
@@ -66,7 +67,7 @@ async def balances(
     await state.clear()
     person = await current_person(message, services)
     current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
-    await message.answer(
+    await show(message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
@@ -89,7 +90,7 @@ async def balances_callback(
         return
     await state.clear()
     current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
-    await target_message.edit_text(
+    await show(target_message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
@@ -123,7 +124,7 @@ async def show_person_balance(
         await callback.answer(translate(language, "balance_person_stale"), show_alert=True)
         return
     await state.clear()
-    await target_message.edit_text(
+    await show(target_message,
         person_balances_text(selected, language),
         reply_markup=person_balance_keyboard(selected, language),
     )
@@ -153,7 +154,7 @@ async def show_person_history(
         person.id, other_person_id=other_id
     )
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.edit_text(
+    await show(target_message,
         _person_history_text(
             page.items,
             person.id,
@@ -199,7 +200,7 @@ async def show_person_history_page(
         person.id, other_person_id=other_id, cursor=cursor
     )
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.edit_text(
+    await show(target_message,
         _person_history_text(
             page.items,
             person.id,
@@ -246,7 +247,7 @@ async def view_person_history_expense(
         await callback.answer(translate(language, "balance_person_stale"), show_alert=True)
         return
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.edit_text(
+    await show(target_message,
         expense_text(expense, language, settings.timezone or "UTC"),
         reply_markup=expense_details_keyboard(
             expense,
@@ -305,7 +306,7 @@ async def select_balance_to_settle(
         net_minor=current.net_minor,
     )
     await state.set_state(SettlementStates.confirm)
-    await target_message.edit_text(
+    await show(target_message,
         _settlement_prompt(current, language),
         reply_markup=settlement_amount_keyboard(
             Money(abs(current.net_minor), current.currency),
@@ -341,7 +342,7 @@ async def settle_full_balance(
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))
     current_balances = await services.balances.get_balances(actor_id, DirectExpenseContext())
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "settlement_saved", amount=settlement.amount.format())
         + "\n\n"
         + balances_text(current_balances, language),
@@ -362,7 +363,7 @@ async def request_partial_settlement(
     target_message = callback_message(callback)
     data = await state.get_data()
     await state.set_state(SettlementStates.amount)
-    await target_message.answer(
+    await show(target_message,
         translate(language, "settle_enter_amount", currency=data["currency"]),
         reply_markup=cancel_keyboard(language),
     )
@@ -380,8 +381,8 @@ async def partial_settlement_back(
     await state.clear()
     person = await current_person(message, services)
     current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
-    await message.answer(translate(language, "balances"), reply_markup=main_menu(language))
-    await message.answer(
+    await show(message, translate(language, "balances"), reply_markup=main_menu_inline_keyboard(language))
+    await show(message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
@@ -402,17 +403,17 @@ async def receive_partial_settlement(
     try:
         amount = parse_total(message.text or "", currency)
     except DomainError:
-        await message.answer(
+        await show(message,
             translate(language, "settle_invalid_amount", amount=outstanding.format())
         )
         return
     if amount.currency != currency:
-        await message.answer(
+        await show(message,
             translate(language, "settle_wrong_currency", currency=currency)
         )
         return
     if amount.minor > outstanding.minor:
-        await message.answer(
+        await show(message,
             translate(language, "settle_invalid_amount", amount=outstanding.format())
         )
         return
@@ -420,18 +421,18 @@ async def receive_partial_settlement(
         settlement = await _record_settlement(services, data, amount.minor)
     except DomainError:
         await state.clear()
-        await message.answer(
-            translate(language, "settlement_stale"), reply_markup=main_menu(language)
+        await show(message,
+            translate(language, "settlement_stale"), reply_markup=main_menu_inline_keyboard(language)
         )
         return
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))
     current_balances = await services.balances.get_balances(actor_id, DirectExpenseContext())
-    await message.answer(
+    await show(message,
         translate(language, "settlement_saved", amount=amount.format()),
-        reply_markup=main_menu(language),
+        reply_markup=main_menu_inline_keyboard(language),
     )
-    await message.answer(
+    await show(message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )

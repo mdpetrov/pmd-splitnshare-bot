@@ -53,7 +53,7 @@ class SqlAlchemyFSMStorage(BaseStorage):
         return row
 
     async def _checkpoint(self, session: AsyncSession, row: ConversationStateModel) -> None:
-        """Refresh the active expense snapshot without touching saved ledger entries."""
+        """Checkpoint named expenses while leaving empty new forms unsaved."""
         if not row.state or not row.state.startswith("AddExpenseStates:"):
             return
         identifier = row.data.get("draft_id")
@@ -61,13 +61,21 @@ class SqlAlchemyFSMStorage(BaseStorage):
             return
         draft_id = UUID(str(identifier))
         draft = await session.get(ExpenseDraftModel, draft_id)
+        description = row.data.get("description")
+        if not isinstance(description, str) or not description.strip():
+            if draft is not None:
+                if draft.conversation_key != row.key:
+                    raise NotFoundError("Draft not found.")
+                await session.delete(draft)
+            return
         if draft is None:
             session.add(ExpenseDraftModel(
-                id=draft_id, conversation_key=row.key, state=row.state, data=deepcopy(row.data),
+                id=draft_id, conversation_key=row.key, state=row.state,
+                data=deepcopy({k: v for k, v in row.data.items() if k != "_flow_view"}),
             ))
         elif draft.conversation_key == row.key:
             draft.state = row.state
-            draft.data = deepcopy(row.data)
+            draft.data = deepcopy({k: v for k, v in row.data.items() if k != "_flow_view"})
         else:
             raise NotFoundError("Draft not found.")
 

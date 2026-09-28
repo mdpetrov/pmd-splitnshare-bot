@@ -16,6 +16,7 @@ from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import EqualSplitStrategy
 from splitnshare.infrastructure.fsm_storage import SqlAlchemyFSMStorage
 from splitnshare.presentation.datetimes import format_local_datetime
+from splitnshare.presentation.flow_messages import show, show_markup
 from splitnshare.presentation.helpers import callback_message
 from splitnshare.presentation.i18n import button_values, translate
 from splitnshare.presentation.routers.expenses import render_expense_draft
@@ -61,7 +62,7 @@ async def _show_list(
     rows.append([InlineKeyboardButton(
         text=translate(language, "main_menu"), callback_data="menu:show",
     )])
-    await message.answer(
+    await show(message,
         translate(language, "drafts_help" if drafts else "drafts_empty"),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
@@ -164,7 +165,7 @@ async def view_draft(callback: CallbackQuery, state: FSMContext, language: Langu
         await callback.answer(str(exc), show_alert=True)
         return
     await state.clear()
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         _draft_summary(draft.data, language),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=translate(language, "draft_continue"),
@@ -173,8 +174,8 @@ async def view_draft(callback: CallbackQuery, state: FSMContext, language: Langu
                                   callback_data=f"draft:edit_fields:{identifier}")],
             [InlineKeyboardButton(text=translate(language, "delete"),
                                   callback_data=f"draft:ask_delete:{identifier}")],
-            [InlineKeyboardButton(text=translate(language, "main_menu"),
-                                  callback_data="menu:show")],
+            [InlineKeyboardButton(text=translate(language, "back"),
+                                  callback_data="menu:drafts")],
         ]),
     )
     await callback.answer()
@@ -188,7 +189,7 @@ async def resume_draft(callback: CallbackQuery, state: FSMContext, language: Lan
         identifier = UUID((callback.data or "").rsplit(":", 1)[1])
         await _storage(state).resume(state.key, identifier)
         if callback.data and callback.data.startswith("draft:edit_fields:"):
-            await state.update_data(edit_mode=True)
+            await state.update_data(edit_mode=True, edit_origin="draft")
             await state.set_state(AddExpenseStates.description)
         await render_expense_draft(callback_message(callback), state, language)
     except (DomainError, ValueError) as exc:
@@ -205,12 +206,13 @@ async def ask_discard_draft(callback: CallbackQuery, language: Language) -> None
     except ValueError:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         translate(language, "discard_draft_question"),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=translate(language, "delete"),
                                   callback_data=f"draft:delete:{identifier}")],
-            [InlineKeyboardButton(text=translate(language, "keep"), callback_data="menu:drafts")],
+            [InlineKeyboardButton(text=translate(language, "keep"),
+                                  callback_data=f"draft:view:{identifier}")],
         ]),
     )
     await callback.answer()
@@ -225,6 +227,6 @@ async def discard_draft(callback: CallbackQuery, state: FSMContext, language: La
     except (DomainError, ValueError):
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
-    await callback_message(callback).edit_reply_markup(reply_markup=None)
+    await show_markup(callback_message(callback), reply_markup=None)
     await _show_list(callback_message(callback), state, language)
     await callback.answer()

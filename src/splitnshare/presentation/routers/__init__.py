@@ -4,11 +4,13 @@ from aiogram import Router
 from aiogram.types import ErrorEvent
 
 from splitnshare.domain.errors import DomainError
+from splitnshare.presentation.flow_messages import show
 from splitnshare.presentation.routers.account import router as account_router
 from splitnshare.presentation.routers.balances import router as balances_router
 from splitnshare.presentation.routers.drafts import router as drafts_router
 from splitnshare.presentation.routers.expenses import router as expenses_router
 from splitnshare.presentation.routers.groups import router as groups_router
+from splitnshare.presentation.routers.navigation import router as navigation_router
 from splitnshare.presentation.routers.people import router as friends_router
 from splitnshare.presentation.routers.privacy import router as privacy_router
 from splitnshare.presentation.routers.settings import router as settings_router
@@ -24,6 +26,7 @@ def build_router() -> Router:
         account_router,
         settings_router,
         drafts_router,
+        navigation_router,
         groups_router,
         expenses_router,
         friends_router,
@@ -38,7 +41,7 @@ def build_router() -> Router:
             update.callback_query.message if update.callback_query is not None else None
         )
         if isinstance(event.exception, DomainError) and message is not None:
-            await message.answer(str(event.exception))
+            await show(message, str(event.exception))
             return True
         return False
 

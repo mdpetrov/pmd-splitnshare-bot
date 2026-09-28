@@ -87,6 +87,40 @@ async def test_non_expense_form_state_also_survives_new_storage(draft_backend):
     assert await restarted.list_drafts(_key()) == ()
 
 
+async def test_flow_message_survives_restart_without_polluting_draft_snapshots(draft_backend):
+    identifier, state = await _seed(draft_backend.storage, _key())
+    view = {"message_id": 81, "pages": ["Review"], "page": 0, "markup": {"inline_keyboard": []}}
+    await state.update_data(_flow_view=view)
+    await draft_backend.engine.dispose()
+    engine = create_async_engine(draft_backend.url)
+    try:
+        restarted = SqlAlchemyFSMStorage(create_session_factory(engine))
+        assert (await restarted.get_data(_key()))["_flow_view"] == view
+        draft = (await restarted.list_drafts(_key()))[0]
+        assert draft.id == identifier
+        assert "_flow_view" not in draft.data
+    finally:
+        await engine.dispose()
+
+
+async def test_expense_draft_is_saved_only_after_description(draft_backend):
+    identifier = uuid4()
+    state = FSMContext(storage=draft_backend.storage, key=_key())
+    await state.update_data(draft_id=str(identifier), creator_id=str(uuid4()))
+    await state.set_state(AddExpenseStates.description)
+    assert await draft_backend.storage.list_drafts(_key()) == ()
+
+    await state.update_data(description="   ")
+    assert await draft_backend.storage.list_drafts(_key()) == ()
+
+    await state.update_data(description="Taxi")
+    await state.clear()
+    saved = await draft_backend.storage.list_drafts(_key())
+    assert len(saved) == 1
+    assert saved[0].id == identifier
+    assert saved[0].data["description"] == "Taxi"
+
+
 async def test_group_expense_context_survives_pausing_and_restarting(draft_backend):
     identifier, state = await _seed(draft_backend.storage, _key())
     group_data = {

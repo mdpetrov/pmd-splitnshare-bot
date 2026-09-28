@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Any
@@ -14,9 +15,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
     Message,
-    ReplyKeyboardMarkup,
 )
 
 from splitnshare.application.dto import (
@@ -32,6 +31,7 @@ from splitnshare.domain.splitting import EqualSplitStrategy
 from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
+from splitnshare.presentation.flow_messages import show, show_markup
 from splitnshare.presentation.formatters import (
     activity_text,
     expense_notification_text,
@@ -48,15 +48,12 @@ from splitnshare.presentation.i18n import button_values, translate
 from splitnshare.presentation.keyboards import (
     activity_list_keyboard,
     back_to_main_menu_keyboard,
-    cancel_keyboard,
     delete_confirm_keyboard,
     expense_confirm_keyboard,
     expense_date_keyboard,
     expense_details_keyboard,
     expense_friends_keyboard,
     expense_payer_keyboard,
-    main_menu,
-    participant_keyboard,
     remove_participant_keyboard,
     split_method_keyboard,
 )
@@ -69,24 +66,133 @@ router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
 
 
-async def draft_participant_keyboard(state: FSMContext, language: Language) -> ReplyKeyboardMarkup:
-    """Restrict group drafts to member selection while retaining ordinary expense actions."""
+def _expense_navigation(
+    language: Language, *, back: str | None = None, keep: bool = False,
+) -> InlineKeyboardMarkup:
+    """Offer flow navigation without replacing the user's persistent main keyboard."""
+    row = []
+    if back is not None:
+        row.append(InlineKeyboardButton(text=translate(language, "back"), callback_data=back))
+    if keep:
+        row.append(InlineKeyboardButton(text=translate(language, "keep"), callback_data="expense:keep"))
+    row.append(InlineKeyboardButton(text=translate(language, "cancel"), callback_data="expense:cancel"))
+    return InlineKeyboardMarkup(inline_keyboard=[row])
+
+
+async def draft_participant_keyboard(state: FSMContext, language: Language) -> InlineKeyboardMarkup:
+    """Build inline participant actions without a redundant Keep button."""
     data = await state.get_data()
-    include_keep = bool(data.get("edit_mode") and len(data.get("participants", [])) >= 2)
+    rows = []
+    if data.get("group_id"):
+        rows.append([InlineKeyboardButton(
+            text=translate(language, "group_expense_members"), callback_data="expense:participants:friends",
+        )])
+    else:
+        rows.append([
+            InlineKeyboardButton(text=translate(language, "add_manual"), callback_data="expense:participants:manual"),
+            InlineKeyboardButton(text=translate(language, "add_from_friends"), callback_data="expense:participants:friends"),
+        ])
     if not data.get("group_id"):
-        return participant_keyboard(language, include_keep=include_keep)
-    return ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text=translate(language, "group_expense_members"))],
-        [
-            KeyboardButton(text=translate(language, "remove_participant")),
-            KeyboardButton(text=translate(language, "done")),
-        ],
-        *([[KeyboardButton(text=translate(language, "keep"))]] if include_keep else []),
-        [
-            KeyboardButton(text=translate(language, "back")),
-            KeyboardButton(text=translate(language, "cancel")),
-        ],
-    ], resize_keyboard=True)
+        rows.append([InlineKeyboardButton(
+            text=translate(language, "choose_telegram_users"),
+            callback_data="expense:participants:contact",
+        )])
+    rows.append([
+        InlineKeyboardButton(text=translate(language, "remove_participant"), callback_data="expense:participants:remove"),
+        InlineKeyboardButton(text=translate(language, "done"), callback_data="expense:participants:done"),
+    ])
+    rows.append([
+        InlineKeyboardButton(text=translate(language, "back"), callback_data="expense:participants:back"),
+        InlineKeyboardButton(text=translate(language, "cancel"), callback_data="expense:cancel"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data.startswith("expense:nav:"))
+async def navigate_expense(
+    callback: CallbackQuery, state: FSMContext, language: Language,
+) -> None:
+    """Move backward through text-entry steps using inline controls."""
+    destinations = {
+        "description": (AddExpenseStates.total, AddExpenseStates.description),
+        "date": (AddExpenseStates.custom_date, AddExpenseStates.expense_date),
+        "participants": (AddExpenseStates.manual_name, AddExpenseStates.participants),
+        "split": (AddExpenseStates.exact_amount, AddExpenseStates.split_method),
+    }
+    key = (callback.data or "").rsplit(":", 1)[1]
+    if key == "split" and await state.get_state() == AddExpenseStates.exact_amount.state:
+        await exact_back(callback_message(callback), state, language)
+        await callback.answer()
+        return
+    if key not in destinations or await state.get_state() != destinations[key][0].state:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    await state.set_state(destinations[key][1])
+    await render_expense_draft(callback_message(callback), state, language)
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.participants, F.data.startswith("expense:participants:"))
+async def participant_action(
+    callback: CallbackQuery, state: FSMContext, services: Services, language: Language,
+) -> None:
+    """Dispatch participant actions from the draft's inline keyboard."""
+    action = (callback.data or "").rsplit(":", 1)[1]
+    message = callback_message(callback)
+    data = await state.get_data()
+    if action == "manual":
+        if data.get("group_id"):
+            await callback.answer(translate(language, "group_member_only"), show_alert=True)
+            return
+        await state.set_state(AddExpenseStates.manual_name)
+        await render_expense_draft(message, state, language)
+    elif action == "friends":
+        if data.get("group_id"):
+            await _group_member_choices(message, state, services, language, 0)
+        else:
+            owner = await services.users.find_registered_target(callback.from_user.id)
+            if owner is None:
+                await callback.answer(translate(language, "use_start"), show_alert=True)
+                return
+            friends = list(await services.friends.list_friends(owner.id))
+            if friends:
+                await show(message,
+                    translate(language, "choose_friend"),
+                    reply_markup=expense_friends_keyboard(friends, language),
+                )
+            else:
+                await show(message, translate(language, "no_friends"))
+    elif action == "remove":
+        await choose_participant_to_remove(message, state, language)
+    elif action == "home":
+        await render_expense_draft(message, state, language)
+    elif action == "contact":
+        await show(message, translate(language, "share_contact_hint"),
+                   reply_markup=_expense_navigation(language, back="expense:participants:home"))
+    elif action == "done":
+        await participants_done(message, state, services, language)
+    elif action == "back":
+        await state.set_state(AddExpenseStates.expense_date)
+        await render_expense_draft(message, state, language)
+    else:
+        await callback.answer(translate(language, "draft_expired"), show_alert=True)
+        return
+    await callback.answer()
+
+
+def _expense_date_prompt(data: dict[str, Any], language: Language) -> str:
+    """Show the current time in the selected timezone beside the date question."""
+    current = format_local_datetime(datetime.now(UTC), data.get("timezone", "UTC"), language)
+    return translate(language, "choose_expense_date") + "\n" + translate(
+        language, "current_expense_datetime", date=escape(current)
+    )
+
+
+def _exact_question(participant: dict[str, str], creator_id: str, language: Language) -> str:
+    """Address the creator directly while identifying every other participant."""
+    if participant["id"] == creator_id:
+        return translate(language, "owes_you")
+    return translate(language, "owes_next", name=escape(participant["name"]))
 
 
 def draft_payer_keyboard(
@@ -104,6 +210,10 @@ def draft_payer_keyboard(
         markup.inline_keyboard.insert(-1, [InlineKeyboardButton(
             text=translate(language, "more"), callback_data=f"eg:payers:{page + 1}",
         )])
+    if page:
+        markup.inline_keyboard.insert(-1, [InlineKeyboardButton(
+            text="←", callback_data=f"eg:payers:{page - 1}",
+        )])
     return markup
 
 
@@ -111,7 +221,7 @@ def draft_payer_keyboard(
 async def payer_page(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
     """Display the next page of eligible group payers."""
     page = max(0, int((callback.data or "").rsplit(":", 1)[1]))
-    await callback_message(callback).edit_reply_markup(
+    await show_markup(callback_message(callback),
         reply_markup=draft_payer_keyboard(await state.get_data(), language, page)
     )
     await callback.answer()
@@ -135,7 +245,10 @@ async def _group_member_choices(
     ]
     if len(members) > (page + 1) * 20:
         choices.append((translate(language, "more"), f"eg:members:{page + 1}"))
-    await message.answer(
+    if page:
+        choices.append(("←", f"eg:members:{page - 1}"))
+    choices.append((translate(language, "back"), "expense:participants:home"))
+    await show(message,
         translate(language, "group_expense_members"), reply_markup=_keyboard(choices)
     )
 
@@ -173,9 +286,10 @@ async def add_group_member(
             raise ValidationError(translate(language, "participant_limit"))
         participants.append(_member(member))
     await state.update_data(
-        participants=participants, group_members=[_member(m) for m in group.participants]
+        participants=participants, group_members=[_member(m) for m in group.participants],
+        exact_amounts={}, exact_index=0,
     )
-    await callback_message(callback).answer(
+    await show(callback_message(callback),
         _participant_summary(participants, language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
@@ -197,7 +311,10 @@ async def expense_group_choices(
     if len(groups) > (page + 1) * 20:
         choices.append((translate(language, "more"), f"eg:list:{page + 1}"))
     choices.append((translate(language, "group_none"), "eg:select:none"))
-    await callback_message(callback).answer(
+    if page:
+        choices.append(("←", f"eg:list:{page - 1}"))
+    choices.append((translate(language, "back"), "eg:review"))
+    await show(callback_message(callback),
         translate(language, "group_choose"), reply_markup=_keyboard(choices)
     )
     await callback.answer()
@@ -210,10 +327,13 @@ async def select_expense_group(
     services: Services,
     language: Language,
 ) -> None:
-    """Attach a group and discard allocations requiring participant revalidation."""
+    """Attach a group without discarding the reviewed payer and allocations."""
     data = await state.get_data()
     token = (callback.data or "").rsplit(":", 1)[1]
     if token == "none":
+        if data["payer_id"] not in {p["id"] for p in data["participants"]}:
+            await callback.answer(translate(language, "person_unavailable"), show_alert=True)
+            return
         await state.update_data(
             group_id=None, group_name=None, group_currency=None, group_members=None
         )
@@ -221,16 +341,21 @@ async def select_expense_group(
     else:
         group = await services.groups.get(UUID(data["creator_id"]), uuid_from_token(token))
         allowed = {str(m.id) for m in group.participants}
-        participants = [p for p in data["participants"] if p["id"] in allowed]
+        required = {p["id"] for p in data["participants"]} | {
+            data["creator_id"], data["payer_id"],
+        }
+        if not required <= allowed:
+            await callback.answer(
+                translate(language, "group_expense_members_required"), show_alert=True
+            )
+            return
         await state.update_data(
             group_id=str(group.id), group_name=group.name, group_currency=group.default_currency,
-            group_members=[_member(m) for m in group.participants], participants=participants,
+            group_members=[_member(m) for m in group.participants],
         )
         name = group.name
-    await state.update_data(exact_amounts={}, exact_index=0, payer_id=None, split_method=None)
-    await state.set_state(AddExpenseStates.participants)
-    await callback_message(callback).edit_text(
-        translate(language, "group_reselect", name=escape(name))
+    await show(callback_message(callback),
+        translate(language, "group_selected", name=escape(name))
     )
     await render_expense_draft(callback_message(callback), state, language)
     await callback.answer()
@@ -243,7 +368,7 @@ async def edit_expense_members(
     language: Language,
 ) -> None:
     """Reopen the full expense editor from its first field."""
-    await state.update_data(edit_mode=True)
+    await state.update_data(edit_mode=True, edit_origin="review")
     await state.set_state(AddExpenseStates.description)
     await render_expense_draft(callback_message(callback), state, language)
     await callback.answer()
@@ -253,16 +378,37 @@ async def edit_expense_members(
 async def keep_inline_expense_value(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
-    """Retain a saved date, payer, or split method during draft editing."""
+    """Retain a saved draft field using inline navigation."""
     data = await state.get_data()
     step = await state.get_state()
     if not data.get("edit_mode"):
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
     target_message = callback_message(callback)
-    if step == AddExpenseStates.expense_date.state and data.get("occurred_at"):
+    if step == AddExpenseStates.description.state and data.get("description"):
+        await state.set_state(AddExpenseStates.total)
+        await render_expense_draft(target_message, state, language)
+    elif step == AddExpenseStates.total.state and "total_minor" in data:
+        await state.set_state(AddExpenseStates.expense_date)
+        await render_expense_draft(target_message, state, language)
+    elif step == AddExpenseStates.custom_date.state and data.get("occurred_at"):
         await state.set_state(AddExpenseStates.participants)
-        await target_message.edit_text(
+        await render_expense_draft(target_message, state, language)
+    elif step == AddExpenseStates.exact_amount.state:
+        participants = data.get("participants", [])
+        index = int(data.get("exact_index", 0))
+        exact = data.get("exact_amounts", {})
+        if index >= len(participants) or participants[index]["id"] not in exact:
+            await callback.answer(translate(language, "draft_expired"), show_alert=True)
+            return
+        index += 1
+        await state.update_data(exact_index=index)
+        if index == len(participants) and _exact_complete(data):
+            await state.set_state(AddExpenseStates.confirm)
+        await render_expense_draft(target_message, state, language)
+    elif step == AddExpenseStates.expense_date.state and data.get("occurred_at"):
+        await state.set_state(AddExpenseStates.participants)
+        await show(target_message,
             translate(
                 language, "date_selected",
                 date=escape(format_local_datetime(
@@ -271,20 +417,20 @@ async def keep_inline_expense_value(
                 )),
             )
         )
-        await target_message.answer(
+        await show(target_message,
             _participant_summary(data.get("participants", []), language),
             reply_markup=await draft_participant_keyboard(state, language),
         )
     elif step == AddExpenseStates.payer.state and data.get("payer_id"):
         await state.set_state(AddExpenseStates.split_method)
-        await target_message.edit_text(
+        await show(target_message,
             translate(language, "split_how"),
             reply_markup=split_method_keyboard(
                 language, include_keep=bool(data.get("split_method"))
             ),
         )
     elif step == AddExpenseStates.split_method.state and data.get("split_method"):
-        await target_message.edit_text(
+        await show(target_message,
             translate(
                 language, "split_choice_saved",
                 method=translate(
@@ -319,19 +465,18 @@ async def keep_text_expense_value(
     data = await state.get_data()
     step = await state.get_state()
     if not data.get("edit_mode"):
-        await message.answer(translate(language, "draft_expired"))
+        await show(message, translate(language, "draft_expired"))
         return
     if step == AddExpenseStates.description.state and data.get("description"):
         await state.set_state(AddExpenseStates.total)
         await render_expense_draft(message, state, language)
     elif step == AddExpenseStates.total.state and "total_minor" in data:
         await state.set_state(AddExpenseStates.expense_date)
-        await message.answer(
+        await show(message,
             translate(
                 language, "total",
                 total=Money(data["total_minor"], data["currency"]).format(),
             ),
-            reply_markup=main_menu(language),
         )
         await render_expense_draft(message, state, language)
     elif step == AddExpenseStates.custom_date.state and data.get("occurred_at"):
@@ -348,16 +493,13 @@ async def keep_text_expense_value(
             await state.update_data(exact_index=index)
             if index == len(participants) and _exact_complete(data):
                 await state.set_state(AddExpenseStates.confirm)
-                await message.answer(
-                    translate(language, "main_menu"), reply_markup=main_menu(language)
-                )
                 await render_expense_draft(message, state, language)
             else:
                 await render_expense_draft(message, state, language)
         else:
-            await message.answer(translate(language, "draft_expired"))
+            await show(message, translate(language, "draft_expired"))
     else:
-        await message.answer(translate(language, "draft_expired"))
+        await show(message, translate(language, "draft_expired"))
 
 
 def _exact_complete(data: dict[str, Any]) -> bool:
@@ -366,7 +508,11 @@ def _exact_complete(data: dict[str, Any]) -> bool:
     amounts = data.get("exact_amounts") or {}
     return (
         2 <= len(participants) <= 10
-        and all(person["id"] in amounts for person in participants)
+        and set(amounts) == {person["id"] for person in participants}
+        and all(
+            amounts[person["id"]] >= (0 if person["id"] == data.get("payer_id") else 1)
+            for person in participants
+        )
         and sum(amounts[person["id"]] for person in participants)
         == data.get("total_minor")
     )
@@ -378,16 +524,13 @@ async def render_expense_draft(message: Message, state: FSMContext, language: La
     data = await state.get_data()
     participants = data.get("participants", [])
     editing = bool(data.get("edit_mode"))
-    markup: InlineKeyboardMarkup | ReplyKeyboardMarkup = cancel_keyboard(language)
+    markup = _expense_navigation(language, back="expense:nav:participants")
     if step == AddExpenseStates.exact_amount.state:
         index = int(data.get("exact_index", 0))
         if index >= len(participants):
             if _exact_complete(data):
                 await state.set_state(AddExpenseStates.confirm)
                 step = AddExpenseStates.confirm.state
-                await message.answer(
-                    translate(language, "main_menu"), reply_markup=main_menu(language)
-                )
             else:
                 await state.update_data(exact_amounts={}, exact_index=0)
                 data["exact_index"] = 0
@@ -398,27 +541,33 @@ async def render_expense_draft(message: Message, state: FSMContext, language: La
             text += "\n\n" + translate(
                 language, "draft_current_description", value=escape(data["description"])
             )
-        markup = cancel_keyboard(
-            language, include_back=False,
-            include_keep=editing and bool(data.get("description")),
+        markup = _expense_navigation(
+            language, back="expense:origin", keep=editing and bool(data.get("description")),
         )
     elif step == AddExpenseStates.total.state:
         text = translate(language, "enter_total")
         if "total_minor" in data:
             text += "\n\n" + Money(data["total_minor"], data["currency"]).format()
-        markup = cancel_keyboard(language, include_keep=editing and "total_minor" in data)
+        markup = _expense_navigation(
+            language, back="expense:nav:description",
+            keep=editing and "total_minor" in data,
+        )
     elif step == AddExpenseStates.expense_date.state:
-        text, markup = translate(language, "choose_expense_date"), expense_date_keyboard(
+        text, markup = _expense_date_prompt(data, language), expense_date_keyboard(
             language, include_keep=editing and bool(data.get("occurred_at"))
         )
     elif step == AddExpenseStates.custom_date.state:
         text = translate(language, "enter_custom_date")
-        markup = cancel_keyboard(language, include_keep=editing and bool(data.get("occurred_at")))
+        markup = _expense_navigation(
+            language, back="expense:nav:date",
+            keep=editing and bool(data.get("occurred_at")),
+        )
     elif step == AddExpenseStates.participants.state:
         text = _participant_summary(participants, language)
         markup = await draft_participant_keyboard(state, language)
     elif step == AddExpenseStates.manual_name.state:
         text = translate(language, "guest_name")
+        markup = _expense_navigation(language, back="expense:nav:participants")
     elif step == AddExpenseStates.payer.state:
         text = translate(language, "choose_payer")
         markup = draft_payer_keyboard(data, language)
@@ -430,12 +579,10 @@ async def render_expense_draft(message: Message, state: FSMContext, language: La
         index = int(data.get("exact_index", 0))
         if not participants:
             raise ValidationError("Draft participants are missing. Edit the draft to continue.")
-        text = translate(language, "owes_next", name=escape(participants[index]["name"]))
-        markup = cancel_keyboard(
-            language,
-            include_keep=(
-                editing and participants[index]["id"] in data.get("exact_amounts", {})
-            ),
+        text = _exact_question(participants[index], data["creator_id"], language)
+        markup = _expense_navigation(
+            language, back="expense:nav:split",
+            keep=editing and participants[index]["id"] in data.get("exact_amounts", {}),
         )
     elif step == AddExpenseStates.confirm.state:
         if data["split_method"] == SplitMethod.EQUAL.value:
@@ -449,7 +596,7 @@ async def render_expense_draft(message: Message, state: FSMContext, language: La
         markup = expense_confirm_keyboard(language, data["draft_id"])
     else:
         raise ValidationError("This draft step is unavailable. Edit the draft to continue.")
-    await message.answer(text, reply_markup=markup)
+    await show(message, text, reply_markup=markup)
 
 
 @router.message(F.text.in_(button_values("add_expense")))
@@ -470,10 +617,7 @@ async def begin_expense(
         ],
     )
     await state.set_state(AddExpenseStates.description)
-    await message.answer(
-        translate(language, "expense_for"),
-        reply_markup=cancel_keyboard(language, include_back=False),
-    )
+    await render_expense_draft(message, state, language)
 
 
 @router.callback_query(F.data == "menu:add_expense")
@@ -505,10 +649,7 @@ async def begin_expense_callback(
         ],
     )
     await state.set_state(AddExpenseStates.description)
-    await target_message.answer(
-        translate(language, "expense_for"),
-        reply_markup=cancel_keyboard(language, include_back=False),
-    )
+    await render_expense_draft(target_message, state, language)
     await callback.answer()
 
 
@@ -518,7 +659,7 @@ async def description_back(
 ) -> None:
     """Leave description entry and return to the main menu."""
     await state.clear()
-    await message.answer(translate(language, "back_main"), reply_markup=main_menu(language))
+    await show(message, translate(language, "back_main"))
 
 
 @router.message(AddExpenseStates.description)
@@ -528,7 +669,7 @@ async def receive_description(
     """Validate the expense description and request its total."""
     text = (message.text or "").strip()
     if not 1 <= len(text) <= 240:
-        await message.answer(translate(language, "description_invalid"))
+        await show(message, translate(language, "description_invalid"))
         return
     await state.update_data(description=text)
     await state.set_state(AddExpenseStates.total)
@@ -555,7 +696,7 @@ async def receive_total(
             message.text or "", data.get("group_currency") or settings.default_currency
         )
     except DomainError as exc:
-        await message.answer(str(exc))
+        await show(message, str(exc))
         return
     timezone = settings.timezone or "UTC"
     changes: dict[str, Any] = dict(
@@ -569,11 +710,9 @@ async def receive_total(
         changes.update(exact_amounts={}, exact_index=0)
     await state.update_data(**changes)
     await state.set_state(AddExpenseStates.expense_date)
-    await message.answer(
-        translate(language, "total", total=total.format()), reply_markup=main_menu(language)
-    )
-    await message.answer(
-        translate(language, "choose_expense_date"),
+    await show(message, translate(language, "total", total=total.format()))
+    await show(message,
+        _expense_date_prompt({**data, "timezone": timezone}, language),
         reply_markup=expense_date_keyboard(
             language, include_keep=bool(data.get("edit_mode") and data.get("occurred_at"))
         ),
@@ -611,15 +750,15 @@ async def choose_expense_date(
     timezone = str(data["timezone"])
     await state.update_data(occurred_at=occurred_at.isoformat())
     await state.set_state(AddExpenseStates.participants)
-    await target_message.edit_text(
+    await show(target_message,
         translate(
             language,
             "date_selected",
             date=escape(format_local_datetime(occurred_at, timezone, language)),
         )
     )
-    await target_message.answer(
-        translate(language, "add_people"),
+    await show(target_message,
+        _participant_summary(data.get("participants", []), language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
     await callback.answer()
@@ -636,10 +775,11 @@ async def request_custom_expense_date(
     target_message = callback_message(callback)
     data = await state.get_data()
     await state.set_state(AddExpenseStates.custom_date)
-    await target_message.answer(
+    await show(target_message,
         translate(language, "enter_custom_date"),
-        reply_markup=cancel_keyboard(
-            language, include_keep=bool(data.get("edit_mode") and data.get("occurred_at"))
+        reply_markup=_expense_navigation(
+            language, back="expense:nav:date",
+            keep=bool(data.get("edit_mode") and data.get("occurred_at")),
         ),
     )
     await callback.answer()
@@ -675,19 +815,19 @@ async def receive_custom_expense_date(
     try:
         occurred_at = parse_local_datetime(message.text or "", timezone)
     except DomainError:
-        await message.answer(translate(language, "invalid_custom_date"))
+        await show(message, translate(language, "invalid_custom_date"))
         return
     await state.update_data(occurred_at=occurred_at.isoformat())
     await state.set_state(AddExpenseStates.participants)
-    await message.answer(
+    await show(message,
         translate(
             language,
             "date_selected",
             date=escape(format_local_datetime(occurred_at, timezone, language)),
         )
     )
-    await message.answer(
-        translate(language, "add_people"),
+    await show(message,
+        _participant_summary(data.get("participants", []), language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
 
@@ -698,7 +838,7 @@ async def receive_shared_users(
 ) -> None:
     """Resolve Telegram-shared users and add them to the expense draft."""
     if (await state.get_data()).get("group_id"):
-        await message.answer(translate(language, "group_member_only"))
+        await show(message, translate(language, "group_member_only"))
         return
     if message.users_shared is None:
         return
@@ -727,8 +867,47 @@ async def receive_shared_users(
                 }
             )
             existing.add(str(candidate.id))
-    await state.update_data(participants=participants)
-    await message.answer(
+    await state.update_data(participants=participants, exact_amounts={}, exact_index=0)
+    await show(message,
+        _participant_summary(participants, language),
+        reply_markup=await draft_participant_keyboard(state, language),
+    )
+
+
+@router.message(AddExpenseStates.participants, F.contact)
+async def receive_expense_contact(
+    message: Message, state: FSMContext, services: Services, language: Language,
+) -> None:
+    """Add a Telegram contact while keeping the persistent keyboard unchanged."""
+    if (await state.get_data()).get("group_id"):
+        await show(message, translate(language, "group_member_only"))
+        return
+    contact = message.contact
+    if contact is None or contact.user_id is None:
+        await show(message, translate(language, "contact_requires_telegram_id"))
+        return
+    owner = await current_person(message, services)
+    guest = await services.guests.get_or_create_telegram_guest(
+        owner.id,
+        SharedTelegramUser(
+            telegram_user_id=contact.user_id,
+            first_name=contact.first_name,
+            last_name=contact.last_name,
+            username=None,
+        ),
+    )
+    data = await state.get_data()
+    participants: list[dict[str, str]] = data["participants"]
+    if str(guest.id) not in {item["id"] for item in participants}:
+        if len(participants) >= 10:
+            await show(message, translate(language, "participant_limit"))
+            return
+        participants.append({
+            "id": str(guest.id),
+            "name": participant_label(guest.display_name, guest.id, guest.username),
+        })
+        await state.update_data(participants=participants, exact_amounts={}, exact_index=0)
+    await show(message,
         _participant_summary(participants, language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
@@ -740,12 +919,10 @@ async def request_manual_name(
 ) -> None:
     """Prompt for a manually named participant."""
     if (await state.get_data()).get("group_id"):
-        await message.answer(translate(language, "group_member_only"))
+        await show(message, translate(language, "group_member_only"))
         return
     await state.set_state(AddExpenseStates.manual_name)
-    await message.answer(
-        translate(language, "guest_name"), reply_markup=cancel_keyboard(language)
-    )
+    await render_expense_draft(message, state, language)
 
 
 @router.message(
@@ -764,11 +941,11 @@ async def choose_friend(
         return
     friends = list(await services.friends.list_friends(owner.id))
     if not friends:
-        await message.answer(translate(language, "no_friends"))
+        await show(message, translate(language, "no_friends"))
         return
-    await message.answer(
+    await show(message,
         translate(language, "choose_friend"),
-        reply_markup=expense_friends_keyboard(friends),
+        reply_markup=expense_friends_keyboard(friends, language),
     )
 
 
@@ -814,9 +991,9 @@ async def add_friend_participant(
                 "name": friend_label(friend),
             }
         )
-        await state.update_data(participants=participants)
+        await state.update_data(participants=participants, exact_amounts={}, exact_index=0)
     settings = await services.user_settings.get_or_create(owner.id)
-    await target_message.answer(
+    await show(target_message,
         _participant_summary(participants, language),
         reply_markup=await draft_participant_keyboard(state, settings.language),
     )
@@ -827,7 +1004,7 @@ async def add_friend_participant(
 async def manual_back(message: Message, state: FSMContext, language: Language) -> None:
     """Return from manual naming to participant selection."""
     await state.set_state(AddExpenseStates.participants)
-    await message.answer(
+    await show(message,
         translate(language, "continue_participants"),
         reply_markup=await draft_participant_keyboard(state, language),
     )
@@ -839,18 +1016,18 @@ async def receive_manual_name(
 ) -> None:
     """Create a manual guest and add it to the expense draft."""
     if (await state.get_data()).get("group_id"):
-        await message.answer(translate(language, "group_member_only"))
+        await show(message, translate(language, "group_member_only"))
         return
     owner = await current_person(message, services)
     try:
         guest = await services.guests.create_manual_guest(owner.id, message.text or "")
     except DomainError as exc:
-        await message.answer(str(exc))
+        await show(message, str(exc))
         return
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) >= 10:
-        await message.answer(translate(language, "participant_limit"))
+        await show(message, translate(language, "participant_limit"))
     else:
         participants.append(
             {
@@ -858,9 +1035,9 @@ async def receive_manual_name(
                 "name": participant_label(guest.display_name, guest.id, guest.username),
             }
         )
-        await state.update_data(participants=participants)
+        await state.update_data(participants=participants, exact_amounts={}, exact_index=0)
     await state.set_state(AddExpenseStates.participants)
-    await message.answer(
+    await show(message,
         _participant_summary(participants, language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
@@ -886,12 +1063,12 @@ async def choose_participant_to_remove(
     data = await state.get_data()
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) == 1:
-        await message.answer(translate(language, "no_participants_remove"))
+        await show(message, translate(language, "no_participants_remove"))
         return
-    await message.answer(
+    await show(message,
         translate(language, "choose_remove"),
         reply_markup=remove_participant_keyboard(
-            participants, "" if data.get("group_id") else data["creator_id"]
+            participants, "" if data.get("group_id") else data["creator_id"], language
         ),
     )
 
@@ -912,11 +1089,11 @@ async def remove_participant(
         return
     participants: list[dict[str, str]] = data["participants"]
     updated = [item for item in participants if item["id"] != person_id]
-    changes: dict[str, Any] = {"participants": updated}
+    changes: dict[str, Any] = {"participants": updated, "exact_amounts": {}, "exact_index": 0}
     if not data.get("group_id") and data.get("payer_id") == person_id:
         changes["payer_id"] = None
     await state.update_data(**changes)
-    await target_message.answer(
+    await show(target_message,
         _participant_summary(updated, language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
@@ -934,13 +1111,11 @@ async def participants_done(
         data = await state.update_data(group_members=[_member(m) for m in group.participants])
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) < 2:
-        await message.answer(translate(language, "add_one_participant"))
+        await show(message, translate(language, "add_one_participant"))
         return
     await state.set_state(AddExpenseStates.payer)
-    await message.answer(
-        _participant_summary(participants, language), reply_markup=main_menu(language)
-    )
-    await message.answer(
+    await show(message, _participant_summary(participants, language))
+    await show(message,
         translate(language, "choose_payer"),
         reply_markup=draft_payer_keyboard(data, language),
     )
@@ -958,8 +1133,8 @@ async def payer_back(
     data = await state.get_data()
     participants: list[dict[str, str]] = data.get("participants", [])
     await state.set_state(AddExpenseStates.participants)
-    await target_message.edit_text(translate(language, "payer_selection_cancelled"))
-    await target_message.answer(
+    await show(target_message, translate(language, "payer_selection_cancelled"))
+    await show(target_message,
         _participant_summary(participants, language),
         reply_markup=await draft_participant_keyboard(state, language),
     )
@@ -997,8 +1172,10 @@ async def choose_payer(
         else escape(payer["name"])
     )
     await state.update_data(payer_id=payer_id)
+    if data.get("exact_amounts") and not _exact_complete({**data, "payer_id": payer_id}):
+        await state.update_data(exact_amounts={}, exact_index=0)
     await state.set_state(AddExpenseStates.split_method)
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "payer_selected", name=payer_name)
         + "\n\n"
         + translate(language, "split_how"),
@@ -1020,7 +1197,7 @@ async def split_method_back(
     target_message = callback_message(callback)
     data = await state.get_data()
     await state.set_state(AddExpenseStates.payer)
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "choose_payer"),
         reply_markup=draft_payer_keyboard(data, language),
     )
@@ -1046,10 +1223,10 @@ async def choose_equal(
     )
     await state.update_data(split_method=SplitMethod.EQUAL.value)
     await state.set_state(AddExpenseStates.confirm)
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "split_choice_saved", method=translate(language, "split_equally"))
     )
-    await target_message.answer(
+    await show(target_message,
         _review_text(
             data,
             participants,
@@ -1086,7 +1263,7 @@ async def choose_exact(
         exact_index=0,
     )
     await state.set_state(AddExpenseStates.exact_amount)
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "split_choice_saved", method=translate(language, "exact_amounts"))
     )
     await render_expense_draft(target_message, state, language)
@@ -1095,12 +1272,66 @@ async def choose_exact(
 
 @router.message(AddExpenseStates.exact_amount, F.text.in_(button_values("back")))
 async def exact_back(message: Message, state: FSMContext, language: Language) -> None:
-    """Cancel exact allocation and return to participant selection."""
-    await state.set_state(AddExpenseStates.participants)
-    await message.answer(
-        translate(language, "split_again"),
-        reply_markup=await draft_participant_keyboard(state, language),
-    )
+    """Revisit the preceding share, forgetting that share and its dependent remainder."""
+    data = await state.get_data()
+    index = max(0, int(data.get("exact_index", 0)) - 1)
+    if int(data.get("exact_index", 0)) == 0:
+        await state.set_state(AddExpenseStates.split_method)
+    else:
+        retained = {p["id"] for p in data["participants"][:index]}
+        await state.update_data(
+            exact_index=index,
+            exact_amounts={k: v for k, v in data.get("exact_amounts", {}).items() if k in retained},
+        )
+    await render_expense_draft(message, state, language)
+
+
+@router.callback_query(AddExpenseStates.confirm, F.data == "eg:review")
+async def return_to_review(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
+    """Leave the group picker without changing the reviewed expense."""
+    await render_expense_draft(callback_message(callback), state, language)
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.confirm, F.data == "expense:review:back")
+async def review_back(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
+    """Return to the final allocation step before confirmation."""
+    data = await state.get_data()
+    if data["split_method"] == SplitMethod.EXACT.value:
+        index = 0 if len(data["participants"]) == 2 else len(data["participants"]) - 1
+        retained = {p["id"] for p in data["participants"][:index]}
+        await state.update_data(exact_index=index, exact_amounts={
+            k: v for k, v in data["exact_amounts"].items() if k in retained
+        })
+        await state.set_state(AddExpenseStates.exact_amount)
+    else:
+        await state.set_state(AddExpenseStates.split_method)
+    await render_expense_draft(callback_message(callback), state, language)
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.description, F.data == "expense:origin")
+async def expense_origin(
+    callback: CallbackQuery, state: FSMContext, services: Services, language: Language,
+) -> None:
+    """Leave the first expense step for the draft, group, or main menu that opened it."""
+    from splitnshare.presentation.routers import drafts, groups, start
+
+    data = await state.get_data()
+    if data.get("edit_origin") == "review":
+        await state.set_state(AddExpenseStates.confirm)
+        await render_expense_draft(callback_message(callback), state, language)
+        await callback.answer()
+    elif data.get("edit_mode") and data.get("draft_id"):
+        await drafts.view_draft(callback.model_copy(update={
+            "data": f"draft:view:{data['draft_id']}"
+        }), state, language)
+    elif data.get("group_id"):
+        await groups.group_details(callback.model_copy(update={
+            "data": f"g:view:{uuid_token(UUID(data['group_id']))}"
+        }), state, services, language)
+    else:
+        await start.show_main_menu_callback(callback, state, services, language)
 
 
 @router.message(AddExpenseStates.exact_amount)
@@ -1118,18 +1349,30 @@ async def receive_exact_amount(
     try:
         amount = parse_share_minor(message.text or "", total)
     except DomainError as exc:
-        await message.answer(str(exc))
+        await show(message, str(exc))
         return
-    exact: dict[str, int] = data["exact_amounts"]
-    exact[participants[index]["id"]] = amount
-    index += 1
+    exact: dict[str, int] = dict(data["exact_amounts"])
+    current = participants[index]
+    if len(participants) == 2:
+        other = participants[1 - index]
+        remainder = total.minor - amount
+        if remainder < 0 or (
+            remainder == 0 and other["id"] != data["payer_id"]
+        ) or (amount == 0 and current["id"] != data["payer_id"]):
+            await show(message, translate(language, "exact_first_share_invalid"))
+            return
+        exact[other["id"]] = remainder
+        index = len(participants)
+    else:
+        index += 1
+    exact[current["id"]] = amount
     await state.update_data(exact_amounts=exact, exact_index=index)
     if index < len(participants):
         await render_expense_draft(message, state, language)
         return
     if not _exact_complete({**data, "exact_amounts": exact}):
         await state.update_data(exact_amounts={}, exact_index=0)
-        await message.answer(
+        await show(message,
             translate(
                 language,
                 "shares_mismatch",
@@ -1140,10 +1383,7 @@ async def receive_exact_amount(
         await render_expense_draft(message, state, language)
         return
     await state.set_state(AddExpenseStates.confirm)
-    await message.answer(
-        translate(language, "main_menu"), reply_markup=main_menu(language)
-    )
-    await message.answer(
+    await show(message,
         _review_text(data, participants, exact, language),
         reply_markup=expense_confirm_keyboard(language, data.get("draft_id")),
     )
@@ -1193,11 +1433,11 @@ async def confirm_expense(
         return
     await state.clear()
     settings = await services.user_settings.get_or_create(expense.creator_person_id)
-    await target_message.answer(
+    await show(target_message,
         translate(language, "expense_saved")
         + "\n\n"
         + expense_text(expense, language, settings.timezone or "UTC"),
-        reply_markup=main_menu(settings.language),
+        reply_markup=back_to_main_menu_keyboard(settings.language),
     )
     await callback.answer()
     await _notify_expense_participants(bot, services, expense)
@@ -1207,12 +1447,10 @@ async def confirm_expense(
 async def cancel_expense_callback(
     callback: CallbackQuery, state: FSMContext, language: Language
 ) -> None:
-    """Pause an inline expense draft and restore the main reply menu."""
+    """Pause an inline expense draft without changing the persistent reply keyboard."""
     target_message = callback_message(callback)
     await state.clear()
-    await target_message.answer(
-        translate(language, "draft_paused"), reply_markup=main_menu(language)
-    )
+    await show(target_message, translate(language, "draft_paused"))
     await callback.answer()
 
 
@@ -1225,12 +1463,12 @@ async def transactions(
     settings = await services.user_settings.get_or_create(person.id)
     page = await services.activities.list_for_person(person.id)
     if not page.items:
-        await message.answer(
+        await show(message,
             translate(language, "no_expenses"),
             reply_markup=back_to_main_menu_keyboard(language),
         )
         return
-    await message.answer(
+    await show(message,
         activity_text(page.items, person.id, language, settings.timezone or "UTC"),
         reply_markup=activity_list_keyboard(page, language, settings.timezone or "UTC"),
     )
@@ -1251,7 +1489,7 @@ async def transactions_callback(
     page = await services.activities.list_for_person(person.id)
     settings = await services.user_settings.get_or_create(person.id)
     if page.items:
-        await target_message.answer(
+        await show(target_message,
             activity_text(
                 page.items, person.id, language, settings.timezone or "UTC"
             ),
@@ -1260,7 +1498,7 @@ async def transactions_callback(
             ),
         )
     else:
-        await target_message.answer(
+        await show(target_message,
             translate(language, "no_active_expenses"),
             reply_markup=back_to_main_menu_keyboard(language),
         )
@@ -1281,7 +1519,7 @@ async def menu_transactions_callback(
         return
     page = await services.activities.list_for_person(person.id)
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.edit_text(
+    await show(target_message,
         (
             activity_text(
                 page.items, person.id, language, settings.timezone or "UTC"
@@ -1313,7 +1551,7 @@ async def transactions_page(
     cursor = payload.split(":", 2)[2]
     page = await services.activities.list_for_person(person.id, cursor=cursor)
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.edit_text(
+    await show(target_message,
         activity_text(page.items, person.id, language, settings.timezone or "UTC"),
         reply_markup=activity_list_keyboard(
             page, language, settings.timezone or "UTC"
@@ -1337,7 +1575,7 @@ async def view_expense(
     expense_id = UUID(payload.rsplit(":", 1)[1])
     expense = await services.expense_queries.get_details(person.id, expense_id)
     settings = await services.user_settings.get_or_create(person.id)
-    await target_message.answer(
+    await show(target_message,
         expense_text(expense, language, settings.timezone or "UTC"),
         reply_markup=expense_details_keyboard(expense, person.id, language),
     )
@@ -1349,7 +1587,7 @@ async def ask_delete(callback: CallbackQuery, language: Language) -> None:
     """Request confirmation before soft-deleting an expense."""
     payload, target_message = callback_payload(callback)
     expense_id = UUID(payload.rsplit(":", 1)[1])
-    await target_message.answer(
+    await show(target_message,
         translate(language, "delete_question"),
         reply_markup=delete_confirm_keyboard(expense_id, language),
     )
@@ -1374,7 +1612,7 @@ async def delete_expense(
     except DomainError as exc:
         await callback.answer(str(exc), show_alert=True)
         return
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "expense_deleted" if changed else "expense_already_deleted")
     )
     await callback.answer()

@@ -22,6 +22,20 @@ deterministic splitting, transaction history, balances, and recorded settlements
 - The returning-user welcome summarizes total amounts owed and receivable separately for
   each currency without netting unrelated counterparties together.
 - The persistent reply keyboard keeps the same actions available as quick shortcuts.
+- Each flow uses inline buttons on one bot message. Button presses and typed replies update
+  that message; flows never replace or hide the bottom menu. `/start` installs the bottom menu.
+- **Back** returns to the preceding step. Draft values remain editable, while changes to
+  participants, totals, or payer invalidate incompatible allocations. Going back through exact
+  shares discards the revisited share and later shares, including an automatic remainder.
+- The active message and inline controls survive bot restarts. Long content is paginated;
+  a replacement message is sent only when the original can no longer be edited.
+- Each flow uses inline buttons on one bot message. Button presses and typed replies update
+  that message; flows never replace or hide the bottom menu. `/start` installs the bottom menu.
+- **Back** returns to the preceding step. Draft values remain editable, while changes to
+  participants, totals, or payer invalidate incompatible allocations. Going back through exact
+  shares discards the revisited share and later shares, including an automatic remainder.
+- The active message and inline controls survive bot restarts. Long content is paginated;
+  a replacement message is sent only when the original can no longer be edited.
 - Registration automatically finds every active temporary profile carrying the same shared
   Telegram user ID and transfers its complete history to the registered identity.
 - Registration and matching transfers commit atomically: if any transfer fails, neither the
@@ -47,6 +61,12 @@ deterministic splitting, transaction history, balances, and recorded settlements
 - Expenses can include registered bot users.
 - An unregistered Telegram user can be stored as an owner-managed friend.
 - A friend can also be added manually by name without a Telegram ID.
+- Telegram contacts are shared through the attachment menu (**Contact**). The old user picker
+  requires a replacement bottom keyboard, so inline flows instead offer contact instructions,
+  existing friends, and manual names. Contacts without a Telegram user ID require a manual name.
+- Telegram contacts are shared through the attachment menu (**Contact**). The old user picker
+  requires a replacement bottom keyboard, so inline flows instead offer contact instructions,
+  existing friends, and manual names. Contacts without a Telegram user ID require a manual name.
 - Re-selecting the same unregistered Telegram user reuses that owner's internal participant.
 - If that Telegram user later registers, every matching owner-managed temporary profile is
   transferred automatically. Future selections resolve to the registered identity and cannot

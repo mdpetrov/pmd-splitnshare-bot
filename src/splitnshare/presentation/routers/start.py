@@ -5,10 +5,11 @@ from html import escape
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message
 
 from splitnshare.domain.enums import Language
 from splitnshare.presentation.container import Services
+from splitnshare.presentation.flow_messages import show
 from splitnshare.presentation.formatters import welcome_text
 from splitnshare.presentation.helpers import callback_message, telegram_identity
 from splitnshare.presentation.i18n import button_values, language_name, translate
@@ -35,9 +36,13 @@ async def start(message: Message, state: FSMContext, services: Services) -> None
     settings = await services.user_settings.get_or_create(
         person.id, preferred_language=identity.language_code
     )
+    # Install the persistent keyboard only at the explicit /start entry point.
+    await message.answer(
+        translate(settings.language, "main_menu"), reply_markup=main_menu(settings.language)
+    )
     if settings.timezone is None:
         await state.set_state(OnboardingStates.timezone)
-        await message.answer(
+        await show(message,
             translate(
                 settings.language,
                 "onboarding_welcome",
@@ -45,19 +50,18 @@ async def start(message: Message, state: FSMContext, services: Services) -> None
                 currency=escape(settings.default_currency),
                 language=escape(language_name(settings.language, settings.language)),
             ),
-            reply_markup=ReplyKeyboardRemove(),
         )
-        await message.answer(
+        await show(message,
             translate(settings.language, "choose_timezone"),
             reply_markup=timezone_keyboard(settings.language, include_back=False),
         )
         return
     balances = await services.balances.get_balances(person.id)
-    await message.answer(
+    await show(message,
         welcome_text(person.display_name, balances, settings.language),
-        reply_markup=main_menu(settings.language),
+        reply_markup=main_menu_inline_keyboard(settings.language),
     )
-    await message.answer(
+    await show(message,
         translate(settings.language, "main_menu_prompt"),
         reply_markup=main_menu_inline_keyboard(settings.language),
     )
@@ -77,17 +81,14 @@ async def show_main_menu_callback(
     settings = await services.user_settings.find_by_telegram_id(callback.from_user.id)
     if settings is None or settings.timezone is None:
         await state.set_state(OnboardingStates.timezone)
-        await target_message.edit_text(
+        await show(target_message,
             translate(language, "onboarding_timezone_required"),
             reply_markup=timezone_keyboard(language, include_back=False),
         )
         await callback.answer()
         return
     await state.clear()
-    await target_message.answer(
-        translate(language, "main_menu"), reply_markup=main_menu(language)
-    )
-    await target_message.edit_text(
+    await show(target_message,
         translate(language, "main_menu_prompt"),
         reply_markup=main_menu_inline_keyboard(language),
     )
@@ -104,16 +105,13 @@ async def show_main_menu_message(
     settings = await services.user_settings.find_by_telegram_id(message.from_user.id)
     if settings is None or settings.timezone is None:
         await state.set_state(OnboardingStates.timezone)
-        await message.answer(
+        await show(message,
             translate(language, "onboarding_timezone_required"),
             reply_markup=timezone_keyboard(language, include_back=False),
         )
         return
     await state.clear()
-    await message.answer(
-        translate(language, "main_menu_prompt"), reply_markup=main_menu(language)
-    )
-    await message.answer(
+    await show(message,
         translate(language, "main_menu_prompt"),
         reply_markup=main_menu_inline_keyboard(language),
     )
@@ -124,12 +122,12 @@ async def show_main_menu_message(
 async def cancel(message: Message, state: FSMContext, language: Language) -> None:
     """Cancel any text-driven flow and restore the main reply keyboard."""
     if await state.get_state() == OnboardingStates.timezone.state:
-        await message.answer(
+        await show(message,
             translate(language, "onboarding_timezone_required"),
             reply_markup=timezone_keyboard(language, include_back=False),
         )
         return
     await state.clear()
-    await message.answer(
-        translate(language, "cancelled_drafts_kept"), reply_markup=main_menu(language)
+    await show(message,
+        translate(language, "cancelled_drafts_kept"), reply_markup=main_menu_inline_keyboard(language)
     )

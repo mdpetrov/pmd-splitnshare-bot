@@ -5,12 +5,11 @@ from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, TelegramObject, Update, User
+from aiogram.types import TelegramObject, Update, User
 
 from splitnshare.application.services import UserSettingsService
 from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
-from splitnshare.presentation.i18n import button_values, translate
-from splitnshare.presentation.keyboards import main_menu
+from splitnshare.presentation.i18n import button_values
 
 
 class DraftNavigationMiddleware(BaseMiddleware):
@@ -45,24 +44,14 @@ class DraftNavigationMiddleware(BaseMiddleware):
             text in menu_values
             or command in {"/start", "/settings", "/drafts", "/delete_account"}
             or (callback is not None and callback.startswith("menu:"))
+            or (callback is not None and callback.startswith((
+                "settings:show", "friends:show", "friend:view:", "balance:person:",
+                "expense:view:", "g:view:",
+            )))
         )
         if navigate:
             await state.clear()
             data["raw_state"] = None
-            restores_keyboard = (
-                text not in button_values("add_expense")
-                and text not in button_values("main_menu")
-                and command != "/start"
-                and callback not in {"menu:add_expense", "menu:show"}
-            )
-            target = event.message or (
-                event.callback_query.message if event.callback_query else None
-            )
-            if restores_keyboard and isinstance(target, Message):
-                language = data.get("language", Language.ENGLISH)
-                await target.answer(
-                    translate(language, "main_menu"), reply_markup=main_menu(language)
-                )
         return await handler(event, data)
 
 
