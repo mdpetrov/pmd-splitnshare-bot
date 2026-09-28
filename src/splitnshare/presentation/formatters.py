@@ -10,6 +10,7 @@ from splitnshare.application.dto import (
     BalanceDTO,
     ExpenseActivityDTO,
     ExpenseDTO,
+    GroupActivityDTO,
     PersonDTO,
     SettlementActivityDTO,
     SettlementDTO,
@@ -121,7 +122,16 @@ def activity_text(
     lines = [title or translate(language, "your_transactions")]
     current_date: str | None = None
     for item in items:
-        if isinstance(item, ExpenseActivityDTO):
+        if isinstance(item, GroupActivityDTO):
+            occurred_at = item.occurred_at
+            balance = "; ".join(translate(
+                language, "transaction_you_are_owed" if b.net_minor > 0 else "transaction_you_owe",
+                amount=Money(abs(b.net_minor), b.currency).format(),
+            ) for b in item.balances) or translate(language, "group_no_debts")
+            card = translate(
+                language, "group_history_row", name=escape(item.group_name), balance=balance
+            )
+        elif isinstance(item, ExpenseActivityDTO):
             occurred_at = item.expense.occurred_at
             card = _expense_activity_line(
                 item.expense, viewer_person_id, language
@@ -153,14 +163,16 @@ def _expense_activity_line(
         )
     )
     viewer_split = next(
-        split for split in expense.splits if split.person_id == viewer_person_id
+        (split for split in expense.splits if split.person_id == viewer_person_id), None
     )
+    if viewer_split is None and expense.payer_person_id != viewer_person_id:
+        return f"{escape(expense.description)} · {expense.total.format()}"
     if expense.payer_person_id == viewer_person_id:
         relation_key = "transaction_you_are_owed"
-        relation_amount = expense.total.minor - viewer_split.owed_minor
+        relation_amount = expense.total.minor - (viewer_split.owed_minor if viewer_split else 0)
     else:
         relation_key = "transaction_you_owe"
-        relation_amount = viewer_split.owed_minor
+        relation_amount = viewer_split.owed_minor if viewer_split else 0
     return translate(
         language,
         "transaction_list_item",
@@ -263,14 +275,15 @@ def expense_notification_text(
         ),
         None,
     )
-    if recipient_split is None:
+    if recipient_split is None and recipient_person_id != expense.payer_person_id:
         raise ValueError("The notification recipient is not an expense participant.")
     if recipient_person_id == expense.payer_person_id:
         relation_key = "transaction_you_are_owed"
-        relation_minor = expense.total.minor - recipient_split.owed_minor
+        recipient_share = recipient_split.owed_minor if recipient_split else 0
+        relation_minor = expense.total.minor - recipient_share
     else:
         relation_key = "transaction_you_owe"
-        relation_minor = recipient_split.owed_minor
+        relation_minor = recipient_split.owed_minor if recipient_split else 0
     return translate(
         language,
         "expense_created_notification",

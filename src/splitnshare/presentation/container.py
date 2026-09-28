@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from splitnshare.application.groups import GroupService
 from splitnshare.application.services import (
     ActivityQueryService,
     BalanceQueryService,
@@ -27,3 +28,4 @@ class Services:
     balances: BalanceQueryService
     settlements: SettlementService
     activities: ActivityQueryService
+    groups: GroupService

@@ -87,6 +87,19 @@ async def test_non_expense_form_state_also_survives_new_storage(draft_backend):
     assert await restarted.list_drafts(_key()) == ()
 
 
+async def test_group_expense_context_survives_pausing_and_restarting(draft_backend):
+    identifier, state = await _seed(draft_backend.storage, _key())
+    group_data = {
+        "group_id": str(uuid4()), "group_name": "Trip", "group_currency": "JPY",
+        "group_members": (await state.get_data())["participants"],
+    }
+    await state.update_data(**group_data)
+    await state.clear()
+    restarted = SqlAlchemyFSMStorage(draft_backend.factory)
+    saved = await restarted.resume(_key(), identifier)
+    assert all(saved.data[key] == value for key, value in group_data.items())
+
+
 async def test_starting_another_expense_and_clearing_keeps_both(draft_backend):
     first, _ = await _seed(draft_backend.storage, _key(), "Dinner")
     second, state = await _seed(draft_backend.storage, _key(), "Taxi")

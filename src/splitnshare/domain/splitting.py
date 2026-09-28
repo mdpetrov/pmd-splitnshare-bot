@@ -49,7 +49,7 @@ class ExactSplitStrategy:
             raise ValidationError("An exact amount is required for every participant.")
         if sum(exact_amounts.values()) != total_minor:
             raise ValidationError("Exact amounts must add up to the expense total.")
-        if exact_amounts[payer_id] < 0:
+        if exact_amounts.get(payer_id, 0) < 0:
             raise ValidationError("The payer share cannot be negative.")
         if any(amount <= 0 for person_id, amount in exact_amounts.items() if person_id != payer_id):
             raise ValidationError("Every non-payer must owe more than zero.")

@@ -50,3 +50,14 @@ class DeleteAccountStates(StatesGroup):
     """Require explicit confirmation before anonymizing a user account."""
 
     confirm = State()
+
+
+class GroupStates(StatesGroup):
+    """Collect group preferences, invitees, and payment confirmation."""
+
+    name = State()
+    currency = State()
+    members = State()
+    manual_name = State()
+    confirm = State()
+    settlement = State()

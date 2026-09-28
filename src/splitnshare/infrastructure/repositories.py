@@ -16,6 +16,7 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql import Select
 
 from splitnshare.application.dto import (
+    ActivityItemDTO,
     ActivityPage,
     BalanceDTO,
     ExpenseActivityDTO,
@@ -23,6 +24,7 @@ from splitnshare.application.dto import (
     ExpensePage,
     ExpenseSplitDTO,
     FriendDTO,
+    GroupActivityDTO,
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
@@ -53,6 +55,7 @@ from splitnshare.domain.errors import (
     ValidationError,
 )
 from splitnshare.domain.money import Money
+from splitnshare.infrastructure.groups import SqlAlchemyGroupRepository
 from splitnshare.infrastructure.models import (
     ConversationStateModel,
     DebtModel,
@@ -184,9 +187,15 @@ class SqlAlchemyUserRepository:
         if account.telegram_user_id is None or person.inactive_at is not None:
             return False
 
-        balances = await SqlAlchemyExpenseRepository(self._session).balances(person_id, None)
-        if any(balance.net_minor != 0 for balance in balances):
-            raise UnsettledAccountError()
+        group_ids = (await self._session.scalars(
+            select(GroupMembershipModel.group_id).where(GroupMembershipModel.person_id == person_id)
+        )).all()
+        contexts: list[ExpenseContext] = [DirectExpenseContext()]
+        contexts.extend(GroupExpenseContext(group_id) for group_id in group_ids)
+        for context in contexts:
+            balances = await SqlAlchemyExpenseRepository(self._session).balances(person_id, context)
+            if any(balance.net_minor != 0 for balance in balances):
+                raise UnsettledAccountError()
 
         now = datetime.now(UTC)
         telegram_user_id = account.telegram_user_id
@@ -769,16 +778,47 @@ class SqlAlchemyGuestRepository:
         ).scalars().all()
         membership_count = len(membership_rows)
         duplicate_memberships = 0
+        owned_groups = (await self._session.scalars(
+            select(GroupModel).where(GroupModel.creator_person_id == guest_person_id)
+        )).all()
+        owned_group_ids = {group.id for group in owned_groups}
+        for group in owned_groups:
+            group.creator_person_id = target_person_id
         for source_membership in membership_rows:
             target_membership = await self._session.get(
                 GroupMembershipModel, (source_membership.group_id, target_person_id)
             )
             if target_membership is not None:
                 duplicate_memberships += 1
+                if source_membership.status == MembershipStatus.ACTIVE:
+                    target_membership.status = MembershipStatus.ACTIVE
+                if (source_membership.group_id in owned_group_ids
+                        or source_membership.role == GroupRole.OWNER):
+                    target_membership.role = GroupRole.OWNER
+                    if source_membership.group_id in owned_group_ids:
+                        target_membership.status = MembershipStatus.ACTIVE
+                elif (
+                    source_membership.role == GroupRole.ADMIN
+                    and target_membership.role == GroupRole.MEMBER
+                ):
+                    target_membership.role = GroupRole.ADMIN
                 await self._session.delete(source_membership)
             else:
                 source_membership.person_id = target_person_id
-                source_membership.role = GroupRole.MEMBER
+                if source_membership.group_id in owned_group_ids:
+                    source_membership.role = GroupRole.OWNER
+                    source_membership.status = MembershipStatus.ACTIVE
+        for group_id in owned_group_ids - {member.group_id for member in membership_rows}:
+            target_member = await self._session.get(
+                GroupMembershipModel, (group_id, target_person_id)
+            )
+            if target_member is None:
+                self._session.add(GroupMembershipModel(
+                    group_id=group_id, person_id=target_person_id, role=GroupRole.OWNER,
+                ))
+            else:
+                target_member.role = GroupRole.OWNER
+                target_member.status = MembershipStatus.ACTIVE
         await self._session.flush()
 
         friendship_rows = (
@@ -921,6 +961,10 @@ class SqlAlchemyExpenseRepository:
         """Insert an expense with its participant splits and derived debts."""
         command = record.command
         await _require_registered(self._session, command.creator_person_id)
+        if command.context.group_id is not None:
+            await SqlAlchemyGroupRepository(self._session).get(
+                command.creator_person_id, command.context.group_id, for_update=True
+            )
         draft = None
         if command.draft_id is not None:
             draft = await self._session.get(
@@ -945,7 +989,9 @@ class SqlAlchemyExpenseRepository:
             group = await self._session.get(GroupModel, group_id)
             if group is None or group.status.value != "active":
                 raise NotFoundError("Active group not found.")
-            required_members = set(command.participant_ids) | {command.creator_person_id}
+            required_members = set(command.participant_ids) | {
+                command.creator_person_id, record.payer_person_id,
+            }
             active_members = set(
                 (
                     await self._session.execute(
@@ -1012,6 +1058,10 @@ class SqlAlchemyExpenseRepository:
             raise PermissionDeniedError("Only the expense creator can delete it.")
         if expense.deleted_at is not None:
             return False
+        if expense.group_id is not None:
+            await SqlAlchemyGroupRepository(self._session).get(
+                actor_person_id, expense.group_id, for_update=True
+            )
         expense.deleted_at = datetime.now(UTC)
         expense.deleted_by_person_id = actor_person_id
         await self._session.flush()
@@ -1030,7 +1080,12 @@ class SqlAlchemyExpenseRepository:
                 ExpenseSplitModel.person_id == viewer_person_id,
             )
         )
-        if not visible and expense.creator_person_id != viewer_person_id:
+        if not visible and expense.group_id is not None:
+            await SqlAlchemyGroupRepository(self._session).get(viewer_person_id, expense.group_id)
+            visible = 1
+        if not visible and viewer_person_id not in (
+            expense.creator_person_id, expense.payer_person_id,
+        ):
             raise PermissionDeniedError("You cannot view this expense.")
         return await self._to_dto(expense)
 
@@ -1366,6 +1421,10 @@ class SqlAlchemySettlementRepository:
         await _require_registered(self._session, actor_person_id)
         if actor_person_id == other_person_id:
             raise ValidationError("A balance cannot be settled with yourself.")
+        if context.group_id is not None:
+            await SqlAlchemyGroupRepository(self._session).get(
+                actor_person_id, context.group_id, for_update=True
+            )
 
         people = (
             await self._session.execute(
@@ -1456,34 +1515,50 @@ class SqlAlchemyActivityRepository:
         limit: int,
     ) -> ActivityPage:
         """Return unified activity optionally shared with one counterparty."""
+        if isinstance(context, GroupExpenseContext):
+            await SqlAlchemyGroupRepository(self._session).get(person_id, context.group_id)
         expense_split = aliased(ExpenseSplitModel)
         expense_statement = (
             select(
                 literal("expense").label("kind"),
                 ExpenseModel.id.label("item_id"),
                 ExpenseModel.occurred_at.label("occurred_at"),
+                ExpenseModel.group_id.label("group_id"),
             )
             .join(expense_split, expense_split.expense_id == ExpenseModel.id)
             .where(
-                expense_split.person_id == person_id,
+                or_(
+                    expense_split.person_id == person_id,
+                    ExpenseModel.payer_person_id == person_id,
+                    ExpenseModel.creator_person_id == person_id,
+                    ExpenseModel.group_id == context.group_id
+                    if isinstance(context, GroupExpenseContext) else False,
+                ),
                 ExpenseModel.deleted_at.is_(None),
             )
+            .distinct()
         )
         if other_person_id is not None:
             other_split = aliased(ExpenseSplitModel)
             expense_statement = expense_statement.join(
                 other_split, other_split.expense_id == ExpenseModel.id
-            ).where(other_split.person_id == other_person_id)
+            ).where(or_(
+                other_split.person_id == other_person_id,
+                ExpenseModel.payer_person_id == other_person_id,
+            ))
         expense_statement = _apply_context(expense_statement, context)
 
         settlement_statement = select(
             literal("settlement").label("kind"),
             SettlementModel.id.label("item_id"),
             SettlementModel.occurred_at.label("occurred_at"),
+            SettlementModel.group_id.label("group_id"),
         ).where(
             or_(
                 SettlementModel.payer_person_id == person_id,
                 SettlementModel.recipient_person_id == person_id,
+                SettlementModel.group_id == context.group_id
+                if isinstance(context, GroupExpenseContext) else False,
             )
         )
         if other_person_id is not None:
@@ -1504,16 +1579,24 @@ class SqlAlchemyActivityRepository:
         )
 
         combined = union_all(expense_statement, settlement_statement).subquery()
+        if other_person_id is not None and context is None:
+            direct_items = select(
+                combined.c.kind, combined.c.item_id, combined.c.occurred_at
+            ).where(combined.c.group_id.is_(None))
+            group_items = select(
+                literal("group").label("kind"), combined.c.group_id.label("item_id"),
+                func.max(combined.c.occurred_at).label("occurred_at"),
+            ).where(combined.c.group_id.is_not(None)).group_by(combined.c.group_id)
+            combined = union_all(direct_items, group_items).subquery()
         statement = select(
             combined.c.kind, combined.c.item_id, combined.c.occurred_at
         )
         if cursor is not None:
             cursor_kind, cursor_id = _decode_activity_cursor(cursor)
-            cursor_model = (
-                ExpenseModel if cursor_kind == "expense" else SettlementModel
-            )
             cursor_date = await self._session.scalar(
-                select(cursor_model.occurred_at).where(cursor_model.id == cursor_id)
+                select(combined.c.occurred_at).where(
+                    combined.c.item_id == cursor_id, combined.c.kind == cursor_kind
+                )
             )
             if cursor_date is None:
                 raise ValidationError("Invalid activity pagination cursor.")
@@ -1539,7 +1622,7 @@ class SqlAlchemyActivityRepository:
         rows = list((await self._session.execute(statement)).all())
         has_more = len(rows) > limit
         rows = rows[:limit]
-        items = await self._hydrate_items(person_id, rows)
+        items = await self._hydrate_items(person_id, rows, other_person_id)
         next_cursor = (
             _encode_activity_cursor(rows[-1].kind, rows[-1].item_id)
             if has_more and rows
@@ -1548,8 +1631,8 @@ class SqlAlchemyActivityRepository:
         return ActivityPage(items=items, next_cursor=next_cursor)
 
     async def _hydrate_items(
-        self, viewer_person_id: UUID, rows: Sequence[Any]
-    ) -> tuple[ExpenseActivityDTO | SettlementActivityDTO, ...]:
+        self, viewer_person_id: UUID, rows: Sequence[Any], other_person_id: UUID | None = None
+    ) -> tuple[ActivityItemDTO, ...]:
         """Hydrate ordered union rows into strongly typed activity DTOs."""
         expense_repository = SqlAlchemyExpenseRepository(self._session)
         expense_ids = [row.item_id for row in rows if row.kind == "expense"]
@@ -1561,10 +1644,26 @@ class SqlAlchemyActivityRepository:
             for expense_id in expense_ids
         }
         settlements = await self._settlement_items(settlement_ids)
+        groups: dict[UUID, GroupActivityDTO] = {}
+        for row in rows:
+            if row.kind != "group":
+                continue
+            group = await self._session.get(GroupModel, row.item_id)
+            other = await self._session.get(PersonModel, other_person_id)
+            account = await self._session.get(UserAccountModel, other_person_id)
+            assert group is not None and other is not None
+            balances = await expense_repository.balances(
+                viewer_person_id, GroupExpenseContext(group.id)
+            )
+            groups[group.id] = GroupActivityDTO(
+                group_id=group.id, group_name=group.name, occurred_at=row.occurred_at,
+                other_name=other.display_name, other_username=account.username if account else None,
+                balances=tuple(b for b in balances if b.other_person_id == other_person_id),
+            )
         return tuple(
             expenses[row.item_id]
             if row.kind == "expense"
-            else settlements[row.item_id]
+            else groups[row.item_id] if row.kind == "group" else settlements[row.item_id]
             for row in rows
         )
 
@@ -1836,7 +1935,7 @@ def _decode_cursor(cursor: str) -> UUID:
 
 def _encode_activity_cursor(kind: str, item_id: UUID) -> str:
     """Encode an activity type and stable identifier as a compact cursor."""
-    prefix = "e" if kind == "expense" else "s"
+    prefix = {"expense": "e", "settlement": "s", "group": "g"}[kind]
     return f"{prefix}:{item_id}"
 
 
@@ -1844,7 +1943,7 @@ def _decode_activity_cursor(cursor: str) -> tuple[str, UUID]:
     """Decode and validate a compact heterogeneous activity cursor."""
     try:
         prefix, value = cursor.split(":", 1)
-        kind = {"e": "expense", "s": "settlement"}[prefix]
+        kind = {"e": "expense", "s": "settlement", "g": "group"}[prefix]
         return kind, UUID(value)
     except (KeyError, ValueError) as exc:
         raise ValidationError("Invalid activity pagination cursor.") from exc

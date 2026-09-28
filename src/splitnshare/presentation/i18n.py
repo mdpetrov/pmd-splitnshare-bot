@@ -377,10 +377,17 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "untitled_draft": "Новый расход",
         "edit_draft": "Изменить",
         "save_draft_exit": "Сохранить черновик и выйти",
-        "draft_paused": "Незавершённый расход сохранён. Откройте Черновики, чтобы продолжить.",
+        "draft_paused": (
+            "Незавершённый расход сохранён. "
+            "Откройте Черновики, чтобы продолжить."
+        ),
         "cancelled_drafts_kept": "Отменено. Незавершённые расходы доступны в Черновиках.",
-        "discard_draft_question": "Удалить этот незавершённый расход? Это действие нельзя отменить.",
-        "draft_current_description": "Сохранённое описание: {value}\nВведите описание для продолжения.",
+        "discard_draft_question": (
+            "Удалить этот незавершённый расход? Это действие нельзя отменить."
+        ),
+        "draft_current_description": (
+            "Сохранённое описание: {value}\nВведите описание для продолжения."
+        ),
         "cancel": "Отмена",
         "back": "Назад",
         "add_manual": "Добавить человека по имени",
@@ -715,6 +722,101 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "back_friends": "Назад к друзьям",
     },
 }
+
+
+_TEXTS[Language.ENGLISH].update({
+    "groups": "👥 Groups",
+    "group_create": "Create group",
+    "group_name_prompt": "Enter a group name (1–120 characters).",
+    "group_currency_prompt": (
+        "Enter the default currency code, e.g. EUR or USD. Your current default is "
+        "{currency}."
+    ),
+    "group_members_prompt": (
+        "Invite participants, then choose Done selecting. A group needs at least two "
+        "people including you."
+    ),
+    "group_members_selected": "Selected participants: {names}",
+    "group_confirm": "Create this group",
+    "group_added": "{name} added you to the group <b>{group}</b>. Default currency: {currency}.",
+    "group_details": "👥 <b>{name}</b> · {currency}\nParticipants: {count}",
+    "group_summary": "Summary",
+    "group_invite": "Add participants",
+    "group_settle": "Settle up",
+    "group_settle_all": "Settle up All",
+    "group_settle_review": (
+        "Confirm these recorded payments in <b>{group}</b>:\n{payments}\n\nThis records "
+        "payments; it does not send money."
+    ),
+    "group_payment": "{payer} → {recipient}: {amount}",
+    "group_settle_confirm": "Confirm payments",
+    "group_settled": "Group payments recorded.",
+    "group_no_debts": "All settled up.",
+    "group_no_person_debts": "You have no outstanding balances in this group.",
+    "group_choose": "Select a group",
+    "group_none": "No group",
+    "group_back": "Back to group",
+    "group_expense_members": "Choose group members",
+    "group_reselect": (
+        "Group selected: {name}. Check participants and payer again. The entered "
+        "amount and currency are unchanged."
+    ),
+    "group_review_label": "Group: {name}",
+    "group_history_row": "👥 {name} · {balance}",
+    "group_member_only": "Choose participants from this group's member list.",
+    "group_empty": "You have no groups yet.",
+    "group_invites_saved": "Participants added.",
+    "group_members_title": "Group members",
+    "group_edit_expense": "Edit participants / payer",
+})
+_TEXTS[Language.RUSSIAN].update({
+    "groups": "👥 Группы",
+    "group_create": "Создать группу",
+    "group_name_prompt": "Введите название группы (1–120 символов).",
+    "group_currency_prompt": (
+        "Введите код валюты по умолчанию, например EUR или USD. Текущая валюта: "
+        "{currency}."
+    ),
+    "group_members_prompt": (
+        "Добавьте участников и нажмите «Готово». В группе должно быть хотя бы два "
+        "человека, включая вас."
+    ),
+    "group_members_selected": "Выбраны участники: {names}",
+    "group_confirm": "Создать эту группу",
+    "group_added": (
+        "{name} добавил(а) вас в группу <b>{group}</b>. Валюта по умолчанию: "
+        "{currency}."
+    ),
+    "group_details": "👥 <b>{name}</b> · {currency}\nУчастников: {count}",
+    "group_summary": "Сводка",
+    "group_invite": "Добавить участников",
+    "group_settle": "Рассчитаться",
+    "group_settle_all": "Рассчитаться со всеми",
+    "group_settle_review": (
+        "Подтвердите записи платежей в группе <b>{group}</b>:\n{payments}\n\nЭто запись "
+        "платежей, деньги не переводятся."
+    ),
+    "group_payment": "{payer} → {recipient}: {amount}",
+    "group_settle_confirm": "Подтвердить платежи",
+    "group_settled": "Платежи группы записаны.",
+    "group_no_debts": "Все расчёты закрыты.",
+    "group_no_person_debts": "У вас нет незакрытых расчётов в этой группе.",
+    "group_choose": "Выбрать группу",
+    "group_none": "Без группы",
+    "group_back": "Назад к группе",
+    "group_expense_members": "Выбрать участников группы",
+    "group_reselect": (
+        "Выбрана группа: {name}. Проверьте участников и плательщика. Сумма и валюта "
+        "не изменились."
+    ),
+    "group_review_label": "Группа: {name}",
+    "group_history_row": "👥 {name} · {balance}",
+    "group_member_only": "Выберите участников из списка этой группы.",
+    "group_empty": "У вас пока нет групп.",
+    "group_invites_saved": "Участники добавлены.",
+    "group_members_title": "Участники группы",
+    "group_edit_expense": "Изменить участников / плательщика",
+})
 
 
 def translate(locale: Language | str, key: str, **values: object) -> str:

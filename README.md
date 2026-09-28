@@ -1,8 +1,8 @@
 # Splitnshare Bot
 
 Splitnshare is an asynchronous Splitwise-like Telegram bot for recording shared expenses
-between registered and unregistered friends. The current release focuses on direct expenses,
-deterministic splitting, transaction history, and balances.
+between registered and unregistered friends, both directly and within groups. It supports
+deterministic splitting, transaction history, balances, and recorded settlements.
 
 ## Features available now
 
@@ -87,6 +87,32 @@ deterministic splitting, transaction history, and balances.
   and internal participant profiles remain unchanged.
 - A later expense with a removed person automatically restores the friendship.
 
+### Groups
+
+- **Groups → Create group** collects a name, a supported default currency, and at least two
+  distinct participants including the creator. Registered users and owned guests are supported.
+- The creator owns the group and can add participants later. Newly added registered users
+  receive a best-effort Telegram notification; repeated invitations do not send duplicates.
+  Guests without a registered bot account cannot receive bot notifications.
+- **Add expense** inside a group uses its default currency for amounts without a currency code.
+  Alternatively, choose **Select a group** on an ordinary expense's final review. This preserves
+  the entered amount and currency and reopens participant/payer selection. Outsiders are removed
+  from the draft and shares are recalculated before another confirmation.
+- Group expenses restrict participants to active group members. Any active member can pay,
+  including a member who is not assigned a share. The existing 2–10 split-participant limit remains.
+- **Summary** shows who owes whom inside the group, keeping currencies separate.
+- **Settle up** records payments with one selected member. **Settle up All** records all of the
+  current user's balances within that group, including both payable and receivable amounts.
+  Both require a review; changed or already settled balances are rejected. These actions record
+  payments and do not send money. Other members' debts and other groups are unaffected.
+- A friend's shared history shows one summary row per group with current pairwise balances,
+  rather than each group expense and settlement. Ordinary transactions remain individual entries.
+- Ordinary balance settlement screens operate on expenses outside groups. Open the corresponding
+  group to settle group balances. Account deletion checks each scope independently.
+- Group selections and entered expense values remain part of the persisted expense draft.
+- Apply the `20260926_0012` migration before starting this version. Existing groups inherit their
+  owner's saved default currency, falling back to USD when there is no saved preference.
+
 ### Expense creation
 
 - Active conversation steps and entered values are stored in PostgreSQL and survive bot restarts.
@@ -106,7 +132,8 @@ deterministic splitting, transaction history, and balances.
   the separate creation timestamp remains available for auditing.
 - After choosing participants, the creator selects which participant paid; the creator is
   presented first as the convenient default choice.
-- Each expense supports 2–10 participants, including the payer.
+- Each expense supports 2–10 split participants. Direct expenses include the payer in the split;
+  group expenses also allow any other member as payer.
 - Participants can be added, reviewed, and removed before confirmation.
 - Every multistep stage provides **Back** or **Cancel** navigation where applicable.
 - A final review displays the payer and each participant's share before saving.
@@ -180,8 +207,8 @@ deterministic splitting, transaction history, and balances.
   atomic database transaction.
 - When the guest and target already share an expense, their shares are consolidated without
   changing the expense total.
-- When both already belong to a group, the target's existing membership and role are
-  preserved.
+- Group ownership transfers with the guest identity. Duplicate memberships are consolidated;
+  the target retains the stronger role, including owner status for transferred owned groups.
 - A completed guest becomes inactive and cannot be selected for new expenses.
 - The target receives a best-effort informational Telegram message only when a successful
   transfer includes at least one expense. Transfers with zero expenses still complete and
@@ -201,11 +228,7 @@ deterministic splitting, transaction history, and balances.
 
 ## Not available in the Telegram UI yet
 
-- Creating and managing groups.
-- Group-scoped expense entry, history, and balances.
-- Settlement payments.
 - Editing an existing expense.
-- Selecting a payer other than the creator.
 - Exchange-rate conversion.
 - Recurring expenses.
 - AI-assisted expense parsing.

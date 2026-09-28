@@ -8,6 +8,7 @@ from splitnshare.presentation.routers.account import router as account_router
 from splitnshare.presentation.routers.balances import router as balances_router
 from splitnshare.presentation.routers.drafts import router as drafts_router
 from splitnshare.presentation.routers.expenses import router as expenses_router
+from splitnshare.presentation.routers.groups import router as groups_router
 from splitnshare.presentation.routers.people import router as friends_router
 from splitnshare.presentation.routers.privacy import router as privacy_router
 from splitnshare.presentation.routers.settings import router as settings_router
@@ -23,6 +24,7 @@ def build_router() -> Router:
         account_router,
         settings_router,
         drafts_router,
+        groups_router,
         expenses_router,
         friends_router,
         balances_router,

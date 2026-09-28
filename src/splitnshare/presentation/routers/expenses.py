@@ -10,18 +10,26 @@ from uuid import UUID, uuid4
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, ReplyKeyboardMarkup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
+)
 
 from splitnshare.application.dto import (
     CreateExpenseCommand,
     ExpenseDTO,
     SharedTelegramUser,
 )
-from splitnshare.domain.contexts import DirectExpenseContext
+from splitnshare.domain.contexts import DirectExpenseContext, GroupExpenseContext
 from splitnshare.domain.enums import Language, SplitMethod
 from splitnshare.domain.errors import DomainError, ValidationError
 from splitnshare.domain.money import Money
 from splitnshare.domain.splitting import EqualSplitStrategy
+from splitnshare.presentation.callbacks import uuid_from_token, uuid_token
 from splitnshare.presentation.container import Services
 from splitnshare.presentation.datetimes import format_local_datetime, parse_local_datetime
 from splitnshare.presentation.formatters import (
@@ -53,12 +61,189 @@ from splitnshare.presentation.keyboards import (
     split_method_keyboard,
 )
 from splitnshare.presentation.labels import friend_label, participant_label
+from splitnshare.presentation.routers.groups import _keyboard, _member
 from splitnshare.presentation.states import AddExpenseStates
 from splitnshare.presentation.timezones import timezone_label
 
 router = Router(name="expenses")
 router.message.filter(F.chat.type == "private")
 router.callback_query.filter(F.message.chat.type == "private")
+
+
+async def draft_participant_keyboard(state: FSMContext, language: Language) -> ReplyKeyboardMarkup:
+    """Restrict group drafts to member selection while retaining ordinary expense actions."""
+    if not (await state.get_data()).get("group_id"):
+        return participant_keyboard(language)
+    return ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text=translate(language, "group_expense_members"))],
+        [
+            KeyboardButton(text=translate(language, "remove_participant")),
+            KeyboardButton(text=translate(language, "done")),
+        ],
+        [
+            KeyboardButton(text=translate(language, "back")),
+            KeyboardButton(text=translate(language, "cancel")),
+        ],
+    ], resize_keyboard=True)
+
+
+def draft_payer_keyboard(
+    data: dict[str, Any],
+    language: Language,
+    page: int = 0,
+) -> InlineKeyboardMarkup:
+    """Page every group member as a possible payer, including non-beneficiaries."""
+    members = data.get("group_members") or data.get("participants", [])
+    markup = expense_payer_keyboard(
+        members[page * 20:(page + 1) * 20], data["creator_id"], language
+    )
+    if len(members) > (page + 1) * 20:
+        markup.inline_keyboard.insert(-1, [InlineKeyboardButton(
+            text=translate(language, "more"), callback_data=f"eg:payers:{page + 1}",
+        )])
+    return markup
+
+
+@router.callback_query(AddExpenseStates.payer, F.data.startswith("eg:payers:"))
+async def payer_page(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
+    """Display the next page of eligible group payers."""
+    page = max(0, int((callback.data or "").rsplit(":", 1)[1]))
+    await callback_message(callback).edit_reply_markup(
+        reply_markup=draft_payer_keyboard(await state.get_data(), language, page)
+    )
+    await callback.answer()
+
+
+async def _group_member_choices(
+    message: Message,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+    page: int,
+) -> None:
+    """Refresh group membership before displaying a bounded participant picker."""
+    data = await state.get_data()
+    group = await services.groups.get(UUID(data["creator_id"]), UUID(data["group_id"]))
+    members = [_member(m) for m in group.participants]
+    await state.update_data(group_members=members, group_name=group.name)
+    choices = [
+        (m["name"], f"eg:member:{uuid_token(UUID(m['id']))}")
+        for m in members[page * 20:(page + 1) * 20]
+    ]
+    if len(members) > (page + 1) * 20:
+        choices.append((translate(language, "more"), f"eg:members:{page + 1}"))
+    await message.answer(
+        translate(language, "group_expense_members"), reply_markup=_keyboard(choices)
+    )
+
+
+@router.callback_query(AddExpenseStates.participants, F.data.startswith("eg:members:"))
+async def group_member_page(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    """Page the current group's participant picker."""
+    page = max(0, int((callback.data or "").rsplit(":", 1)[1]))
+    await _group_member_choices(callback_message(callback), state, services, language, page)
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.participants, F.data.startswith("eg:member:"))
+async def add_group_member(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    """Add a currently active group member to the expense allocation."""
+    data = await state.get_data()
+    group = await services.groups.get(UUID(data["creator_id"]), UUID(data["group_id"]))
+    person_id = uuid_from_token((callback.data or "").rsplit(":", 1)[1])
+    member = next((m for m in group.participants if m.id == person_id), None)
+    if member is None:
+        raise ValidationError("This participant is no longer in the group.")
+    participants = data["participants"]
+    if str(person_id) not in {p["id"] for p in participants}:
+        if len(participants) >= 10:
+            raise ValidationError(translate(language, "participant_limit"))
+        participants.append(_member(member))
+    await state.update_data(
+        participants=participants, group_members=[_member(m) for m in group.participants]
+    )
+    await callback_message(callback).answer(
+        _participant_summary(participants, language),
+        reply_markup=await draft_participant_keyboard(state, language),
+    )
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.confirm, F.data.startswith("eg:list:"))
+async def expense_group_choices(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    """Offer attaching the reviewed expense to any of the creator's groups."""
+    data = await state.get_data()
+    groups = await services.groups.list_groups(UUID(data["creator_id"]))
+    page = max(0, int((callback.data or "").rsplit(":", 1)[1]))
+    choices = [(g.name, f"eg:select:{uuid_token(g.id)}") for g in groups[page * 20:(page + 1) * 20]]
+    if len(groups) > (page + 1) * 20:
+        choices.append((translate(language, "more"), f"eg:list:{page + 1}"))
+    choices.append((translate(language, "group_none"), "eg:select:none"))
+    await callback_message(callback).answer(
+        translate(language, "group_choose"), reply_markup=_keyboard(choices)
+    )
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.confirm, F.data.startswith("eg:select:"))
+async def select_expense_group(
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
+) -> None:
+    """Attach a group and discard allocations requiring participant revalidation."""
+    data = await state.get_data()
+    token = (callback.data or "").rsplit(":", 1)[1]
+    if token == "none":
+        await state.update_data(
+            group_id=None, group_name=None, group_currency=None, group_members=None
+        )
+        name = translate(language, "group_none")
+    else:
+        group = await services.groups.get(UUID(data["creator_id"]), uuid_from_token(token))
+        allowed = {str(m.id) for m in group.participants}
+        participants = [p for p in data["participants"] if p["id"] in allowed]
+        await state.update_data(
+            group_id=str(group.id), group_name=group.name, group_currency=group.default_currency,
+            group_members=[_member(m) for m in group.participants], participants=participants,
+        )
+        name = group.name
+    await state.update_data(exact_amounts={}, exact_index=0, payer_id=None, split_method=None)
+    await state.set_state(AddExpenseStates.participants)
+    await callback_message(callback).answer(
+        translate(language, "group_reselect", name=escape(name)),
+        reply_markup=await draft_participant_keyboard(state, language),
+    )
+    await render_expense_draft(callback_message(callback), state, language)
+    await callback.answer()
+
+
+@router.callback_query(AddExpenseStates.confirm, F.data == "eg:edit")
+async def edit_expense_members(
+    callback: CallbackQuery,
+    state: FSMContext,
+    language: Language,
+) -> None:
+    """Reopen participants and payer without losing description, date, or amount."""
+    await state.set_state(AddExpenseStates.participants)
+    await render_expense_draft(callback_message(callback), state, language)
+    await callback.answer()
 
 
 async def render_expense_draft(message: Message, state: FSMContext, language: Language) -> None:
@@ -95,12 +280,13 @@ async def render_expense_draft(message: Message, state: FSMContext, language: La
             timezone=escape(timezone_label(data.get("timezone", "UTC"), language)),
         )
     elif step == AddExpenseStates.participants.state:
-        text, markup = _participant_summary(participants, language), participant_keyboard(language)
+        text = _participant_summary(participants, language)
+        markup = await draft_participant_keyboard(state, language)
     elif step == AddExpenseStates.manual_name.state:
         text = translate(language, "guest_name")
     elif step == AddExpenseStates.payer.state:
         text = translate(language, "choose_payer")
-        markup = expense_payer_keyboard(participants, data["creator_id"], language)
+        markup = draft_payer_keyboard(data, language)
     elif step == AddExpenseStates.split_method.state:
         text, markup = translate(language, "split_how"), split_method_keyboard(language)
     elif step == AddExpenseStates.exact_amount.state:
@@ -227,7 +413,10 @@ async def receive_total(
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(person.id)
     try:
-        total = parse_total(message.text or "", settings.default_currency)
+        data = await state.get_data()
+        total = parse_total(
+            message.text or "", data.get("group_currency") or settings.default_currency
+        )
     except DomainError as exc:
         await message.answer(str(exc))
         return
@@ -284,7 +473,7 @@ async def choose_expense_date(
     )
     await target_message.answer(
         translate(language, "add_people"),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
     await callback.answer()
 
@@ -361,7 +550,7 @@ async def receive_custom_expense_date(
     )
     await message.answer(
         translate(language, "add_people"),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
 
 
@@ -370,6 +559,9 @@ async def receive_shared_users(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
     """Resolve Telegram-shared users and add them to the expense draft."""
+    if (await state.get_data()).get("group_id"):
+        await message.answer(translate(language, "group_member_only"))
+        return
     if message.users_shared is None:
         return
     person = await current_person(message, services)
@@ -400,7 +592,7 @@ async def receive_shared_users(
     await state.update_data(participants=participants)
     await message.answer(
         _participant_summary(participants, language),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
 
 
@@ -409,6 +601,9 @@ async def request_manual_name(
     message: Message, state: FSMContext, language: Language
 ) -> None:
     """Prompt for a manually named participant."""
+    if (await state.get_data()).get("group_id"):
+        await message.answer(translate(language, "group_member_only"))
+        return
     await state.set_state(AddExpenseStates.manual_name)
     await message.answer(
         translate(language, "guest_name"), reply_markup=cancel_keyboard(language)
@@ -419,11 +614,16 @@ async def request_manual_name(
     AddExpenseStates.participants,
     F.text.in_(button_values("add_from_friends")),
 )
+@router.message(AddExpenseStates.participants, F.text.in_(button_values("group_expense_members")))
 async def choose_friend(
-    message: Message, services: Services, language: Language
+    message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
     """Show active friends available as expense participants."""
     owner = await current_person(message, services)
+    data = await state.get_data()
+    if data.get("group_id"):
+        await _group_member_choices(message, state, services, language, 0)
+        return
     friends = list(await services.friends.list_friends(owner.id))
     if not friends:
         await message.answer(translate(language, "no_friends"))
@@ -453,6 +653,9 @@ async def add_friend_participant(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     person_id = UUID(payload.rsplit(":", 1)[1])
+    if (await state.get_data()).get("group_id"):
+        await callback.answer(translate(language, "group_member_only"), show_alert=True)
+        return
     available = {
         friend.person_id: friend
         for friend in await services.friends.list_friends(owner.id)
@@ -477,7 +680,7 @@ async def add_friend_participant(
     settings = await services.user_settings.get_or_create(owner.id)
     await target_message.answer(
         _participant_summary(participants, language),
-        reply_markup=participant_keyboard(settings.language),
+        reply_markup=await draft_participant_keyboard(state, settings.language),
     )
     await callback.answer()
 
@@ -488,7 +691,7 @@ async def manual_back(message: Message, state: FSMContext, language: Language) -
     await state.set_state(AddExpenseStates.participants)
     await message.answer(
         translate(language, "continue_participants"),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
 
 
@@ -497,6 +700,9 @@ async def receive_manual_name(
     message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
     """Create a manual guest and add it to the expense draft."""
+    if (await state.get_data()).get("group_id"):
+        await message.answer(translate(language, "group_member_only"))
+        return
     owner = await current_person(message, services)
     try:
         guest = await services.guests.create_manual_guest(owner.id, message.text or "")
@@ -518,7 +724,7 @@ async def receive_manual_name(
     await state.set_state(AddExpenseStates.participants)
     await message.answer(
         _participant_summary(participants, language),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
 
 
@@ -549,7 +755,9 @@ async def choose_participant_to_remove(
         return
     await message.answer(
         translate(language, "choose_remove"),
-        reply_markup=remove_participant_keyboard(participants, data["creator_id"]),
+        reply_markup=remove_participant_keyboard(
+            participants, "" if data.get("group_id") else data["creator_id"]
+        ),
     )
 
 
@@ -564,7 +772,7 @@ async def remove_participant(
     payload, target_message = callback_payload(callback)
     person_id = payload.rsplit(":", 1)[1]
     data = await state.get_data()
-    if person_id == data["creator_id"]:
+    if person_id == data["creator_id"] and not data.get("group_id"):
         await callback.answer(translate(language, "payer_remove"), show_alert=True)
         return
     participants: list[dict[str, str]] = data["participants"]
@@ -572,17 +780,20 @@ async def remove_participant(
     await state.update_data(participants=updated)
     await target_message.answer(
         _participant_summary(updated, language),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
     await callback.answer()
 
 
 @router.message(AddExpenseStates.participants, F.text.in_(button_values("done")))
 async def participants_done(
-    message: Message, state: FSMContext, language: Language
+    message: Message, state: FSMContext, services: Services, language: Language
 ) -> None:
     """Validate participant count and ask who paid for the expense."""
     data = await state.get_data()
+    if data.get("group_id"):
+        group = await services.groups.get(UUID(data["creator_id"]), UUID(data["group_id"]))
+        data = await state.update_data(group_members=[_member(m) for m in group.participants])
     participants: list[dict[str, str]] = data["participants"]
     if len(participants) < 2:
         await message.answer(translate(language, "add_one_participant"))
@@ -590,9 +801,7 @@ async def participants_done(
     await state.set_state(AddExpenseStates.payer)
     await message.answer(
         translate(language, "choose_payer"),
-        reply_markup=expense_payer_keyboard(
-            participants, str(data["creator_id"]), language
-        ),
+        reply_markup=draft_payer_keyboard(data, language),
     )
 
 
@@ -611,7 +820,7 @@ async def payer_back(
     await target_message.edit_text(translate(language, "payer_selection_cancelled"))
     await target_message.answer(
         _participant_summary(participants, language),
-        reply_markup=participant_keyboard(language),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
     await callback.answer()
 
@@ -634,7 +843,8 @@ async def choose_payer(
             translate(language, "person_unavailable"), show_alert=True
         )
         return
-    payer = next((item for item in participants if item["id"] == payer_id), None)
+    eligible_payers = data.get("group_members") or participants
+    payer = next((item for item in eligible_payers if item["id"] == payer_id), None)
     if payer is None:
         await callback.answer(
             translate(language, "person_unavailable"), show_alert=True
@@ -666,13 +876,10 @@ async def split_method_back(
         return
     target_message = callback_message(callback)
     data = await state.get_data()
-    participants: list[dict[str, str]] = data.get("participants", [])
     await state.set_state(AddExpenseStates.payer)
     await target_message.edit_text(
         translate(language, "choose_payer"),
-        reply_markup=expense_payer_keyboard(
-            participants, str(data["creator_id"]), language
-        ),
+        reply_markup=draft_payer_keyboard(data, language),
     )
     await callback.answer()
 
@@ -736,7 +943,8 @@ async def exact_back(message: Message, state: FSMContext, language: Language) ->
     """Cancel exact allocation and return to participant selection."""
     await state.set_state(AddExpenseStates.participants)
     await message.answer(
-        translate(language, "split_again"), reply_markup=participant_keyboard(language)
+        translate(language, "split_again"),
+        reply_markup=await draft_participant_keyboard(state, language),
     )
 
 
@@ -812,7 +1020,10 @@ async def confirm_expense(
         total=Money(data["total_minor"], data["currency"]),
         participant_ids=participants,
         split_method=SplitMethod(data["split_method"]),
-        context=DirectExpenseContext(),
+        context=(
+            GroupExpenseContext(UUID(data["group_id"]))
+            if data.get("group_id") else DirectExpenseContext()
+        ),
         payer_person_id=UUID(data["payer_id"]),
         exact_amounts_minor={UUID(key): value for key, value in exact.items()} if exact else None,
         occurred_at=datetime.fromisoformat(data["occurred_at"]),
@@ -1052,7 +1263,7 @@ def _review_text(
                 else escape(
                     next(
                         item["name"]
-                        for item in participants
+                        for item in (data.get("group_members") or participants)
                         if item["id"] == str(data["payer_id"])
                     )
                 )
@@ -1060,6 +1271,8 @@ def _review_text(
         ),
         "",
     ]
+    if data.get("group_name"):
+        lines.append(translate(language, "group_review_label", name=escape(data["group_name"])))
     lines.extend(
         f"• {escape(item['name'])}: {Money(amounts[item['id']], total.currency).format()}"
         for item in participants
@@ -1072,9 +1285,8 @@ async def _notify_expense_participants(
 ) -> None:
     """Best-effort notify every registered participant except the creator."""
     recipient_ids = tuple(
-        split.person_id
-        for split in expense.splits
-        if split.person_id != expense.creator_person_id
+        ({split.person_id for split in expense.splits} | {expense.payer_person_id})
+        - {expense.creator_person_id}
     )
     recipients = await services.users.list_registered(recipient_ids)
     for recipient in recipients:

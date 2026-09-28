@@ -18,6 +18,7 @@ from splitnshare.application.dto import (
     ExpenseDTO,
     ExpensePage,
     FriendDTO,
+    GroupActivityDTO,
     GuestDTO,
 )
 from splitnshare.domain.enums import SELECTABLE_LANGUAGES, Language
@@ -46,6 +47,7 @@ def main_menu(language: Language = Language.ENGLISH) -> ReplyKeyboardMarkup:
     """Build the persistent reply keyboard for top-level features."""
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text=translate(language, "groups"))],
             [
                 KeyboardButton(text=translate(language, "add_expense")),
                 KeyboardButton(text=translate(language, "transactions")),
@@ -67,6 +69,7 @@ def main_menu_inline_keyboard(language: Language) -> InlineKeyboardMarkup:
     """Build an inline copy of the top-level navigation menu."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text=translate(language, "groups"), callback_data="menu:groups")],
             [
                 InlineKeyboardButton(
                     text=translate(language, "add_expense"),
@@ -371,6 +374,12 @@ def expense_confirm_keyboard(
     """Build final confirmation and cancellation actions for an expense."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(
+                text=translate(language, "group_choose"), callback_data="eg:list:0",
+            )],
+            [InlineKeyboardButton(
+                text=translate(language, "group_edit_expense"), callback_data="eg:edit",
+            )],
             [
                 InlineKeyboardButton(
                     text=translate(language, "confirm"),
@@ -547,6 +556,12 @@ def person_activity_keyboard(
         for item in page.items
         if isinstance(item, ExpenseActivityDTO)
     ]
+    rows.extend([
+        [InlineKeyboardButton(
+            text=item.group_name[:80], callback_data=f"g:summary:{uuid_token(item.group_id)}:0",
+        )]
+        for item in page.items if isinstance(item, GroupActivityDTO)
+    ])
     if page.next_cursor:
         rows.append(
             [

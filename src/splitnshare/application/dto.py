@@ -226,7 +226,30 @@ class SettlementActivityDTO:
     recipient_username: str | None
 
 
-ActivityItemDTO = ExpenseActivityDTO | SettlementActivityDTO
+@dataclass(frozen=True, slots=True)
+class GroupActivityDTO:
+    """Collapse shared group activity into one row with current pairwise balances."""
+
+    group_id: UUID
+    group_name: str
+    occurred_at: datetime
+    other_name: str
+    other_username: str | None
+    balances: tuple[BalanceDTO, ...]
+
+
+ActivityItemDTO = ExpenseActivityDTO | SettlementActivityDTO | GroupActivityDTO
+
+
+@dataclass(frozen=True, slots=True)
+class GroupDTO:
+    """Expose an active group and its currently active participants."""
+
+    id: UUID
+    name: str
+    default_currency: str
+    owner_person_id: UUID
+    participants: tuple[PersonDTO, ...]
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,6 +14,7 @@ from splitnshare.application.dto import (
     ExpenseDTO,
     ExpensePage,
     FriendDTO,
+    GroupDTO,
     GuestDTO,
     NewExpenseRecord,
     PersonDTO,
@@ -240,6 +241,37 @@ class ActivityRepository(Protocol):
         ...
 
 
+class GroupRepository(Protocol):
+    """Manage membership and authorize access to group operations."""
+
+    async def list_for_person(self, person_id: UUID) -> Sequence[GroupDTO]:
+        """List active groups belonging to a participant."""
+        ...
+
+    async def get(self, actor_id: UUID, group_id: UUID, *, for_update: bool = False) -> GroupDTO:
+        """Require active membership and return a group."""
+        ...
+
+    async def create(
+        self,
+        actor_id: UUID,
+        name: str,
+        currency: str,
+        members: Sequence[UUID],
+    ) -> GroupDTO:
+        """Create a group including its owner and invited participants."""
+        ...
+
+    async def add_members(
+        self,
+        actor_id: UUID,
+        group_id: UUID,
+        members: Sequence[UUID],
+    ) -> tuple[GroupDTO, tuple[UUID, ...]]:
+        """Add participants as owner and report newly added identities."""
+        ...
+
+
 class UnitOfWork(Protocol):
     """Group repositories behind one atomic database transaction."""
 
@@ -250,6 +282,7 @@ class UnitOfWork(Protocol):
     expenses: ExpenseRepository
     settlements: SettlementRepository
     activities: ActivityRepository
+    groups: GroupRepository
 
     async def __aenter__(self) -> UnitOfWork:
         """Open the transactional repository scope."""

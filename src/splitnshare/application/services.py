@@ -291,7 +291,7 @@ class ExpenseService:
         if not 1 <= len(description) <= 240:
             raise ValidationError("Description must contain between 1 and 240 characters.")
         payer_id = command.payer_person_id or command.creator_person_id
-        if payer_id not in command.participant_ids:
+        if payer_id not in command.participant_ids and command.context.group_id is None:
             raise ValidationError("The payer must be included in the participants.")
         occurred_at = command.occurred_at or datetime.now(UTC)
         if occurred_at.tzinfo is None or occurred_at.utcoffset() is None:

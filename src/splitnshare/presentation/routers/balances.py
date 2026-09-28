@@ -14,6 +14,7 @@ from splitnshare.application.dto import (
     ActivityItemDTO,
     BalanceDTO,
     ExpenseActivityDTO,
+    GroupActivityDTO,
     SettleBalanceCommand,
     SettlementDTO,
 )
@@ -64,7 +65,7 @@ async def balances(
     """Show the current user's direct balances from a reply-menu action."""
     await state.clear()
     person = await current_person(message, services)
-    current_balances = await services.balances.get_balances(person.id)
+    current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
     await message.answer(
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
@@ -87,7 +88,7 @@ async def balances_callback(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     await state.clear()
-    current_balances = await services.balances.get_balances(person.id)
+    current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
     await target_message.edit_text(
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
@@ -115,7 +116,9 @@ async def show_person_balance(
     if person is None:
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
-    selected = _balances_with(await services.balances.get_balances(person.id), other_id)
+    selected = _balances_with(
+        await services.balances.get_balances(person.id, DirectExpenseContext()), other_id
+    )
     if not selected:
         await callback.answer(translate(language, "balance_person_stale"), show_alert=True)
         return
@@ -288,7 +291,7 @@ async def select_balance_to_settle(
         return
     currency = parts[3]
     current = _find_balance(
-        await services.balances.get_balances(person.id), other_id, currency
+        await services.balances.get_balances(person.id, DirectExpenseContext()), other_id, currency
     )
     if current is None:
         await callback.answer(translate(language, "settlement_stale"), show_alert=True)
@@ -337,7 +340,7 @@ async def settle_full_balance(
         return
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))
-    current_balances = await services.balances.get_balances(actor_id)
+    current_balances = await services.balances.get_balances(actor_id, DirectExpenseContext())
     await target_message.edit_text(
         translate(language, "settlement_saved", amount=settlement.amount.format())
         + "\n\n"
@@ -376,7 +379,7 @@ async def partial_settlement_back(
     """Leave partial entry and return to the current balance list."""
     await state.clear()
     person = await current_person(message, services)
-    current_balances = await services.balances.get_balances(person.id)
+    current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
     await message.answer(translate(language, "balances"), reply_markup=main_menu(language))
     await message.answer(
         balances_text(current_balances, language),
@@ -421,7 +424,7 @@ async def receive_partial_settlement(
         return
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))
-    current_balances = await services.balances.get_balances(actor_id)
+    current_balances = await services.balances.get_balances(actor_id, DirectExpenseContext())
     await message.answer(
         translate(language, "settlement_saved", amount=amount.format()),
         reply_markup=main_menu(language),
@@ -465,7 +468,11 @@ def _activity_person_label(
     item: ActivityItemDTO, other_id: UUID
 ) -> tuple[str, str | None]:
     """Extract one counterparty label from an activity item."""
+    if isinstance(item, GroupActivityDTO):
+        return item.other_name, item.other_username
     if isinstance(item, ExpenseActivityDTO):
+        if item.expense.payer_person_id == other_id:
+            return item.expense.payer_name, item.expense.payer_username
         split = next(
             split for split in item.expense.splits if split.person_id == other_id
         )

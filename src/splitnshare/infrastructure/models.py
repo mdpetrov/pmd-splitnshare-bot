@@ -202,6 +202,7 @@ class GroupModel(TimestampMixin, Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    default_currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
     creator_person_id: Mapped[UUID] = mapped_column(
         ForeignKey("persons.id", ondelete="RESTRICT"), nullable=False
     )

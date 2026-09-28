@@ -26,12 +26,14 @@ class DraftNavigationMiddleware(BaseMiddleware):
         if not isinstance(event, Update) or not isinstance(state, FSMContext):
             return await handler(event, data)
         raw_state = data.get("raw_state")
-        if not isinstance(raw_state, str) or not raw_state.startswith("AddExpenseStates:"):
+        if not isinstance(raw_state, str):
             return await handler(event, data)
         text = event.message.text if event.message else None
         menu_values = {
             value
-            for name in ("add_expense", "transactions", "balances", "friends", "settings", "drafts")
+            for name in (
+                "add_expense", "transactions", "balances", "friends", "settings", "drafts", "groups",
+            )
             for value in button_values(name)
         }
         command = text.split()[0].split("@", 1)[0] if text and text.split() else None

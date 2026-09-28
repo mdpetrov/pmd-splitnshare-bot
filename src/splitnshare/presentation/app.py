@@ -6,6 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import SimpleEventIsolation
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from splitnshare.application.groups import GroupService
 from splitnshare.application.services import (
     ActivityQueryService,
     BalanceQueryService,
@@ -47,6 +48,7 @@ def build_application(settings: Settings) -> tuple[Bot, Dispatcher, AsyncEngine]
         balances=BalanceQueryService(uow_factory),
         settlements=SettlementService(uow_factory),
         activities=ActivityQueryService(uow_factory),
+        groups=GroupService(uow_factory),
     )
     bot = Bot(
         token=settings.bot_token,
