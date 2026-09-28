@@ -131,9 +131,10 @@ def test_locales_have_the_same_messages_and_localized_menu() -> None:
     assert translate(Language.RUSSIAN, "settings") == "⚙️ Настройки"
 
     keyboard = main_menu(Language.RUSSIAN)
-    assert keyboard.keyboard[0][0].text == "➕ Добавить расход"
-    assert keyboard.keyboard[1][0].text == "💰 Балансы"
-    assert keyboard.keyboard[2][0].text == "⚙️ Настройки"
+    assert keyboard.keyboard[0][0].text == "👥 Группы"
+    assert keyboard.keyboard[1][0].text == "➕ Добавить расход"
+    assert keyboard.keyboard[2][0].text == "💰 Балансы"
+    assert keyboard.keyboard[3][0].text == "⚙️ Настройки"
 
 
 def test_language_keyboard_only_offers_english() -> None:
@@ -178,6 +179,7 @@ def test_main_menu_has_all_primary_actions() -> None:
     }
 
     assert callbacks == {
+        "menu:groups",
         "menu:add_expense",
         "menu:transactions",
         "menu:balances",
