@@ -1900,7 +1900,9 @@ def _friend_dto(
     )
 
 
-def _apply_context(statement: Select[Any], context: ExpenseContext | None) -> Select[Any]:
+def _apply_context[*SelectTypes](
+    statement: Select[*SelectTypes], context: ExpenseContext | None
+) -> Select[*SelectTypes]:
     """Restrict an expense query to direct activity or one group."""
     if isinstance(context, DirectExpenseContext):
         return statement.where(ExpenseModel.group_id.is_(None))
@@ -1909,9 +1911,9 @@ def _apply_context(statement: Select[Any], context: ExpenseContext | None) -> Se
     return statement
 
 
-def _apply_settlement_context(
-    statement: Select[Any], context: ExpenseContext | None
-) -> Select[Any]:
+def _apply_settlement_context[*SelectTypes](
+    statement: Select[*SelectTypes], context: ExpenseContext | None
+) -> Select[*SelectTypes]:
     """Restrict a settlement query to direct activity or one group."""
     if isinstance(context, DirectExpenseContext):
         return statement.where(SettlementModel.group_id.is_(None))
