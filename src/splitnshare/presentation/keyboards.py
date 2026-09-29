@@ -97,7 +97,8 @@ def main_menu_inline_keyboard(language: Language) -> InlineKeyboardMarkup:
                     callback_data="menu:settings",
                 ),
                 InlineKeyboardButton(
-                    text=translate(language, "drafts"), callback_data="menu:drafts",
+                    text=translate(language, "drafts"),
+                    callback_data="menu:drafts",
                 ),
             ],
         ]
@@ -118,9 +119,7 @@ def back_to_main_menu_keyboard(language: Language) -> InlineKeyboardMarkup:
     )
 
 
-def balances_keyboard(
-    balances: Sequence[BalanceDTO], language: Language
-) -> InlineKeyboardMarkup:
+def balances_keyboard(balances: Sequence[BalanceDTO], language: Language) -> InlineKeyboardMarkup:
     """Build one drill-down action per person with an outstanding balance."""
     rows: list[list[InlineKeyboardButton]] = []
     seen_people: set[UUID] = set()
@@ -136,18 +135,12 @@ def balances_keyboard(
                         balance.other_person_id,
                         balance.username,
                     ),
-                    callback_data=(
-                        f"balance:person:{uuid_token(balance.other_person_id)}"
-                    ),
+                    callback_data=(f"balance:person:{uuid_token(balance.other_person_id)}"),
                 )
             ]
         )
     rows.append(
-        [
-            InlineKeyboardButton(
-                text=translate(language, "main_menu"), callback_data="menu:show"
-            )
-        ]
+        [InlineKeyboardButton(text=translate(language, "main_menu"), callback_data="menu:show")]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -167,9 +160,7 @@ def person_balance_keyboard(
                     "settle_amount_button",
                     amount=Money(abs(balance.net_minor), balance.currency).format(),
                 ),
-                callback_data=(
-                    f"settle:select:{balance.other_person_id}:{balance.currency}"
-                ),
+                callback_data=(f"settle:select:{balance.other_person_id}:{balance.currency}"),
             )
         ]
         for balance in balances
@@ -233,7 +224,9 @@ def settlement_amount_keyboard(
 
 
 def cancel_keyboard(
-    language: Language = Language.ENGLISH, *, include_back: bool = True,
+    language: Language = Language.ENGLISH,
+    *,
+    include_back: bool = True,
     include_keep: bool = False,
 ) -> InlineKeyboardMarkup:
     """Offer inline navigation without changing the persistent main keyboard."""
@@ -243,14 +236,20 @@ def cancel_keyboard(
     if include_keep:
         choices.append(("keep", "flow:keep"))
     choices.append(("cancel", "flow:cancel"))
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=translate(language, key), callback_data=payload)
-        for key, payload in choices
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=translate(language, key), callback_data=payload)
+                for key, payload in choices
+            ]
+        ]
+    )
 
 
 def participant_keyboard(
-    language: Language = Language.ENGLISH, *, include_keep: bool = False,
+    language: Language = Language.ENGLISH,
+    *,
+    include_keep: bool = False,
 ) -> InlineKeyboardMarkup:
     """Offer inline contact, friend, and manual group invitations."""
     choices = [
@@ -259,10 +258,15 @@ def participant_keyboard(
         [("remove_participant", "flow:remove"), ("done", "flow:done")],
         [("back", "flow:back"), ("cancel", "flow:cancel")],
     ]
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=translate(language, key), callback_data=payload)
-        for key, payload in row
-    ] for row in choices])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=translate(language, key), callback_data=payload)
+                for key, payload in row
+            ]
+            for row in choices
+        ]
+    )
 
 
 def split_method_keyboard(
@@ -292,9 +296,16 @@ def split_method_keyboard(
                 ),
             ],
             *(
-                [[InlineKeyboardButton(
-                    text=translate(language, "keep"), callback_data="expense:keep",
-                )]] if include_keep else []
+                [
+                    [
+                        InlineKeyboardButton(
+                            text=translate(language, "keep"),
+                            callback_data="expense:keep",
+                        )
+                    ]
+                ]
+                if include_keep
+                else []
             ),
         ]
     )
@@ -304,7 +315,8 @@ def expense_payer_keyboard(
     participants: Sequence[dict[str, str]],
     creator_id: str,
     language: Language = Language.ENGLISH,
-    *, include_keep: bool = False,
+    *,
+    include_keep: bool = False,
 ) -> InlineKeyboardMarkup:
     """Offer every selected participant as the expense payer."""
     rows = [
@@ -333,14 +345,21 @@ def expense_payer_keyboard(
         ]
     )
     if include_keep:
-        rows.insert(-1, [InlineKeyboardButton(
-            text=translate(language, "keep"), callback_data="expense:keep",
-        )])
+        rows.insert(
+            -1,
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "keep"),
+                    callback_data="expense:keep",
+                )
+            ],
+        )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def expense_friends_keyboard(
-    friends: Sequence[FriendDTO], language: Language = Language.ENGLISH,
+    friends: Sequence[FriendDTO],
+    language: Language = Language.ENGLISH,
 ) -> InlineKeyboardMarkup:
     """Build expense participant buttons from the user's friends."""
     return InlineKeyboardMarkup(
@@ -352,13 +371,20 @@ def expense_friends_keyboard(
                 )
             ]
             for friend in friends
-        ] + [[InlineKeyboardButton(text=translate(language, "back"),
-                                  callback_data="expense:participants:home")]]
+        ]
+        + [
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"), callback_data="expense:participants:home"
+                )
+            ]
+        ]
     )
 
 
 def remove_participant_keyboard(
-    participants: Sequence[dict[str, str]], creator_id: str,
+    participants: Sequence[dict[str, str]],
+    creator_id: str,
     language: Language = Language.ENGLISH,
 ) -> InlineKeyboardMarkup:
     """Build removal actions for non-creator draft participants."""
@@ -372,28 +398,46 @@ def remove_participant_keyboard(
             ]
             for participant in participants
             if participant["id"] != creator_id
-        ] + [[InlineKeyboardButton(text=translate(language, "back"),
-                                  callback_data="expense:participants:home")]]
+        ]
+        + [
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"), callback_data="expense:participants:home"
+                )
+            ]
+        ]
     )
 
 
 def expense_confirm_keyboard(
-    language: Language = Language.ENGLISH, draft_id: str | None = None,
+    language: Language = Language.ENGLISH,
+    draft_id: str | None = None,
 ) -> InlineKeyboardMarkup:
     """Build final confirmation and cancellation actions for an expense."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=translate(language, "back"),
-                                  callback_data="expense:review:back")],
-            [InlineKeyboardButton(
-                text=translate(language, "group_choose"), callback_data="eg:list:0",
-            )],
-            [InlineKeyboardButton(
-                text=translate(language, "group_edit_expense"), callback_data="eg:edit",
-            )],
-            [InlineKeyboardButton(
-                text=translate(language, "save_draft_exit"), callback_data="expense:cancel"
-            )],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "back"), callback_data="expense:review:back"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "group_choose"),
+                    callback_data="eg:list:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "group_edit_expense"),
+                    callback_data="eg:edit",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "save_draft_exit"), callback_data="expense:cancel"
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=translate(language, "confirm_create_expense"),
@@ -415,9 +459,7 @@ def expense_list_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        format_local_datetime_compact(
-                            item.occurred_at, timezone, language
-                        ),
+                        format_local_datetime_compact(item.occurred_at, timezone, language),
                         _short_button_text(item.description),
                     )
                 ),
@@ -457,9 +499,7 @@ def activity_list_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        format_local_date(
-                            item.expense.occurred_at, timezone, language
-                        ),
+                        format_local_date(item.expense.occurred_at, timezone, language),
                         _short_button_text(item.expense.description),
                     )
                 ),
@@ -479,11 +519,7 @@ def activity_list_keyboard(
             ]
         )
     rows.append(
-        [
-            InlineKeyboardButton(
-                text=translate(language, "main_menu"), callback_data="menu:show"
-            )
-        ]
+        [InlineKeyboardButton(text=translate(language, "main_menu"), callback_data="menu:show")]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -501,9 +537,7 @@ def person_history_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        format_local_datetime_compact(
-                            item.occurred_at, timezone, language
-                        ),
+                        format_local_datetime_compact(item.occurred_at, timezone, language),
                         _short_button_text(item.description),
                     )
                 ),
@@ -517,9 +551,7 @@ def person_history_keyboard(
             [
                 InlineKeyboardButton(
                     text=translate(language, "more"),
-                    callback_data=(
-                        f"bhp:{person_token}:{uuid_token(page.next_cursor)}"
-                    ),
+                    callback_data=(f"bhp:{person_token}:{uuid_token(page.next_cursor)}"),
                 )
             ]
         )
@@ -551,26 +583,28 @@ def person_activity_keyboard(
             InlineKeyboardButton(
                 text=" · ".join(
                     (
-                        format_local_date(
-                            item.expense.occurred_at, timezone, language
-                        ),
+                        format_local_date(item.expense.occurred_at, timezone, language),
                         _short_button_text(item.expense.description),
                     )
                 ),
-                callback_data=(
-                    f"{expense_prefix}:{person_token}:{uuid_token(item.expense.id)}"
-                ),
+                callback_data=(f"{expense_prefix}:{person_token}:{uuid_token(item.expense.id)}"),
             )
         ]
         for item in page.items
         if isinstance(item, ExpenseActivityDTO)
     ]
-    rows.extend([
-        [InlineKeyboardButton(
-            text=item.group_name[:80], callback_data=f"g:summary:{uuid_token(item.group_id)}:0",
-        )]
-        for item in page.items if isinstance(item, GroupActivityDTO)
-    ])
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=item.group_name[:80],
+                    callback_data=f"g:summary:{uuid_token(item.group_id)}:0",
+                )
+            ]
+            for item in page.items
+            if isinstance(item, GroupActivityDTO)
+        ]
+    )
     if page.next_cursor:
         rows.append(
             [
@@ -641,9 +675,16 @@ def expense_date_keyboard(
                 ),
             ],
             *(
-                [[InlineKeyboardButton(
-                    text=translate(language, "keep"), callback_data="expense:keep",
-                )]] if include_keep else []
+                [
+                    [
+                        InlineKeyboardButton(
+                            text=translate(language, "keep"),
+                            callback_data="expense:keep",
+                        )
+                    ]
+                ]
+                if include_keep
+                else []
             ),
             [
                 InlineKeyboardButton(
@@ -717,9 +758,7 @@ def guests_keyboard(
     """Build active guest actions, including suggested transfer targets."""
     rows: list[list[InlineKeyboardButton]] = []
     for guest in guests:
-        guest_label = participant_label(
-            guest.display_name, guest.person_id, guest.username
-        )
+        guest_label = participant_label(guest.display_name, guest.person_id, guest.username)
         target_id = guest.suggested_target_person_id
         target_name = guest.suggested_target_name
         has_suggestion = target_id is not None and target_name is not None
@@ -831,9 +870,7 @@ def registered_friends_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def friends_list_keyboard(
-    friends: Sequence[FriendDTO], language: Language
-) -> InlineKeyboardMarkup:
+def friends_list_keyboard(friends: Sequence[FriendDTO], language: Language) -> InlineKeyboardMarkup:
     """Build the unified friend list with detail and creation actions."""
     rows = [
         [
@@ -994,34 +1031,57 @@ def back_to_friends_keyboard(language: Language) -> InlineKeyboardMarkup:
 
 def add_friend_keyboard(language: Language) -> InlineKeyboardMarkup:
     """Offer adding a shared contact or named guest with inline navigation."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=translate(language, "choose_friend_telegram"),
-                              callback_data="flow:contact")],
-        [InlineKeyboardButton(text=translate(language, "add_named_guest"),
-                              callback_data="flow:manual")],
-        [InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back"),
-         InlineKeyboardButton(text=translate(language, "cancel"), callback_data="flow:cancel")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "choose_friend_telegram"), callback_data="flow:contact"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "add_named_guest"), callback_data="flow:manual"
+                )
+            ],
+            [
+                InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back"),
+                InlineKeyboardButton(
+                    text=translate(language, "cancel"), callback_data="flow:cancel"
+                ),
+            ],
+        ]
+    )
 
 
 def transfer_target_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
     """Choose a registered friend or share a Telegram contact as transfer target."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=translate(language, "add_from_friends"),
-                              callback_data="flow:friends")],
-        [InlineKeyboardButton(text=translate(language, "choose_registered"),
-                              callback_data="flow:contact")],
-        [InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back"),
-         InlineKeyboardButton(text=translate(language, "cancel"), callback_data="flow:cancel")],
-    ])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "add_from_friends"), callback_data="flow:friends"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=translate(language, "choose_registered"), callback_data="flow:contact"
+                )
+            ],
+            [
+                InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back"),
+                InlineKeyboardButton(
+                    text=translate(language, "cancel"), callback_data="flow:cancel"
+                ),
+            ],
+        ]
+    )
 
 
 def transfer_confirm_keyboard(language: Language = Language.ENGLISH) -> InlineKeyboardMarkup:
     """Build irreversible guest-transfer confirmation controls."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=translate(language, "back"),
-                                  callback_data="flow:back")],
+            [InlineKeyboardButton(text=translate(language, "back"), callback_data="flow:back")],
             [
                 InlineKeyboardButton(
                     text=translate(language, "transfer_everything"),
@@ -1064,9 +1124,7 @@ def settings_keyboard(language: Language) -> InlineKeyboardMarkup:
     )
 
 
-def timezone_keyboard(
-    language: Language, *, include_back: bool = True
-) -> InlineKeyboardMarkup:
+def timezone_keyboard(language: Language, *, include_back: bool = True) -> InlineKeyboardMarkup:
     """Build localized buttons for every supported timezone choice."""
     rows = [
         [
@@ -1107,11 +1165,7 @@ def currency_keyboard(language: Language) -> InlineKeyboardMarkup:
                     callback_data="settings:custom_currency",
                 )
             ],
-            [
-                InlineKeyboardButton(
-                    text=translate(language, "back"), callback_data="settings:show"
-                )
-            ],
+            [InlineKeyboardButton(text=translate(language, "back"), callback_data="settings:show")],
         ]
     )
 
@@ -1133,10 +1187,6 @@ def language_keyboard(language: Language) -> InlineKeyboardMarkup:
                 ]
                 for choice in SELECTABLE_LANGUAGES
             ],
-            [
-                InlineKeyboardButton(
-                    text=translate(language, "back"), callback_data="settings:show"
-                )
-            ],
+            [InlineKeyboardButton(text=translate(language, "back"), callback_data="settings:show")],
         ]
     )

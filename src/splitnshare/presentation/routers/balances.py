@@ -67,7 +67,8 @@ async def balances(
     await state.clear()
     person = await current_person(message, services)
     current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
-    await show(message,
+    await show(
+        message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
@@ -90,7 +91,8 @@ async def balances_callback(
         return
     await state.clear()
     current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
-    await show(target_message,
+    await show(
+        target_message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
@@ -124,7 +126,8 @@ async def show_person_balance(
         await callback.answer(translate(language, "balance_person_stale"), show_alert=True)
         return
     await state.clear()
-    await show(target_message,
+    await show(
+        target_message,
         person_balances_text(selected, language),
         reply_markup=person_balance_keyboard(selected, language),
     )
@@ -150,11 +153,10 @@ async def show_person_history(
     if person is None:
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
-    page = await services.activities.list_for_person(
-        person.id, other_person_id=other_id
-    )
+    page = await services.activities.list_for_person(person.id, other_person_id=other_id)
     settings = await services.user_settings.get_or_create(person.id)
-    await show(target_message,
+    await show(
+        target_message,
         _person_history_text(
             page.items,
             person.id,
@@ -200,7 +202,8 @@ async def show_person_history_page(
         person.id, other_person_id=other_id, cursor=cursor
     )
     settings = await services.user_settings.get_or_create(person.id)
-    await show(target_message,
+    await show(
+        target_message,
         _person_history_text(
             page.items,
             person.id,
@@ -247,7 +250,8 @@ async def view_person_history_expense(
         await callback.answer(translate(language, "balance_person_stale"), show_alert=True)
         return
     settings = await services.user_settings.get_or_create(person.id)
-    await show(target_message,
+    await show(
+        target_message,
         expense_text(expense, language, settings.timezone or "UTC"),
         reply_markup=expense_details_keyboard(
             expense,
@@ -258,9 +262,7 @@ async def view_person_history_expense(
                 if from_friend
                 else f"balance:history:{uuid_token(other_id)}"
             ),
-            back_label_key=(
-                "back_to_activity" if from_friend else "transaction_history"
-            ),
+            back_label_key=("back_to_activity" if from_friend else "transaction_history"),
         ),
     )
     await callback.answer()
@@ -306,7 +308,8 @@ async def select_balance_to_settle(
         net_minor=current.net_minor,
     )
     await state.set_state(SettlementStates.confirm)
-    await show(target_message,
+    await show(
+        target_message,
         _settlement_prompt(current, language),
         reply_markup=settlement_amount_keyboard(
             Money(abs(current.net_minor), current.currency),
@@ -332,9 +335,7 @@ async def settle_full_balance(
     target_message = callback_message(callback)
     data = await state.get_data()
     try:
-        settlement = await _record_settlement(
-            services, data, int(data["outstanding_minor"])
-        )
+        settlement = await _record_settlement(services, data, int(data["outstanding_minor"]))
     except DomainError:
         await state.clear()
         await callback.answer(translate(language, "settlement_stale"), show_alert=True)
@@ -342,7 +343,8 @@ async def settle_full_balance(
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))
     current_balances = await services.balances.get_balances(actor_id, DirectExpenseContext())
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "settlement_saved", amount=settlement.amount.format())
         + "\n\n"
         + balances_text(current_balances, language),
@@ -363,7 +365,8 @@ async def request_partial_settlement(
     target_message = callback_message(callback)
     data = await state.get_data()
     await state.set_state(SettlementStates.amount)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "settle_enter_amount", currency=data["currency"]),
         reply_markup=cancel_keyboard(language),
     )
@@ -381,8 +384,11 @@ async def partial_settlement_back(
     await state.clear()
     person = await current_person(message, services)
     current_balances = await services.balances.get_balances(person.id, DirectExpenseContext())
-    await show(message, translate(language, "balances"), reply_markup=main_menu_inline_keyboard(language))
-    await show(message,
+    await show(
+        message, translate(language, "balances"), reply_markup=main_menu_inline_keyboard(language)
+    )
+    await show(
+        message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
@@ -403,49 +409,47 @@ async def receive_partial_settlement(
     try:
         amount = parse_total(message.text or "", currency)
     except DomainError:
-        await show(message,
-            translate(language, "settle_invalid_amount", amount=outstanding.format())
+        await show(
+            message, translate(language, "settle_invalid_amount", amount=outstanding.format())
         )
         return
     if amount.currency != currency:
-        await show(message,
-            translate(language, "settle_wrong_currency", currency=currency)
-        )
+        await show(message, translate(language, "settle_wrong_currency", currency=currency))
         return
     if amount.minor > outstanding.minor:
-        await show(message,
-            translate(language, "settle_invalid_amount", amount=outstanding.format())
+        await show(
+            message, translate(language, "settle_invalid_amount", amount=outstanding.format())
         )
         return
     try:
         settlement = await _record_settlement(services, data, amount.minor)
     except DomainError:
         await state.clear()
-        await show(message,
-            translate(language, "settlement_stale"), reply_markup=main_menu_inline_keyboard(language)
+        await show(
+            message,
+            translate(language, "settlement_stale"),
+            reply_markup=main_menu_inline_keyboard(language),
         )
         return
     await state.clear()
     actor_id = UUID(str(data["actor_id"]))
     current_balances = await services.balances.get_balances(actor_id, DirectExpenseContext())
-    await show(message,
+    await show(
+        message,
         translate(language, "settlement_saved", amount=amount.format()),
         reply_markup=main_menu_inline_keyboard(language),
     )
-    await show(message,
+    await show(
+        message,
         balances_text(current_balances, language),
         reply_markup=balances_keyboard(current_balances, language),
     )
     await _notify_settlement_counterparty(bot, services, settlement)
 
 
-def _balances_with(
-    balances: Sequence[BalanceDTO], other_id: UUID
-) -> tuple[BalanceDTO, ...]:
+def _balances_with(balances: Sequence[BalanceDTO], other_id: UUID) -> tuple[BalanceDTO, ...]:
     """Return every currency balance associated with one counterparty."""
-    return tuple(
-        balance for balance in balances if balance.other_person_id == other_id
-    )
+    return tuple(balance for balance in balances if balance.other_person_id == other_id)
 
 
 def _person_history_text(
@@ -467,18 +471,14 @@ def _person_history_text(
     return activity_text(items, viewer_id, language, timezone, title)
 
 
-def _activity_person_label(
-    item: ActivityItemDTO, other_id: UUID
-) -> tuple[str, str | None]:
+def _activity_person_label(item: ActivityItemDTO, other_id: UUID) -> tuple[str, str | None]:
     """Extract one counterparty label from an activity item."""
     if isinstance(item, GroupActivityDTO):
         return item.other_name, item.other_username
     if isinstance(item, ExpenseActivityDTO):
         if item.expense.payer_person_id == other_id:
             return item.expense.payer_name, item.expense.payer_username
-        split = next(
-            split for split in item.expense.splits if split.person_id == other_id
-        )
+        split = next(split for split in item.expense.splits if split.person_id == other_id)
         return split.display_name, split.username
     settlement = item.settlement
     if settlement.payer_person_id == other_id:
@@ -507,9 +507,7 @@ def _settlement_prompt(balance: BalanceDTO, language: Language) -> str:
     return translate(
         language,
         "settle_you_pay" if balance.net_minor < 0 else "settle_other_pays",
-        name=participant_html(
-            balance.other_name, balance.other_person_id, balance.username
-        ),
+        name=participant_html(balance.other_name, balance.other_person_id, balance.username),
         amount=escape(Money(abs(balance.net_minor), balance.currency).format()),
     )
 
@@ -551,18 +549,10 @@ async def _notify_settlement_counterparty(
         else settlement.payer_person_id
     )
     counterparty = people.get(counterparty_id)
-    if (
-        recorder is None
-        or counterparty is None
-        or counterparty.telegram_user_id is None
-    ):
+    if recorder is None or counterparty is None or counterparty.telegram_user_id is None:
         return
-    settings = await services.user_settings.find_by_telegram_id(
-        counterparty.telegram_user_id
-    )
-    counterparty_language = (
-        settings.language if settings is not None else Language.ENGLISH
-    )
+    settings = await services.user_settings.find_by_telegram_id(counterparty.telegram_user_id)
+    counterparty_language = settings.language if settings is not None else Language.ENGLISH
     try:
         await bot.send_message(
             counterparty.telegram_user_id,

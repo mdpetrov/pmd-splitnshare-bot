@@ -10,6 +10,7 @@ from splitnshare.presentation.i18n import translate
 @dataclass(frozen=True, slots=True)
 class TimezoneChoice:
     """Connect a callback key and IANA timezone to a translation key."""
+
     callback_key: str
     timezone: str
     label_key: str

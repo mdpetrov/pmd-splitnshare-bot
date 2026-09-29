@@ -35,8 +35,7 @@ def upgrade() -> None:
         # The initial migration uses current model metadata on a brand-new database,
         # so IF NOT EXISTS keeps both fresh installs and upgrades valid.
         op.execute(
-            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS "
-            "occurred_at TIMESTAMP WITH TIME ZONE"
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMP WITH TIME ZONE"
         )
     elif not _column_exists("expenses", "occurred_at"):
         op.add_column(
@@ -44,14 +43,11 @@ def upgrade() -> None:
             sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=True),
         )
 
-    op.execute(
-        "UPDATE expenses SET occurred_at = created_at WHERE occurred_at IS NULL"
-    )
+    op.execute("UPDATE expenses SET occurred_at = created_at WHERE occurred_at IS NULL")
     if bind.dialect.name == "postgresql":
         op.execute("ALTER TABLE expenses ALTER COLUMN occurred_at SET NOT NULL")
         op.execute(
-            "CREATE INDEX IF NOT EXISTS ix_expenses_occurred_at_id "
-            "ON expenses (occurred_at, id)"
+            "CREATE INDEX IF NOT EXISTS ix_expenses_occurred_at_id ON expenses (occurred_at, id)"
         )
     else:
         with op.batch_alter_table("expenses") as batch_op:

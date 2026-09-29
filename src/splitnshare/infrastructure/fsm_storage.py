@@ -18,10 +18,17 @@ from splitnshare.infrastructure.models import ConversationStateModel, ExpenseDra
 
 def conversation_key(key: StorageKey) -> str:
     """Encode every aiogram scope component without separator collisions."""
-    return json.dumps([
-        key.bot_id, key.chat_id, key.user_id, key.thread_id,
-        key.business_connection_id, key.destiny,
-    ], separators=(",", ":"))
+    return json.dumps(
+        [
+            key.bot_id,
+            key.chat_id,
+            key.user_id,
+            key.thread_id,
+            key.business_connection_id,
+            key.destiny,
+        ],
+        separators=(",", ":"),
+    )
 
 
 @dataclass(frozen=True)
@@ -46,7 +53,10 @@ class SqlAlchemyFSMStorage(BaseStorage):
         row = await session.get(ConversationStateModel, identifier, with_for_update=True)
         if row is None:
             row = ConversationStateModel(
-                key=identifier, telegram_user_id=key.user_id, data={}, state=None,
+                key=identifier,
+                telegram_user_id=key.user_id,
+                data={},
+                state=None,
             )
             session.add(row)
             await session.flush()
@@ -69,10 +79,14 @@ class SqlAlchemyFSMStorage(BaseStorage):
                 await session.delete(draft)
             return
         if draft is None:
-            session.add(ExpenseDraftModel(
-                id=draft_id, conversation_key=row.key, state=row.state,
-                data=deepcopy({k: v for k, v in row.data.items() if k != "_flow_view"}),
-            ))
+            session.add(
+                ExpenseDraftModel(
+                    id=draft_id,
+                    conversation_key=row.key,
+                    state=row.state,
+                    data=deepcopy({k: v for k, v in row.data.items() if k != "_flow_view"}),
+                )
+            )
         elif draft.conversation_key == row.key:
             draft.state = row.state
             draft.data = deepcopy({k: v for k, v in row.data.items() if k != "_flow_view"})
@@ -128,7 +142,8 @@ class SqlAlchemyFSMStorage(BaseStorage):
                 select(ExpenseDraftModel)
                 .where(ExpenseDraftModel.conversation_key == conversation_key(key))
                 .order_by(ExpenseDraftModel.updated_at.desc(), ExpenseDraftModel.id.desc())
-                .offset(max(0, offset)).limit(11)
+                .offset(max(0, offset))
+                .limit(11)
             )
             return tuple(SavedExpenseDraft(row.id, row.state, deepcopy(row.data)) for row in rows)
 

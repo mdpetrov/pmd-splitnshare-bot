@@ -53,9 +53,7 @@ async def _register(users: UserService, telegram_id: int, name: str):
     )
 
 
-async def _equal_expense(
-    expenses: ExpenseService, creator_id: UUID, participant_id: UUID
-) -> None:
+async def _equal_expense(expenses: ExpenseService, creator_id: UUID, participant_id: UUID) -> None:
     await expenses.create(
         CreateExpenseCommand(
             creator_person_id=creator_id,
@@ -171,15 +169,13 @@ async def test_registration_transfers_guest_and_future_selection_uses_user(
 
     repeated_friend = await friends.add_shared_user(owner.id, shared)
     repeated_participant = await guests.get_or_create_telegram_guest(owner.id, shared)
-    transferred = await ExpenseQueryService(
-        SqlAlchemyUnitOfWorkFactory(factory)
-    ).get_details(registered.id, expense.id)
+    transferred = await ExpenseQueryService(SqlAlchemyUnitOfWorkFactory(factory)).get_details(
+        registered.id, expense.id
+    )
 
     assert repeated_friend.person_id == registered.id
     assert repeated_participant.id == registered.id
-    assert [friend.person_id for friend in await friends.list_friends(owner.id)] == [
-        registered.id
-    ]
+    assert [friend.person_id for friend in await friends.list_friends(owner.id)] == [registered.id]
     assert await guests.list_owned_guests(owner.id) == ()
     assert any(split.person_id == registered.id for split in transferred.splits)
 
@@ -332,9 +328,7 @@ async def test_guest_transfer_deduplicates_friendships(friend_services) -> None:
 
     await _equal_expense(expenses, owner.id, guest.id)
     await _equal_expense(expenses, owner.id, target.id)
-    result = await guests.transfer_guest(
-        TransferGuestCommand(owner.id, guest.id, target.id)
-    )
+    result = await guests.transfer_guest(TransferGuestCommand(owner.id, guest.id, target.id))
 
     listed = await friends.list_friends(owner.id)
     assert [friend.person_id for friend in listed] == [target.id]
@@ -351,17 +345,11 @@ async def test_guest_transfer_updates_every_owners_friend_list(friend_services) 
 
     await _equal_expense(expenses, observer.id, guest.id)
     await _equal_expense(expenses, target.id, guest.id)
-    preview = await guests.preview_transfer(
-        TransferGuestCommand(owner.id, guest.id, target.id)
-    )
-    result = await guests.transfer_guest(
-        TransferGuestCommand(owner.id, guest.id, target.id)
-    )
+    preview = await guests.preview_transfer(TransferGuestCommand(owner.id, guest.id, target.id))
+    result = await guests.transfer_guest(TransferGuestCommand(owner.id, guest.id, target.id))
 
     assert preview.friendship_count == 2
-    assert [friend.person_id for friend in await friends.list_friends(observer.id)] == [
-        target.id
-    ]
+    assert [friend.person_id for friend in await friends.list_friends(observer.id)] == [target.id]
     assert await friends.list_friends(target.id) == ()
     assert result.affected_counts["friendships"] == 2
     assert result.affected_counts["self_friendships"] == 1

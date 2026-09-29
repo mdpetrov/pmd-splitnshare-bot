@@ -45,9 +45,13 @@ async def group_services():
     sessions = create_session_factory(engine)
     factory = SqlAlchemyUnitOfWorkFactory(sessions)
     yield SimpleNamespace(
-        users=UserService(factory), guests=GuestService(factory), groups=GroupService(factory),
-        expenses=ExpenseService(factory), activities=ActivityQueryService(factory),
-        balances=BalanceQueryService(factory), sessions=sessions,
+        users=UserService(factory),
+        guests=GuestService(factory),
+        groups=GroupService(factory),
+        expenses=ExpenseService(factory),
+        activities=ActivityQueryService(factory),
+        balances=BalanceQueryService(factory),
+        sessions=sessions,
     )
     await engine.dispose()
 
@@ -59,13 +63,18 @@ async def register(services, telegram_id, name):
 async def expense(
     services, owner, participants, group_id=None, payer=None, currency="EUR", date=None
 ):
-    return await services.expenses.create(CreateExpenseCommand(
-        creator_person_id=owner.id, description="Dinner", total=Money(1200, currency),
-        participant_ids=tuple(p.id for p in participants), split_method=SplitMethod.EQUAL,
-        payer_person_id=(payer or owner).id,
-        context=GroupExpenseContext(group_id) if group_id else DirectExpenseContext(),
-        occurred_at=date,
-    ))
+    return await services.expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Dinner",
+            total=Money(1200, currency),
+            participant_ids=tuple(p.id for p in participants),
+            split_method=SplitMethod.EQUAL,
+            payer_person_id=(payer or owner).id,
+            context=GroupExpenseContext(group_id) if group_id else DirectExpenseContext(),
+            occurred_at=date,
+        )
+    )
 
 
 async def test_groups_require_supported_currency_and_two_distinct_people(group_services):
@@ -128,12 +137,18 @@ async def test_exact_group_split_with_nonparticipating_payer(group_services):
     other = await register(s, 821, "Other")
     payer = await register(s, 822, "Payer")
     group = await s.groups.create(owner.id, "Trip", "EUR", (other.id, payer.id))
-    result = await s.expenses.create(CreateExpenseCommand(
-        creator_person_id=owner.id, description="Tickets", total=Money(900, "EUR"),
-        participant_ids=(owner.id, other.id), payer_person_id=payer.id,
-        split_method=SplitMethod.EXACT, context=GroupExpenseContext(group.id),
-        exact_amounts_minor={owner.id: 400, other.id: 500},
-    ))
+    result = await s.expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=owner.id,
+            description="Tickets",
+            total=Money(900, "EUR"),
+            participant_ids=(owner.id, other.id),
+            payer_person_id=payer.id,
+            split_method=SplitMethod.EXACT,
+            context=GroupExpenseContext(group.id),
+            exact_amounts_minor={owner.id: 400, other.id: 500},
+        )
+    )
     assert [share.owed_minor for share in result.splits] == [400, 500]
 
 
@@ -197,8 +212,12 @@ async def test_shared_history_collapses_groups_across_pagination(group_services)
     assert "Trip &lt;2026&gt;" in rendered
     assert "Dinner" not in rendered
     keyboard = person_activity_keyboard(first, b.id, Language.ENGLISH, origin="friend")
-    assert all(len(button.callback_data.encode()) <= 64 for row in keyboard.inline_keyboard
-               for button in row if button.callback_data)
+    assert all(
+        len(button.callback_data.encode()) <= 64
+        for row in keyboard.inline_keyboard
+        for button in row
+        if button.callback_data
+    )
     second = await s.activities.list_for_person(a.id, b.id, cursor=first.next_cursor, limit=1)
     assert second.next_cursor is None
     assert isinstance(second.items[0], ExpenseActivityDTO)

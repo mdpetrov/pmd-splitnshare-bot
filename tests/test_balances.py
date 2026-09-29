@@ -38,9 +38,7 @@ async def test_balances_keep_currencies_separate_and_exclude_deleted_expenses(
         TelegramIdentity(telegram_user_id=801, first_name="Owner")
     )
     friend = await users.register_or_update(
-        TelegramIdentity(
-            telegram_user_id=802, first_name="Friend", username="friend_username"
-        )
+        TelegramIdentity(telegram_user_id=802, first_name="Friend", username="friend_username")
     )
     usd_expense = await expenses.create(
         CreateExpenseCommand(
@@ -73,9 +71,7 @@ async def test_balances_keep_currencies_separate_and_exclude_deleted_expenses(
 
     assert await expenses.delete(owner.id, usd_expense.id)
     remaining = await balances.get_balances(owner.id)
-    assert [(balance.currency, balance.net_minor) for balance in remaining] == [
-        ("EUR", -1000)
-    ]
+    assert [(balance.currency, balance.net_minor) for balance in remaining] == [("EUR", -1000)]
 
 
 def test_balances_text_separates_directions_and_escapes_names() -> None:

@@ -14,6 +14,4 @@ def test_label_uses_stable_short_code_without_username() -> None:
 
 
 def test_html_label_escapes_names_and_usernames() -> None:
-    assert participant_html("Alex <One>", PERSON_ID, "a&b") == (
-        "Alex &lt;One&gt; (@a&amp;b)"
-    )
+    assert participant_html("Alex <One>", PERSON_ID, "a&b") == ("Alex &lt;One&gt; (@a&amp;b)")

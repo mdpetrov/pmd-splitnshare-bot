@@ -179,13 +179,18 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "<code>DD.MM HH:MM</code>."
         ),
         "invalid_custom_date": (
-            "Enter a valid local date and time, for example "
-            "<code>02.09.2026 18:30</code>."
+            "Enter a valid local date and time, for example <code>02.09.2026 18:30</code>."
         ),
         "expense_date": "Date: {date}",
         "add_people": "Add up to nine registered or unregistered friends.",
-        "share_contact_hint": "To select someone from Telegram, open the attachment menu (paperclip), choose Contact, and send their contact here. You can also go back and choose an existing friend or add a name.",
-        "contact_requires_telegram_id": "This contact has no Telegram ID. Add them by name instead.",
+        "share_contact_hint": (
+            "To select someone from Telegram, open the attachment menu (paperclip), choose "
+            "Contact, and send their contact here. You can also go back and choose an existing "
+            "friend or add a name."
+        ),
+        "contact_requires_telegram_id": (
+            "This contact has no Telegram ID. Add them by name instead."
+        ),
         "participants": "Participants:",
         "guest_name": "Enter the friend's display name.",
         "no_recent": "No recent co-participants yet.",
@@ -204,16 +209,14 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "payer_selected": "Paid by: <b>{name}</b>",
         "payer_selection_cancelled": "Choose the participants again.",
         "split_how": "How should the total be split?",
-        "owes_prompt": (
-            "How much does {name} owe? Enter 0 if this participant owes nothing."
-        ),
+        "owes_prompt": ("How much does {name} owe? Enter 0 if this participant owes nothing."),
         "owes_next": "How much does {name} owe?",
         "owes_you": "How much do you owe?",
-        "exact_first_share_invalid": "That share leaves an invalid amount for the other person. Enter a different amount.",
-        "split_again": "Choose the split again when ready.",
-        "shares_mismatch": (
-            "Those shares do not total {total}. Start again with {name}."
+        "exact_first_share_invalid": (
+            "That share leaves an invalid amount for the other person. Enter a different amount."
         ),
+        "split_again": "Choose the split again when ready.",
+        "shares_mismatch": ("Those shares do not total {total}. Start again with {name}."),
         "review": "Review <b>{description}</b>",
         "total": "Total: {total}",
         "paid_you": "Paid by: you",
@@ -226,17 +229,11 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "your_transactions": "<b>Your activity</b>",
         "you": "You",
         "transaction_list_item": (
-            "💳 <b>{description}</b> · <b>{total}</b>\n"
-            "👤 Added by {creator}\n"
-            "{relation}"
+            "💳 <b>{description}</b> · <b>{total}</b>\n👤 Added by {creator}\n{relation}"
         ),
         "transaction_you_owe": "🔴 ▼ You owe <b>{amount}</b>.",
         "transaction_you_are_owed": "🟢 ▲ You are owed <b>{amount}</b>.",
-        "activity_settlement_item": (
-            "🤝 <b>Settlement</b>\n"
-            "{relation}\n"
-            "📝 Recorded by {recorder}"
-        ),
+        "activity_settlement_item": ("🤝 <b>Settlement</b>\n{relation}\n📝 Recorded by {recorder}"),
         "activity_settlement_paid": "🔴 ▼ You paid {name} <b>{amount}</b>.",
         "activity_settlement_received": "🟢 ▲ {name} paid you <b>{amount}</b>.",
         "balances_title": "<b>Balances</b>",
@@ -256,12 +253,8 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "back_to_friend": "Back to friend",
         "back_to_balances": "Back to balances",
         "settle_balance_button": "Settle {name} · {amount}",
-        "settle_you_pay": (
-            "You owe <b>{name}</b> <b>{amount}</b>. Record a payment?"
-        ),
-        "settle_other_pays": (
-            "<b>{name}</b> owes you <b>{amount}</b>. Record that they paid you?"
-        ),
+        "settle_you_pay": ("You owe <b>{name}</b> <b>{amount}</b>. Record a payment?"),
+        "settle_other_pays": ("<b>{name}</b> owes you <b>{amount}</b>. Record that they paid you?"),
         "settle_full_amount": "Settle all · {amount}",
         "settle_partial": "Enter partial amount",
         "settle_enter_amount": "Enter the amount paid in {currency}.",
@@ -390,10 +383,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "untitled_draft": "Новый расход",
         "edit_draft": "Изменить",
         "save_draft_exit": "Сохранить черновик",
-        "draft_paused": (
-            "Незавершённый расход сохранён. "
-            "Откройте Черновики, чтобы продолжить."
-        ),
+        "draft_paused": ("Незавершённый расход сохранён. Откройте Черновики, чтобы продолжить."),
         "cancelled_drafts_kept": "Отменено. Незавершённые расходы доступны в Черновиках.",
         "discard_draft_question": (
             "Удалить этот незавершённый расход? Это действие нельзя отменить."
@@ -551,12 +541,15 @@ _TEXTS: dict[Language, dict[str, str]] = {
             "<code>ДД.ММ ЧЧ:ММ</code>."
         ),
         "invalid_custom_date": (
-            "Введите корректные местные дату и время, например "
-            "<code>02.09.2026 18:30</code>."
+            "Введите корректные местные дату и время, например <code>02.09.2026 18:30</code>."
         ),
         "expense_date": "Дата: {date}",
         "add_people": "Добавьте до девяти зарегистрированных или незарегистрированных друзей.",
-        "share_contact_hint": "Чтобы выбрать человека из Telegram, откройте меню вложений (скрепка), выберите «Контакт» и отправьте его сюда. Или вернитесь назад, чтобы выбрать друга или добавить имя.",
+        "share_contact_hint": (
+            "Чтобы выбрать человека из Telegram, откройте меню вложений (скрепка), выберите "
+            "«Контакт» и отправьте его сюда. Или вернитесь назад, чтобы выбрать друга или "
+            "добавить имя."
+        ),
         "contact_requires_telegram_id": "У этого контакта нет Telegram ID. Добавьте его по имени.",
         "participants": "Участники:",
         "guest_name": "Введите отображаемое имя друга.",
@@ -581,7 +574,9 @@ _TEXTS: dict[Language, dict[str, str]] = {
         ),
         "owes_next": "Сколько должен(на) {name}?",
         "owes_you": "Сколько вы должны?",
-        "exact_first_share_invalid": "После этого останется недопустимая сумма для второго участника. Введите другую сумму.",
+        "exact_first_share_invalid": (
+            "После этого останется недопустимая сумма для второго участника. Введите другую сумму."
+        ),
         "split_again": "Когда будете готовы, снова выберите способ разделения.",
         "shares_mismatch": "Сумма долей не равна {total}. Начните снова с {name}.",
         "review": "Проверьте <b>{description}</b>",
@@ -596,17 +591,11 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "your_transactions": "<b>Ваша активность</b>",
         "you": "Вы",
         "transaction_list_item": (
-            "💳 <b>{description}</b> · <b>{total}</b>\n"
-            "👤 Добавил(а): {creator}\n"
-            "{relation}"
+            "💳 <b>{description}</b> · <b>{total}</b>\n👤 Добавил(а): {creator}\n{relation}"
         ),
         "transaction_you_owe": "🔴 ▼ Вы должны <b>{amount}</b>.",
         "transaction_you_are_owed": "🟢 ▲ Вам должны <b>{amount}</b>.",
-        "activity_settlement_item": (
-            "🤝 <b>Расчёт</b>\n"
-            "{relation}\n"
-            "📝 Записал(а): {recorder}"
-        ),
+        "activity_settlement_item": ("🤝 <b>Расчёт</b>\n{relation}\n📝 Записал(а): {recorder}"),
         "activity_settlement_paid": "🔴 ▼ Вы заплатили {name} <b>{amount}</b>.",
         "activity_settlement_received": "🟢 ▲ {name} заплатил(а) вам <b>{amount}</b>.",
         "balances_title": "<b>Балансы</b>",
@@ -626,9 +615,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "back_to_friend": "Назад к другу",
         "back_to_balances": "Назад к балансам",
         "settle_balance_button": "Закрыть долг: {name} · {amount}",
-        "settle_you_pay": (
-            "Вы должны <b>{name}</b> <b>{amount}</b>. Записать платёж?"
-        ),
+        "settle_you_pay": ("Вы должны <b>{name}</b> <b>{amount}</b>. Записать платёж?"),
         "settle_other_pays": (
             "<b>{name}</b> должен(на) вам <b>{amount}</b>. Записать полученный платёж?"
         ),
@@ -636,9 +623,7 @@ _TEXTS: dict[Language, dict[str, str]] = {
         "settle_partial": "Ввести часть суммы",
         "settle_enter_amount": "Введите выплаченную сумму в {currency}.",
         "settle_wrong_currency": "Введите сумму в валюте {currency}.",
-        "settle_invalid_amount": (
-            "Введите положительную сумму не больше остатка {amount}."
-        ),
+        "settle_invalid_amount": ("Введите положительную сумму не больше остатка {amount}."),
         "settlement_saved": "Платёж <b>{amount}</b> записан.",
         "settlement_notification_recorder_paid": (
             "{recorder} записал(а) расчёт: {recorder} заплатил(а) вам <b>{amount}</b>."
@@ -742,103 +727,111 @@ _TEXTS: dict[Language, dict[str, str]] = {
 }
 
 
-_TEXTS[Language.ENGLISH].update({
-    "groups": "👥 Groups",
-    "group_create": "Create group",
-    "group_name_prompt": "Enter a group name (1–120 characters).",
-    "group_currency_prompt": (
-        "Enter the default currency code, e.g. EUR or USD. Your current default is "
-        "{currency}."
-    ),
-    "group_members_prompt": (
-        "Invite participants, then choose Done selecting. A group needs at least two "
-        "people including you."
-    ),
-    "group_members_selected": "Selected participants: {names}",
-    "group_confirm": "Create this group",
-    "group_added": "{name} added you to the group <b>{group}</b>. Default currency: {currency}.",
-    "group_details": "👥 <b>{name}</b> · {currency}\nParticipants: {count}",
-    "group_summary": "Summary",
-    "group_invite": "Add participants",
-    "group_settle": "Settle up",
-    "group_settle_all": "Settle up All",
-    "group_settle_review": (
-        "Confirm these recorded payments in <b>{group}</b>:\n{payments}\n\nThis records "
-        "payments; it does not send money."
-    ),
-    "group_payment": "{payer} → {recipient}: {amount}",
-    "group_settle_confirm": "Confirm payments",
-    "group_settled": "Group payments recorded.",
-    "group_no_debts": "All settled up.",
-    "group_no_person_debts": "You have no outstanding balances in this group.",
-    "group_choose": "Add group",
-    "group_none": "No group",
-    "group_back": "Back to group",
-    "group_expense_members": "Choose group members",
-    "group_reselect": (
-        "Group selected: {name}. Check participants and payer again. The entered "
-        "amount and currency are unchanged."
-    ),
-    "group_selected": "Group: <b>{name}</b>. Review the expense below.",
-    "group_expense_members_required": "All selected participants and the payer must be members of this group. Edit them first.",
-    "group_review_label": "Group: {name}",
-    "group_history_row": "👥 {name} · {balance}",
-    "group_member_only": "Choose participants from this group's member list.",
-    "group_empty": "You have no groups yet.",
-    "group_invites_saved": "Participants added.",
-    "group_members_title": "Group members",
-    "group_edit_expense": "Edit",
-})
-_TEXTS[Language.RUSSIAN].update({
-    "groups": "👥 Группы",
-    "group_create": "Создать группу",
-    "group_name_prompt": "Введите название группы (1–120 символов).",
-    "group_currency_prompt": (
-        "Введите код валюты по умолчанию, например EUR или USD. Текущая валюта: "
-        "{currency}."
-    ),
-    "group_members_prompt": (
-        "Добавьте участников и нажмите «Готово». В группе должно быть хотя бы два "
-        "человека, включая вас."
-    ),
-    "group_members_selected": "Выбраны участники: {names}",
-    "group_confirm": "Создать эту группу",
-    "group_added": (
-        "{name} добавил(а) вас в группу <b>{group}</b>. Валюта по умолчанию: "
-        "{currency}."
-    ),
-    "group_details": "👥 <b>{name}</b> · {currency}\nУчастников: {count}",
-    "group_summary": "Сводка",
-    "group_invite": "Добавить участников",
-    "group_settle": "Рассчитаться",
-    "group_settle_all": "Рассчитаться со всеми",
-    "group_settle_review": (
-        "Подтвердите записи платежей в группе <b>{group}</b>:\n{payments}\n\nЭто запись "
-        "платежей, деньги не переводятся."
-    ),
-    "group_payment": "{payer} → {recipient}: {amount}",
-    "group_settle_confirm": "Подтвердить платежи",
-    "group_settled": "Платежи группы записаны.",
-    "group_no_debts": "Все расчёты закрыты.",
-    "group_no_person_debts": "У вас нет незакрытых расчётов в этой группе.",
-    "group_choose": "Добавить группу",
-    "group_none": "Без группы",
-    "group_back": "Назад к группе",
-    "group_expense_members": "Выбрать участников группы",
-    "group_reselect": (
-        "Выбрана группа: {name}. Проверьте участников и плательщика. Сумма и валюта "
-        "не изменились."
-    ),
-    "group_selected": "Группа: <b>{name}</b>. Проверьте расход ниже.",
-    "group_expense_members_required": "Все участники и плательщик должны состоять в этой группе. Сначала измените их.",
-    "group_review_label": "Группа: {name}",
-    "group_history_row": "👥 {name} · {balance}",
-    "group_member_only": "Выберите участников из списка этой группы.",
-    "group_empty": "У вас пока нет групп.",
-    "group_invites_saved": "Участники добавлены.",
-    "group_members_title": "Участники группы",
-    "group_edit_expense": "Изменить",
-})
+_TEXTS[Language.ENGLISH].update(
+    {
+        "groups": "👥 Groups",
+        "group_create": "Create group",
+        "group_name_prompt": "Enter a group name (1–120 characters).",
+        "group_currency_prompt": (
+            "Enter the default currency code, e.g. EUR or USD. Your current default is {currency}."
+        ),
+        "group_members_prompt": (
+            "Invite participants, then choose Done selecting. A group needs at least two "
+            "people including you."
+        ),
+        "group_members_selected": "Selected participants: {names}",
+        "group_confirm": "Create this group",
+        "group_added": (
+            "{name} added you to the group <b>{group}</b>. Default currency: {currency}."
+        ),
+        "group_details": "👥 <b>{name}</b> · {currency}\nParticipants: {count}",
+        "group_summary": "Summary",
+        "group_invite": "Add participants",
+        "group_settle": "Settle up",
+        "group_settle_all": "Settle up All",
+        "group_settle_review": (
+            "Confirm these recorded payments in <b>{group}</b>:\n{payments}\n\nThis records "
+            "payments; it does not send money."
+        ),
+        "group_payment": "{payer} → {recipient}: {amount}",
+        "group_settle_confirm": "Confirm payments",
+        "group_settled": "Group payments recorded.",
+        "group_no_debts": "All settled up.",
+        "group_no_person_debts": "You have no outstanding balances in this group.",
+        "group_choose": "Add group",
+        "group_none": "No group",
+        "group_back": "Back to group",
+        "group_expense_members": "Choose group members",
+        "group_reselect": (
+            "Group selected: {name}. Check participants and payer again. The entered "
+            "amount and currency are unchanged."
+        ),
+        "group_selected": "Group: <b>{name}</b>. Review the expense below.",
+        "group_expense_members_required": (
+            "All selected participants and the payer must be members of this group. Edit them "
+            "first."
+        ),
+        "group_review_label": "Group: {name}",
+        "group_history_row": "👥 {name} · {balance}",
+        "group_member_only": "Choose participants from this group's member list.",
+        "group_empty": "You have no groups yet.",
+        "group_invites_saved": "Participants added.",
+        "group_members_title": "Group members",
+        "group_edit_expense": "Edit",
+    }
+)
+_TEXTS[Language.RUSSIAN].update(
+    {
+        "groups": "👥 Группы",
+        "group_create": "Создать группу",
+        "group_name_prompt": "Введите название группы (1–120 символов).",
+        "group_currency_prompt": (
+            "Введите код валюты по умолчанию, например EUR или USD. Текущая валюта: {currency}."
+        ),
+        "group_members_prompt": (
+            "Добавьте участников и нажмите «Готово». В группе должно быть хотя бы два "
+            "человека, включая вас."
+        ),
+        "group_members_selected": "Выбраны участники: {names}",
+        "group_confirm": "Создать эту группу",
+        "group_added": (
+            "{name} добавил(а) вас в группу <b>{group}</b>. Валюта по умолчанию: {currency}."
+        ),
+        "group_details": "👥 <b>{name}</b> · {currency}\nУчастников: {count}",
+        "group_summary": "Сводка",
+        "group_invite": "Добавить участников",
+        "group_settle": "Рассчитаться",
+        "group_settle_all": "Рассчитаться со всеми",
+        "group_settle_review": (
+            "Подтвердите записи платежей в группе <b>{group}</b>:\n{payments}\n\nЭто запись "
+            "платежей, деньги не переводятся."
+        ),
+        "group_payment": "{payer} → {recipient}: {amount}",
+        "group_settle_confirm": "Подтвердить платежи",
+        "group_settled": "Платежи группы записаны.",
+        "group_no_debts": "Все расчёты закрыты.",
+        "group_no_person_debts": "У вас нет незакрытых расчётов в этой группе.",
+        "group_choose": "Добавить группу",
+        "group_none": "Без группы",
+        "group_back": "Назад к группе",
+        "group_expense_members": "Выбрать участников группы",
+        "group_reselect": (
+            "Выбрана группа: {name}. Проверьте участников и плательщика. Сумма и валюта "
+            "не изменились."
+        ),
+        "group_selected": "Группа: <b>{name}</b>. Проверьте расход ниже.",
+        "group_expense_members_required": (
+            "Все участники и плательщик должны состоять в этой группе. Сначала измените их."
+        ),
+        "group_review_label": "Группа: {name}",
+        "group_history_row": "👥 {name} · {balance}",
+        "group_member_only": "Выберите участников из списка этой группы.",
+        "group_empty": "У вас пока нет групп.",
+        "group_invites_saved": "Участники добавлены.",
+        "group_members_title": "Участники группы",
+        "group_edit_expense": "Изменить",
+    }
+)
 
 
 def translate(locale: Language | str, key: str, **values: object) -> str:

@@ -1,7 +1,7 @@
 """Compose feature routers and centralize expected domain-error handling."""
 
 from aiogram import Router
-from aiogram.types import ErrorEvent
+from aiogram.types import ErrorEvent, Message
 
 from splitnshare.domain.errors import DomainError
 from splitnshare.presentation.flow_messages import show
@@ -40,7 +40,7 @@ def build_router() -> Router:
         message = update.message or (
             update.callback_query.message if update.callback_query is not None else None
         )
-        if isinstance(event.exception, DomainError) and message is not None:
+        if isinstance(event.exception, DomainError) and isinstance(message, Message):
             await show(message, str(event.exception))
             return True
         return False

@@ -20,6 +20,7 @@ from splitnshare.domain.splitting import Allocation
 @dataclass(frozen=True, slots=True)
 class TelegramIdentity:
     """Carry authenticated identity data received from a Telegram user."""
+
     telegram_user_id: int
     first_name: str
     last_name: str | None = None
@@ -35,6 +36,7 @@ class TelegramIdentity:
 @dataclass(frozen=True, slots=True)
 class SharedTelegramUser:
     """Describe a Telegram user selected or shared by another user."""
+
     telegram_user_id: int
     first_name: str
     last_name: str | None = None
@@ -49,6 +51,7 @@ class SharedTelegramUser:
 @dataclass(frozen=True, slots=True)
 class PersonDTO:
     """Expose a stable participant identity to application callers."""
+
     id: UUID
     display_name: str
     kind: PersonKind
@@ -60,6 +63,7 @@ class PersonDTO:
 @dataclass(frozen=True, slots=True)
 class GuestDTO:
     """Describe an active guest and any suggested registered transfer target."""
+
     person_id: UUID
     display_name: str
     creation_method: GuestCreationMethod
@@ -73,6 +77,7 @@ class GuestDTO:
 @dataclass(frozen=True, slots=True)
 class FriendDTO:
     """Describe an owner-scoped friend entry and its display metadata."""
+
     person_id: UUID
     display_name: str
     kind: PersonKind
@@ -86,6 +91,7 @@ class FriendDTO:
 @dataclass(frozen=True, slots=True)
 class CreateExpenseCommand:
     """Collect validated input needed to create an expense aggregate."""
+
     creator_person_id: UUID
     description: str
     total: Money
@@ -101,6 +107,7 @@ class CreateExpenseCommand:
 @dataclass(frozen=True, slots=True)
 class ExpenseSplitDTO:
     """Expose one participant's ordered share of an expense."""
+
     person_id: UUID
     display_name: str
     username: str | None
@@ -111,6 +118,7 @@ class ExpenseSplitDTO:
 @dataclass(frozen=True, slots=True)
 class ExpenseDTO:
     """Expose an expense together with payer, creator, and split details."""
+
     id: UUID
     creator_person_id: UUID
     creator_name: str
@@ -130,6 +138,7 @@ class ExpenseDTO:
 @dataclass(frozen=True, slots=True)
 class ExpensePage:
     """Contain one cursor-paginated page of active expenses."""
+
     items: tuple[ExpenseDTO, ...]
     next_cursor: str | None
 
@@ -137,6 +146,7 @@ class ExpensePage:
 @dataclass(frozen=True, slots=True)
 class TransferGuestCommand:
     """Identify the actor, guest, and registered target for a transfer."""
+
     actor_person_id: UUID
     guest_person_id: UUID
     target_user_person_id: UUID
@@ -145,6 +155,7 @@ class TransferGuestCommand:
 @dataclass(frozen=True, slots=True)
 class TransferPreviewDTO:
     """Summarize records that an explicit guest transfer would affect."""
+
     guest_person_id: UUID
     guest_name: str
     target_person_id: UUID
@@ -161,6 +172,7 @@ class TransferPreviewDTO:
 @dataclass(frozen=True, slots=True)
 class TransferResultDTO:
     """Report a committed transfer with initiator and expense-total details."""
+
     transfer_id: UUID
     target_person_id: UUID
     target_telegram_user_id: int
@@ -176,6 +188,7 @@ class TransferResultDTO:
 @dataclass(frozen=True, slots=True)
 class BalanceDTO:
     """Represent a currency-specific net balance with another person."""
+
     other_person_id: UUID
     other_name: str
     currency: str
@@ -186,6 +199,7 @@ class BalanceDTO:
 @dataclass(frozen=True, slots=True)
 class SettleBalanceCommand:
     """Describe a full or partial payment against a current balance."""
+
     actor_person_id: UUID
     other_person_id: UUID
     amount: Money
@@ -196,6 +210,7 @@ class SettleBalanceCommand:
 @dataclass(frozen=True, slots=True)
 class SettlementDTO:
     """Expose an immutable payment recorded between two participants."""
+
     id: UUID
     recorded_by_person_id: UUID
     payer_person_id: UUID
@@ -263,6 +278,7 @@ class ActivityPage:
 @dataclass(frozen=True, slots=True)
 class UserSettingsDTO:
     """Expose a registered user's currency, language, and timezone choices."""
+
     person_id: UUID
     default_currency: str
     language: Language
@@ -272,6 +288,7 @@ class UserSettingsDTO:
 @dataclass(frozen=True, slots=True)
 class UpdateUserSettingsCommand:
     """Carry optional user-setting changes to the settings service."""
+
     person_id: UUID
     default_currency: str | None = None
     language: Language | None = None
@@ -281,6 +298,7 @@ class UpdateUserSettingsCommand:
 @dataclass(frozen=True, slots=True)
 class NewExpenseRecord:
     """Combine an expense command with its calculated split allocations."""
+
     command: CreateExpenseCommand
     payer_person_id: UUID
     allocations: tuple[Allocation, ...]

@@ -90,43 +90,64 @@ class FlowView:
         visible_markup = markup.model_copy(deep=True)
         navigation = []
         if page:
-            navigation.append(InlineKeyboardButton(
-                text="←", callback_data=f"ui:page:{page - 1}",
-            ))
+            navigation.append(
+                InlineKeyboardButton(
+                    text="←",
+                    callback_data=f"ui:page:{page - 1}",
+                )
+            )
         if page + 1 < len(pages):
-            navigation.append(InlineKeyboardButton(
-                text="→", callback_data=f"ui:page:{page + 1}",
-            ))
+            navigation.append(
+                InlineKeyboardButton(
+                    text="→",
+                    callback_data=f"ui:page:{page + 1}",
+                )
+            )
         if navigation:
             visible_markup.inline_keyboard.append(navigation)
         if self.message_id is not None:
             try:
                 await self.bot.edit_message_text(
-                    chat_id=self.chat_id, message_id=self.message_id, text=pages[page],
+                    chat_id=self.chat_id,
+                    message_id=self.message_id,
+                    text=pages[page],
                     reply_markup=visible_markup,
                 )
             except TelegramBadRequest as exc:
                 reason = exc.message.lower()
                 if "message is not modified" not in reason:
-                    if "message to edit not found" not in reason and "can't be edited" not in reason:
+                    if (
+                        "message to edit not found" not in reason
+                        and "can't be edited" not in reason
+                    ):
                         raise
                     self.message_id = None
         if self.message_id is None:
             message = await self.bot.send_message(
-                self.chat_id, pages[page], reply_markup=visible_markup,
+                self.chat_id,
+                pages[page],
+                reply_markup=visible_markup,
             )
             self.message_id = message.message_id
         if self.persist:
-            await self.state.update_data(**{VIEW_KEY: {
-                "message_id": self.message_id, "pages": pages, "page": page,
-                "markup": markup.model_dump(mode="json", exclude_none=True),
-            }})
+            await self.state.update_data(
+                **{
+                    VIEW_KEY: {
+                        "message_id": self.message_id,
+                        "pages": pages,
+                        "page": page,
+                        "markup": markup.model_dump(mode="json", exclude_none=True),
+                    }
+                }
+            )
 
     async def flush(self) -> None:
         """Combine status and prompt text while retaining navigation for input errors."""
         if not self.parts and not self.markup_set:
             return
-        pages = html_pages("\n\n".join(self.parts)) if self.parts else self.saved.get("pages", ["…"])
+        pages = (
+            html_pages("\n\n".join(self.parts)) if self.parts else self.saved.get("pages", ["…"])
+        )
         markup = self.markup
         if markup is None and not self.markup_set and await self.state.get_state() is not None:
             saved_markup = self.saved.get("markup")
@@ -189,7 +210,10 @@ class FlowMessageMiddleware(BaseMiddleware):
             return await handler(event, data)
         saved = (await state.get_data()).get(VIEW_KEY, {})
         message_id = saved.get("message_id")
-        if event.message and (event.message.text or "").split(" ", 1)[0].split("@", 1)[0] == "/start":
+        if (
+            event.message
+            and (event.message.text or "").split(" ", 1)[0].split("@", 1)[0] == "/start"
+        ):
             message_id = None
         if callback:
             payload = callback.data or ""
@@ -202,8 +226,13 @@ class FlowMessageMiddleware(BaseMiddleware):
                 for row in saved.get("markup", {}).get("inline_keyboard", [])
                 for button in row
             }
-            if (message_id == message.message_id and allowed and payload not in allowed
-                    and not entry and not payload.startswith("ui:page:")):
+            if (
+                message_id == message.message_id
+                and allowed
+                and payload not in allowed
+                and not entry
+                and not payload.startswith("ui:page:")
+            ):
                 await callback.answer(translate(data["language"], "draft_expired"), show_alert=True)
                 return None
             message_id = message.message_id
@@ -216,7 +245,9 @@ class FlowMessageMiddleware(BaseMiddleware):
                     markup = InlineKeyboardMarkup.model_validate(saved["markup"])
                     await view.publish(saved["pages"], markup, page)
                 except (ValueError, KeyError):
-                    await callback.answer(translate(view.language, "draft_expired"), show_alert=True)
+                    await callback.answer(
+                        translate(view.language, "draft_expired"), show_alert=True
+                    )
                     return None
                 await callback.answer()
                 return None

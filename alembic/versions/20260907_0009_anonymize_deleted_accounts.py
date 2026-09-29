@@ -34,17 +34,13 @@ def downgrade() -> None:
     )
     used_ids = set(
         connection.scalars(
-            sa.select(accounts.c.telegram_user_id).where(
-                accounts.c.telegram_user_id.is_not(None)
-            )
+            sa.select(accounts.c.telegram_user_id).where(accounts.c.telegram_user_id.is_not(None))
         )
     )
     next_anonymous_id = -1
     deleted_person_ids = tuple(
         connection.scalars(
-            sa.select(accounts.c.person_id).where(
-                accounts.c.telegram_user_id.is_(None)
-            )
+            sa.select(accounts.c.person_id).where(accounts.c.telegram_user_id.is_(None))
         )
     )
     for person_id in deleted_person_ids:

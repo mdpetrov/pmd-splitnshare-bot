@@ -26,11 +26,13 @@ def legacy_currency_database(tmp_path, monkeypatch):
             )
             connection.execute(
                 "INSERT INTO user_accounts (person_id, telegram_user_id, first_name) "
-                "VALUES (?, ?, 'Person')", (person, telegram_id),
+                "VALUES (?, ?, 'Person')",
+                (person, telegram_id),
             )
         connection.execute(
             "INSERT INTO user_settings (person_id, default_currency, language) "
-            "VALUES (?, 'KRW', 'en')", (owner,),
+            "VALUES (?, 'KRW', 'en')",
+            (owner,),
         )
         connection.execute(
             "INSERT INTO expenses (id, creator_person_id, payer_person_id, description, "
@@ -40,7 +42,8 @@ def legacy_currency_database(tmp_path, monkeypatch):
         )
         connection.executemany(
             "INSERT INTO expense_splits (expense_id, person_id, owed_minor, position) "
-            "VALUES (?, ?, 500, ?)", [(expense, owner, 0), (expense, friend, 1)],
+            "VALUES (?, ?, 500, ?)",
+            [(expense, owner, 0), (expense, friend, 1)],
         )
         connection.execute(
             "INSERT INTO debts (id, expense_id, debtor_person_id, creditor_person_id, "
@@ -68,7 +71,9 @@ def _snapshot(database):
     ("currency", "expected"), [("KRW", 10), ("TND", 10000), ("USD", 1000), ("JPY", 1000)]
 )
 def test_upgrade_preserves_face_values_and_downgrade_restores_storage(
-    legacy_currency_database, currency, expected,
+    legacy_currency_database,
+    currency,
+    expected,
 ):
     database, config = legacy_currency_database
     with closing(sqlite3.connect(database)) as connection, connection:
@@ -80,7 +85,8 @@ def test_upgrade_preserves_face_values_and_downgrade_restores_storage(
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("SELECT total_minor FROM expenses").fetchone() == (expected,)
         assert connection.execute("SELECT owed_minor FROM expense_splits").fetchall() == [
-            (expected // 2,), (expected // 2,),
+            (expected // 2,),
+            (expected // 2,),
         ]
         assert connection.execute("SELECT amount_minor FROM debts").fetchone() == (expected // 2,)
         assert connection.execute("SELECT amount_minor FROM settlements").fetchone() == (
@@ -104,11 +110,17 @@ def test_upgrade_rejects_unsupported_legacy_codes_without_mutation(legacy_curren
 
 @pytest.mark.parametrize(
     ("table", "column"),
-    [("expenses", "total_minor"), ("expense_splits", "owed_minor"),
-     ("debts", "amount_minor"), ("settlements", "amount_minor")],
+    [
+        ("expenses", "total_minor"),
+        ("expense_splits", "owed_minor"),
+        ("debts", "amount_minor"),
+        ("settlements", "amount_minor"),
+    ],
 )
 def test_upgrade_rejects_fractional_legacy_units_without_mutation(
-    legacy_currency_database, table, column,
+    legacy_currency_database,
+    table,
+    column,
 ):
     database, config = legacy_currency_database
     with closing(sqlite3.connect(database)) as connection, connection:

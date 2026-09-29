@@ -61,8 +61,9 @@ def test_currency_normalization_and_share_precision() -> None:
         parse_share_minor("0.01", Money(100, "KRW"))
 
 
-@pytest.mark.parametrize("value", ["NaN", "Infinity", "1e100", "1e-1000",
-                                       "1.00000000000000000000000000001"])
+@pytest.mark.parametrize(
+    "value", ["NaN", "Infinity", "1e100", "1e-1000", "1.00000000000000000000000000001"]
+)
 def test_invalid_or_unrepresentable_amounts_raise_domain_errors(value: str) -> None:
     with pytest.raises(ValidationError):
         Money.parse(value, "USD")
@@ -82,4 +83,3 @@ def test_equal_split_distributes_remainder_by_position() -> None:
 def test_exact_split_must_reconcile() -> None:
     with pytest.raises(ValidationError):
         ExactSplitStrategy().allocate(1000, [P1, P2], {P1: 500, P2: 499}, P1)
-

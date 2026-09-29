@@ -46,12 +46,8 @@ async def test_disabled_telegram_language_falls_back_to_application_default(
         )
     )
 
-    created = await settings.get_or_create(
-        person.id, preferred_language="ru-RU"
-    )
-    repeated = await settings.get_or_create(
-        person.id, preferred_language="en"
-    )
+    created = await settings.get_or_create(person.id, preferred_language="ru-RU")
+    repeated = await settings.get_or_create(person.id, preferred_language="en")
 
     assert created.default_currency == "EUR"
     assert created.language is Language.ENGLISH
@@ -104,9 +100,7 @@ async def test_settings_reject_unsupported_timezone(settings_services) -> None:
     await settings.get_or_create(person.id)
 
     with pytest.raises(ValidationError):
-        await settings.update(
-            UpdateUserSettingsCommand(person_id=person.id, timezone="UTC+01:00")
-        )
+        await settings.update(UpdateUserSettingsCommand(person_id=person.id, timezone="UTC+01:00"))
 
 
 async def test_settings_reject_temporarily_disabled_language(settings_services) -> None:
@@ -168,16 +162,8 @@ def test_timezone_keyboard_uses_readable_utc_city_labels() -> None:
 
 def test_main_menu_has_all_primary_actions() -> None:
     keyboard = main_menu_inline_keyboard(Language.ENGLISH)
-    labels = {
-        button.text
-        for row in keyboard.inline_keyboard
-        for button in row
-    }
-    callbacks = {
-        button.callback_data
-        for row in keyboard.inline_keyboard
-        for button in row
-    }
+    labels = {button.text for row in keyboard.inline_keyboard for button in row}
+    callbacks = {button.callback_data for row in keyboard.inline_keyboard for button in row}
 
     assert callbacks == {
         "menu:groups",

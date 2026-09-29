@@ -23,11 +23,7 @@ from splitnshare.presentation.keyboards import expense_date_keyboard, person_his
 
 def test_expense_date_keyboard_contains_presets_and_custom_option() -> None:
     keyboard = expense_date_keyboard(Language.ENGLISH)
-    callbacks = {
-        button.callback_data
-        for row in keyboard.inline_keyboard
-        for button in row
-    }
+    callbacks = {button.callback_data for row in keyboard.inline_keyboard for button in row}
 
     assert {
         "expense:date:now",
@@ -45,12 +41,10 @@ def test_custom_local_datetime_is_converted_to_utc_and_formatted_back() -> None:
     occurred_at = parse_local_datetime("02.09.2026 18:30", "Europe/Madrid")
 
     assert occurred_at == datetime(2026, 9, 2, 16, 30, tzinfo=UTC)
-    assert format_local_datetime(
-        occurred_at, "Europe/Madrid", Language.ENGLISH
-    ) == "2026-09-02 18:30"
-    assert format_local_date(
-        occurred_at, "Europe/Madrid", Language.ENGLISH
-    ) == "2026-09-02"
+    assert (
+        format_local_datetime(occurred_at, "Europe/Madrid", Language.ENGLISH) == "2026-09-02 18:30"
+    )
+    assert format_local_date(occurred_at, "Europe/Madrid", Language.ENGLISH) == "2026-09-02"
 
 
 def test_custom_datetime_can_omit_current_year() -> None:
@@ -145,9 +139,7 @@ async def test_shared_history_filters_people_paginates_and_excludes_deleted(
     alice = await users.register_or_update(
         TelegramIdentity(telegram_user_id=1011, first_name="Alice")
     )
-    bob = await users.register_or_update(
-        TelegramIdentity(telegram_user_id=1012, first_name="Bob")
-    )
+    bob = await users.register_or_update(TelegramIdentity(telegram_user_id=1012, first_name="Bob"))
 
     async def create(
         description: str,
@@ -186,9 +178,7 @@ async def test_shared_history_filters_people_paginates_and_excludes_deleted(
     assert first_page.next_cursor is not None
     history_keyboard = person_history_keyboard(first_page, alice.id, Language.ENGLISH)
     history_callbacks = [
-        button.callback_data
-        for row in history_keyboard.inline_keyboard
-        for button in row
+        button.callback_data for row in history_keyboard.inline_keyboard for button in row
     ]
     second_page = await queries.list_shared(
         owner.id, alice.id, cursor=first_page.next_cursor, limit=1
@@ -197,10 +187,7 @@ async def test_shared_history_filters_people_paginates_and_excludes_deleted(
     assert [item.description for item in first_page.items] == ["Newer with Alice"]
     assert history_callbacks[0] is not None and history_callbacks[0].startswith("bhv:")
     assert history_callbacks[1] is not None and history_callbacks[1].startswith("bhp:")
-    assert all(
-        callback is not None and len(callback) <= 64
-        for callback in history_callbacks
-    )
+    assert all(callback is not None and len(callback) <= 64 for callback in history_callbacks)
     assert [item.description for item in second_page.items] == ["Older with Alice"]
     assert second_page.next_cursor is None
 

@@ -38,23 +38,15 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.CheckConstraint(
-            "amount_minor > 0", name="ck_settlement_positive_amount"
-        ),
-        sa.CheckConstraint(
-            "length(currency) = 3", name="ck_settlement_currency_length"
-        ),
+        sa.CheckConstraint("amount_minor > 0", name="ck_settlement_positive_amount"),
+        sa.CheckConstraint("length(currency) = 3", name="ck_settlement_currency_length"),
         sa.CheckConstraint(
             "payer_person_id <> recipient_person_id",
             name="ck_settlement_distinct_people",
         ),
         sa.ForeignKeyConstraint(["group_id"], ["groups.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(
-            ["payer_person_id"], ["persons.id"], ondelete="RESTRICT"
-        ),
-        sa.ForeignKeyConstraint(
-            ["recipient_person_id"], ["persons.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["payer_person_id"], ["persons.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["recipient_person_id"], ["persons.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["recorded_by_person_id"],
             ["user_accounts.person_id"],

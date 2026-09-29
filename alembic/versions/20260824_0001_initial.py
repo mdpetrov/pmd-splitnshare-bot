@@ -3,6 +3,7 @@
 Revision ID: 20260824_0001
 Revises:
 """
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -46,10 +47,12 @@ def upgrade() -> None:
         sa.Column("name", sa.String(120), nullable=False),
         sa.Column("creator_person_id", sa.Uuid(), nullable=False),
         sa.Column("status", sa.String(8), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(),
-                  nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(),
-                  nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(["creator_person_id"], ["persons.id"], ondelete="RESTRICT"),
     )
     Base.metadata.create_all(
@@ -65,9 +68,7 @@ def upgrade() -> None:
         sa.Column("transferred_to_person_id", sa.Uuid(), nullable=True),
         sa.ForeignKeyConstraint(["owner_person_id"], ["persons.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["person_id"], ["persons.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(
-            ["transferred_to_person_id"], ["persons.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["transferred_to_person_id"], ["persons.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("person_id"),
     )
     op.create_index(
@@ -80,12 +81,8 @@ def upgrade() -> None:
         "guest_profiles",
         ["owner_person_id", "suggested_telegram_user_id"],
         unique=True,
-        postgresql_where=sa.text(
-            "status = 'active' AND suggested_telegram_user_id IS NOT NULL"
-        ),
-        sqlite_where=sa.text(
-            "status = 'active' AND suggested_telegram_user_id IS NOT NULL"
-        ),
+        postgresql_where=sa.text("status = 'active' AND suggested_telegram_user_id IS NOT NULL"),
+        sqlite_where=sa.text("status = 'active' AND suggested_telegram_user_id IS NOT NULL"),
     )
 
 

@@ -6,9 +6,7 @@ from uuid import UUID
 from splitnshare.application.dto import FriendDTO
 
 
-def participant_label(
-    display_name: str, person_id: UUID, username: str | None = None
-) -> str:
+def participant_label(display_name: str, person_id: UUID, username: str | None = None) -> str:
     """Combine a display name with a username or stable synthetic code."""
     normalized_username = (username or "").strip().lstrip("@")
     if normalized_username:
@@ -16,9 +14,7 @@ def participant_label(
     return f"{display_name} (#{person_id.hex[:6]})"
 
 
-def participant_html(
-    display_name: str, person_id: UUID, username: str | None = None
-) -> str:
+def participant_html(display_name: str, person_id: UUID, username: str | None = None) -> str:
     """Return an HTML-escaped participant label for Telegram messages."""
     return escape(participant_label(display_name, person_id, username))
 

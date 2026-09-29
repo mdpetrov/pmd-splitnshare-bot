@@ -58,10 +58,10 @@ async def test_new_user_selects_timezone_before_main_menu() -> None:
     assert message.answer.await_count == 3
     first_markup = message.answer.await_args_list[0].kwargs["reply_markup"]
     second_markup = message.answer.await_args_list[2].kwargs["reply_markup"]
-    assert isinstance(first_markup)
+    assert isinstance(first_markup, ReplyKeyboardMarkup)
     assert isinstance(second_markup, InlineKeyboardMarkup)
-    assert "Currency and language can be changed later" in (
-        message.answer.await_args_list[1].args[0]
+    assert (
+        "Currency and language can be changed later" in (message.answer.await_args_list[1].args[0])
     )
 
 

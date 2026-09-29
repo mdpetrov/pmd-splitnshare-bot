@@ -11,6 +11,7 @@ from splitnshare.domain.enums import Language
 
 class Settings(BaseSettings):
     """Validated settings required to connect the bot and database."""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     bot_token: str = Field(min_length=10)

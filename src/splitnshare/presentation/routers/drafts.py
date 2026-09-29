@@ -35,7 +35,10 @@ def _storage(state: FSMContext) -> SqlAlchemyFSMStorage:
 
 
 async def _show_list(
-    message: Message, state: FSMContext, language: Language, offset: int = 0,
+    message: Message,
+    state: FSMContext,
+    language: Language,
+    offset: int = 0,
 ) -> None:
     """Render one owner-scoped page without discarding unfinished work."""
     await state.clear()
@@ -43,26 +46,41 @@ async def _show_list(
     rows = []
     for draft in drafts[:10]:
         title = str(draft.data.get("description") or translate(language, "untitled_draft"))[:45]
-        rows.append([
-            InlineKeyboardButton(text=title, callback_data=f"draft:view:{draft.id}"),
-            InlineKeyboardButton(text=translate(language, "delete"),
-                                 callback_data=f"draft:ask_delete:{draft.id}"),
-        ])
+        rows.append(
+            [
+                InlineKeyboardButton(text=title, callback_data=f"draft:view:{draft.id}"),
+                InlineKeyboardButton(
+                    text=translate(language, "delete"), callback_data=f"draft:ask_delete:{draft.id}"
+                ),
+            ]
+        )
     navigation = []
     if offset:
-        navigation.append(InlineKeyboardButton(
-            text=translate(language, "back"), callback_data=f"draft:page:{max(0, offset - 10)}",
-        ))
+        navigation.append(
+            InlineKeyboardButton(
+                text=translate(language, "back"),
+                callback_data=f"draft:page:{max(0, offset - 10)}",
+            )
+        )
     if len(drafts) > 10:
-        navigation.append(InlineKeyboardButton(
-            text=translate(language, "more"), callback_data=f"draft:page:{offset + 10}",
-        ))
+        navigation.append(
+            InlineKeyboardButton(
+                text=translate(language, "more"),
+                callback_data=f"draft:page:{offset + 10}",
+            )
+        )
     if navigation:
         rows.append(navigation)
-    rows.append([InlineKeyboardButton(
-        text=translate(language, "main_menu"), callback_data="menu:show",
-    )])
-    await show(message,
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=translate(language, "main_menu"),
+                callback_data="menu:show",
+            )
+        ]
+    )
+    await show(
+        message,
         translate(language, "drafts_help" if drafts else "drafts_empty"),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
@@ -97,22 +115,31 @@ def _draft_summary(data: dict[str, Any], language: Language) -> str:
     missing = translate(language, "draft_missing")
     total = (
         Money(data["total_minor"], data["currency"]).format()
-        if "total_minor" in data and "currency" in data else missing
+        if "total_minor" in data and "currency" in data
+        else missing
     )
     date = (
         format_local_datetime(
             datetime.fromisoformat(data["occurred_at"]), data.get("timezone", "UTC"), language
-        ) if data.get("occurred_at") else missing
+        )
+        if data.get("occurred_at")
+        else missing
     )
     participants = data.get("participants") or []
     payer = next(
-        (person["name"] for person in (data.get("group_members") or participants)
-         if person["id"] == data.get("payer_id")), missing,
+        (
+            person["name"]
+            for person in (data.get("group_members") or participants)
+            if person["id"] == data.get("payer_id")
+        ),
+        missing,
     )
     method = data.get("split_method")
     method_label = (
-        translate(language, "split_equally") if method == SplitMethod.EQUAL.value
-        else translate(language, "exact_amounts") if method == SplitMethod.EXACT.value
+        translate(language, "split_equally")
+        if method == SplitMethod.EQUAL.value
+        else translate(language, "exact_amounts")
+        if method == SplitMethod.EXACT.value
         else missing
     )
     lines = [
@@ -121,7 +148,8 @@ def _draft_summary(data: dict[str, Any], language: Language) -> str:
         translate(language, "total", total=total),
         translate(language, "expense_date", date=escape(date)),
         translate(
-            language, "group_review_label",
+            language,
+            "group_review_label",
             name=escape(str(data.get("group_name") or missing)),
         ),
         translate(language, "expense_paid_by", name=escape(payer)),
@@ -165,18 +193,36 @@ async def view_draft(callback: CallbackQuery, state: FSMContext, language: Langu
         await callback.answer(str(exc), show_alert=True)
         return
     await state.clear()
-    await show(callback_message(callback),
+    await show(
+        callback_message(callback),
         _draft_summary(draft.data, language),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=translate(language, "draft_continue"),
-                                  callback_data=f"draft:continue:{identifier}")],
-            [InlineKeyboardButton(text=translate(language, "edit_draft"),
-                                  callback_data=f"draft:edit_fields:{identifier}")],
-            [InlineKeyboardButton(text=translate(language, "delete"),
-                                  callback_data=f"draft:ask_delete:{identifier}")],
-            [InlineKeyboardButton(text=translate(language, "back"),
-                                  callback_data="menu:drafts")],
-        ]),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=translate(language, "draft_continue"),
+                        callback_data=f"draft:continue:{identifier}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=translate(language, "edit_draft"),
+                        callback_data=f"draft:edit_fields:{identifier}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=translate(language, "delete"),
+                        callback_data=f"draft:ask_delete:{identifier}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=translate(language, "back"), callback_data="menu:drafts"
+                    )
+                ],
+            ]
+        ),
     )
     await callback.answer()
 
@@ -206,14 +252,24 @@ async def ask_discard_draft(callback: CallbackQuery, language: Language) -> None
     except ValueError:
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
-    await show(callback_message(callback),
+    await show(
+        callback_message(callback),
         translate(language, "discard_draft_question"),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=translate(language, "delete"),
-                                  callback_data=f"draft:delete:{identifier}")],
-            [InlineKeyboardButton(text=translate(language, "keep"),
-                                  callback_data=f"draft:view:{identifier}")],
-        ]),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=translate(language, "delete"),
+                        callback_data=f"draft:delete:{identifier}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=translate(language, "keep"), callback_data=f"draft:view:{identifier}"
+                    )
+                ],
+            ]
+        ),
     )
     await callback.answer()
 

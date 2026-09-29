@@ -24,9 +24,7 @@ def test_all_project_objects_have_docstrings() -> None:
                     if ast.get_docstring(node) is None:
                         missing.append(f"{relative_path}:{node.lineno}: {node.name}")
 
-    template = (project_root / "alembic" / "script.py.mako").read_text(
-        encoding="utf-8"
-    )
+    template = (project_root / "alembic" / "script.py.mako").read_text(encoding="utf-8")
     for description in (
         '"""Apply this schema revision."""',
         '"""Revert this schema revision."""',

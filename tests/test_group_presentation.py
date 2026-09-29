@@ -20,9 +20,11 @@ from splitnshare.presentation.states import AddExpenseStates, GroupStates
 
 def person(name, telegram_id=None):
     return PersonDTO(
-        id=uuid4(), display_name=name,
+        id=uuid4(),
+        display_name=name,
         kind=PersonKind.USER if telegram_id else PersonKind.GUEST,
-        registered=telegram_id is not None, telegram_user_id=telegram_id,
+        registered=telegram_id is not None,
+        telegram_user_id=telegram_id,
     )
 
 
@@ -38,12 +40,17 @@ def group_ui(monkeypatch):
             list_registered=AsyncMock(return_value=(member,)),
         ),
         user_settings=SimpleNamespace(
-            get_or_create=AsyncMock(return_value=SimpleNamespace(
-                default_currency="USD", language=Language.ENGLISH, timezone="UTC",
-            )),
+            get_or_create=AsyncMock(
+                return_value=SimpleNamespace(
+                    default_currency="USD",
+                    language=Language.ENGLISH,
+                    timezone="UTC",
+                )
+            ),
         ),
         groups=SimpleNamespace(
-            get=AsyncMock(return_value=group), create=AsyncMock(return_value=group),
+            get=AsyncMock(return_value=group),
+            create=AsyncMock(return_value=group),
         ),
     )
     state = FSMContext(storage=MemoryStorage(), key=StorageKey(bot_id=1, chat_id=501, user_id=501))
@@ -53,14 +60,21 @@ def group_ui(monkeypatch):
         from_user=SimpleNamespace(id=501),
     )
     callback = SimpleNamespace(
-        from_user=SimpleNamespace(id=501), answer=AsyncMock(),
+        from_user=SimpleNamespace(id=501),
+        answer=AsyncMock(),
         data=f"g:expense:{uuid_token(group.id)}",
     )
     monkeypatch.setattr(groups, "callback_message", lambda _: message)
     monkeypatch.setattr(expenses, "callback_message", lambda _: message)
     return SimpleNamespace(
-        owner=owner, member=member, guest=guest, group=group,
-        services=services, state=state, message=message, callback=callback,
+        owner=owner,
+        member=member,
+        guest=guest,
+        group=group,
+        services=services,
+        state=state,
+        message=message,
+        callback=callback,
     )
 
 
@@ -80,26 +94,33 @@ async def test_starting_inside_group_uses_group_currency_and_member_only_keyboar
         for call in ui.message.answer.await_args_list
     )
     assert any(
-        "Current date and time:" in call.args[0]
-        for call in ui.message.answer.await_args_list
+        "Current date and time:" in call.args[0] for call in ui.message.answer.await_args_list
     )
     keyboard = await expenses.draft_participant_keyboard(ui.state, Language.ENGLISH)
-    assert any(button.text == "Choose group members"
-               for row in keyboard.inline_keyboard for button in row)
-    assert not any(button.text == "Keep"
-                   for row in keyboard.inline_keyboard for button in row)
+    assert any(
+        button.text == "Choose group members" for row in keyboard.inline_keyboard for button in row
+    )
+    assert not any(button.text == "Keep" for row in keyboard.inline_keyboard for button in row)
     payers = expenses.draft_payer_keyboard(data, Language.ENGLISH)
-    assert any(button.callback_data == f"expense:setpayer:{ui.guest.id}"
-               for row in payers.inline_keyboard for button in row)
+    assert any(
+        button.callback_data == f"expense:setpayer:{ui.guest.id}"
+        for row in payers.inline_keyboard
+        for button in row
+    )
 
 
 async def test_late_group_selection_preserves_reviewed_expense(group_ui):
     ui = group_ui
     await ui.state.update_data(
-        draft_id=str(uuid4()), creator_id=str(ui.owner.id), description="Dinner",
-        total_minor=1250, currency="USD", timezone="UTC",
+        draft_id=str(uuid4()),
+        creator_id=str(ui.owner.id),
+        description="Dinner",
+        total_minor=1250,
+        currency="USD",
+        timezone="UTC",
         occurred_at=datetime.now(UTC).isoformat(),
-        payer_id=str(ui.member.id), split_method="exact",
+        payer_id=str(ui.member.id),
+        split_method="exact",
         exact_amounts={str(ui.owner.id): 500, str(ui.member.id): 750},
         participants=[groups._member(ui.owner), groups._member(ui.member)],
     )
@@ -120,9 +141,11 @@ async def test_late_group_selection_rejects_non_members_without_changing_review(
     ui = group_ui
     outsider = person("Outsider", 503)
     await ui.state.update_data(
-        creator_id=str(ui.owner.id), payer_id=str(outsider.id),
+        creator_id=str(ui.owner.id),
+        payer_id=str(outsider.id),
         participants=[groups._member(ui.owner), groups._member(outsider)],
-        total_minor=1250, exact_amounts={str(ui.owner.id): 500, str(outsider.id): 750},
+        total_minor=1250,
+        exact_amounts={str(ui.owner.id): 500, str(outsider.id): 750},
     )
     await ui.state.set_state(AddExpenseStates.confirm)
     ui.callback.data = f"eg:select:{uuid_token(ui.group.id)}"
@@ -135,23 +158,36 @@ async def test_late_group_selection_rejects_non_members_without_changing_review(
 
 
 async def test_group_menu_uses_two_columns_and_icons():
-    keyboard = groups._keyboard([
-        ("Trip", "g:view:one"), ("Create group", "g:new"),
-        ("Main menu", "menu:show"),
-    ])
+    keyboard = groups._keyboard(
+        [
+            ("Trip", "g:view:one"),
+            ("Create group", "g:new"),
+            ("Main menu", "menu:show"),
+        ]
+    )
     assert [len(row) for row in keyboard.inline_keyboard] == [2, 1]
-    assert [button.text.split(" ", 1)[0]
-            for row in keyboard.inline_keyboard for button in row] == ["👥", "➕", "🏠"]
+    assert [button.text.split(" ", 1)[0] for row in keyboard.inline_keyboard for button in row] == [
+        "👥",
+        "➕",
+        "🏠",
+    ]
 
 
 async def test_two_person_exact_split_fills_remaining_share(group_ui):
     ui = group_ui
     participants = [groups._member(ui.owner), groups._member(ui.member)]
     await ui.state.update_data(
-        draft_id=str(uuid4()), creator_id=str(ui.owner.id),
-        description="Dinner", total_minor=1250, currency="USD", timezone="UTC",
-        occurred_at=datetime.now(UTC).isoformat(), payer_id=str(ui.owner.id),
-        split_method="exact", exact_amounts={}, exact_index=0,
+        draft_id=str(uuid4()),
+        creator_id=str(ui.owner.id),
+        description="Dinner",
+        total_minor=1250,
+        currency="USD",
+        timezone="UTC",
+        occurred_at=datetime.now(UTC).isoformat(),
+        payer_id=str(ui.owner.id),
+        split_method="exact",
+        exact_amounts={},
+        exact_index=0,
         participants=participants,
     )
     await ui.state.set_state(AddExpenseStates.exact_amount)
@@ -161,7 +197,9 @@ async def test_two_person_exact_split_fills_remaining_share(group_ui):
     assert data["exact_amounts"] == {str(ui.owner.id): 500, str(ui.member.id): 750}
     assert await ui.state.get_state() == AddExpenseStates.confirm.state
     assert "How much do you owe?" == expenses._exact_question(
-        participants[0], str(ui.owner.id), Language.ENGLISH,
+        participants[0],
+        str(ui.owner.id),
+        Language.ENGLISH,
     )
 
 
@@ -178,14 +216,19 @@ async def test_expense_and_draft_prompts_never_replace_reply_keyboard(group_ui):
         occurred_at=datetime.now(UTC).isoformat(),
         payer_id=str(ui.owner.id),
         split_method="equal",
-        exact_amounts={}, exact_index=0,
+        exact_amounts={},
+        exact_index=0,
         participants=[groups._member(ui.owner), groups._member(ui.member)],
     )
     for step in (
-        AddExpenseStates.description, AddExpenseStates.total,
-        AddExpenseStates.expense_date, AddExpenseStates.custom_date,
-        AddExpenseStates.participants, AddExpenseStates.manual_name,
-        AddExpenseStates.payer, AddExpenseStates.split_method,
+        AddExpenseStates.description,
+        AddExpenseStates.total,
+        AddExpenseStates.expense_date,
+        AddExpenseStates.custom_date,
+        AddExpenseStates.participants,
+        AddExpenseStates.manual_name,
+        AddExpenseStates.payer,
+        AddExpenseStates.split_method,
         AddExpenseStates.exact_amount,
         AddExpenseStates.confirm,
     ):
@@ -210,7 +253,10 @@ async def test_cancelling_expense_does_not_replace_reply_keyboard(group_ui):
 async def test_creation_notifies_registered_invitees_once_after_commit(group_ui):
     ui = group_ui
     await ui.state.update_data(
-        token="review", name=ui.group.name, currency="JPY", actor_id=str(ui.owner.id),
+        token="review",
+        name=ui.group.name,
+        currency="JPY",
+        actor_id=str(ui.owner.id),
         members=[groups._member(m) for m in ui.group.participants],
     )
     await ui.state.set_state(GroupStates.confirm)

@@ -34,12 +34,8 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.CheckConstraint(
-            "owner_person_id <> friend_person_id", name="ck_friendship_not_self"
-        ),
-        sa.ForeignKeyConstraint(
-            ["friend_person_id"], ["persons.id"], ondelete="RESTRICT"
-        ),
+        sa.CheckConstraint("owner_person_id <> friend_person_id", name="ck_friendship_not_self"),
+        sa.ForeignKeyConstraint(["friend_person_id"], ["persons.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["owner_person_id"], ["user_accounts.person_id"], ondelete="CASCADE"
         ),

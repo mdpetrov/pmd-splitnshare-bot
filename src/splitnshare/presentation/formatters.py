@@ -64,10 +64,7 @@ def welcome_text(
 
 def _money_totals(totals: dict[str, int]) -> str:
     """Format currency-separated minor-unit totals in deterministic order."""
-    return ", ".join(
-        Money(total, currency).format()
-        for currency, total in sorted(totals.items())
-    )
+    return ", ".join(Money(total, currency).format() for currency, total in sorted(totals.items()))
 
 
 def expense_text(
@@ -76,9 +73,7 @@ def expense_text(
     timezone: str = "UTC",
 ) -> str:
     """Render complete expense details with payer and participant shares."""
-    payer = participant_html(
-        expense.payer_name, expense.payer_person_id, expense.payer_username
-    )
+    payer = participant_html(expense.payer_name, expense.payer_person_id, expense.payer_username)
     shares = "\n".join(
         f"• {participant_html(split.display_name, split.person_id, split.username)}: "
         f"{Money(split.owed_minor, expense.total.currency).format()}"
@@ -124,18 +119,20 @@ def activity_text(
     for item in items:
         if isinstance(item, GroupActivityDTO):
             occurred_at = item.occurred_at
-            balance = "; ".join(translate(
-                language, "transaction_you_are_owed" if b.net_minor > 0 else "transaction_you_owe",
-                amount=Money(abs(b.net_minor), b.currency).format(),
-            ) for b in item.balances) or translate(language, "group_no_debts")
+            balance = "; ".join(
+                translate(
+                    language,
+                    "transaction_you_are_owed" if b.net_minor > 0 else "transaction_you_owe",
+                    amount=Money(abs(b.net_minor), b.currency).format(),
+                )
+                for b in item.balances
+            ) or translate(language, "group_no_debts")
             card = translate(
                 language, "group_history_row", name=escape(item.group_name), balance=balance
             )
         elif isinstance(item, ExpenseActivityDTO):
             occurred_at = item.expense.occurred_at
-            card = _expense_activity_line(
-                item.expense, viewer_person_id, language
-            )
+            card = _expense_activity_line(item.expense, viewer_person_id, language)
         else:
             occurred_at = item.settlement.occurred_at
             card = _settlement_activity_line(item, viewer_person_id, language)
@@ -182,9 +179,7 @@ def _expense_activity_line(
         relation=translate(
             language,
             relation_key,
-            amount=escape(
-                Money(relation_amount, expense.total.currency).format()
-            ),
+            amount=escape(Money(relation_amount, expense.total.currency).format()),
         ),
     )
 
@@ -268,11 +263,7 @@ def expense_notification_text(
     if recipient_person_id == expense.creator_person_id:
         raise ValueError("The expense creator does not receive a notification.")
     recipient_split = next(
-        (
-            split
-            for split in expense.splits
-            if split.person_id == recipient_person_id
-        ),
+        (split for split in expense.splits if split.person_id == recipient_person_id),
         None,
     )
     if recipient_split is None and recipient_person_id != expense.payer_person_id:
@@ -346,9 +337,7 @@ def transfer_preview_text(
             "",
             translate(language, "expenses_count", count=preview.expense_count),
             translate(language, "groups_count", count=preview.group_count),
-            translate(
-                language, "friendships_count", count=preview.friendship_count
-            ),
+            translate(language, "friendships_count", count=preview.friendship_count),
             translate(language, "settlements_count", count=preview.settlement_count),
             translate(language, "debt_amounts", amounts=debts),
             "",
@@ -357,9 +346,7 @@ def transfer_preview_text(
     )
 
 
-def balances_text(
-    balances: Sequence[BalanceDTO], language: Language = Language.ENGLISH
-) -> str:
+def balances_text(balances: Sequence[BalanceDTO], language: Language = Language.ENGLISH) -> str:
     """Render balances grouped by money owed and money receivable."""
     if not balances:
         return "\n\n".join(
@@ -370,15 +357,9 @@ def balances_text(
     user_is_owed = [balance for balance in balances if balance.net_minor > 0]
     sections = [translate(language, "balances_title")]
     if user_owes:
-        sections.append(
-            _balance_section(user_owes, translate(language, "you_owe"), "🔴 ▼")
-        )
+        sections.append(_balance_section(user_owes, translate(language, "you_owe"), "🔴 ▼"))
     if user_is_owed:
-        sections.append(
-            _balance_section(
-                user_is_owed, translate(language, "you_are_owed"), "🟢 ▲"
-            )
-        )
+        sections.append(_balance_section(user_is_owed, translate(language, "you_are_owed"), "🟢 ▲"))
     return "\n\n".join(sections)
 
 
@@ -397,9 +378,7 @@ def person_balances_text(
     lines = [title]
     for balance in balances:
         relation_key = (
-            "balance_you_owe_amount"
-            if balance.net_minor < 0
-            else "balance_you_are_owed_amount"
+            "balance_you_owe_amount" if balance.net_minor < 0 else "balance_you_are_owed_amount"
         )
         lines.append(
             "• "
@@ -412,9 +391,7 @@ def person_balances_text(
     return "\n".join(lines)
 
 
-def _balance_section(
-    balances: Sequence[BalanceDTO], heading: str, direction_marker: str
-) -> str:
+def _balance_section(balances: Sequence[BalanceDTO], heading: str, direction_marker: str) -> str:
     """Render one direction of a balance list under a heading."""
     items = "\n".join(
         f"• {direction_marker} "

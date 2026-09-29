@@ -37,9 +37,7 @@ def upgrade() -> None:
             "length(default_currency) = 3",
             name="ck_user_settings_currency_length",
         ),
-        sa.ForeignKeyConstraint(
-            ["person_id"], ["user_accounts.person_id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["person_id"], ["user_accounts.person_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("person_id"),
     )
 

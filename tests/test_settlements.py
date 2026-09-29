@@ -89,9 +89,7 @@ async def test_partial_and_full_settlements_reduce_balance(settlement_services) 
     assert partial.payer_person_id == debtor.id
     assert partial.recipient_person_id == creditor.id
     debtor_balance = await balances.get_balances(debtor.id)
-    assert [(item.currency, item.net_minor) for item in debtor_balance] == [
-        ("USD", -300)
-    ]
+    assert [(item.currency, item.net_minor) for item in debtor_balance] == [("USD", -300)]
 
     completed = await settlements.settle(
         SettleBalanceCommand(
@@ -154,23 +152,35 @@ async def test_settlement_changes_only_its_currency(settlement_services) -> None
     ("currency", "total", "share"), [("KRW", "1000", "500"), ("TND", "1.234", "0.617")]
 )
 async def test_new_currency_precision_survives_expense_and_settlement(
-    settlement_services, currency, total, share,
+    settlement_services,
+    currency,
+    total,
+    share,
 ) -> None:
     users, _, expenses, settlements, balances, _ = settlement_services
     creditor = await _register(users, 1201, "Creditor")
     debtor = await _register(users, 1202, "Debtor")
-    expense = await expenses.create(CreateExpenseCommand(
-        creator_person_id=creditor.id, description="Currency precision",
-        total=Money.parse(total, currency), participant_ids=(creditor.id, debtor.id),
-        split_method=SplitMethod.EQUAL, context=DirectExpenseContext(),
-    ))
+    expense = await expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=creditor.id,
+            description="Currency precision",
+            total=Money.parse(total, currency),
+            participant_ids=(creditor.id, debtor.id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
+    )
     assert expense.total.format() == f"{total} {currency}"
     debtor_balance = (await balances.get_balances(debtor.id))[0]
     assert debtor_balance.net_minor == -Money.parse(share, currency).minor
-    settlement = await settlements.settle(SettleBalanceCommand(
-        actor_person_id=debtor.id, other_person_id=creditor.id,
-        amount=Money.parse(share, currency), context=DirectExpenseContext(),
-    ))
+    settlement = await settlements.settle(
+        SettleBalanceCommand(
+            actor_person_id=debtor.id,
+            other_person_id=creditor.id,
+            amount=Money.parse(share, currency),
+            context=DirectExpenseContext(),
+        )
+    )
     assert settlement.amount.format() == f"{share} {currency}"
     assert await balances.get_balances(debtor.id) == ()
 
@@ -200,9 +210,7 @@ async def test_guest_transfer_moves_settlement_history(settlement_services) -> N
 
     assert result.affected_counts["settlements"] == 1
     owner_balances = await balances.get_balances(owner.id)
-    assert [(item.other_person_id, item.net_minor) for item in owner_balances] == [
-        (target.id, 300)
-    ]
+    assert [(item.other_person_id, item.net_minor) for item in owner_balances] == [(target.id, 300)]
 
 
 async def test_activity_combines_expenses_and_settlements_with_person_filtering(
@@ -244,9 +252,7 @@ async def test_activity_combines_expenses_and_settlements_with_person_filtering(
         )
     )
 
-    first = await activities.list_for_person(
-        creditor.id, other_person_id=debtor.id, limit=1
-    )
+    first = await activities.list_for_person(creditor.id, other_person_id=debtor.id, limit=1)
     assert first.next_cursor is not None
     second = await activities.list_for_person(
         creditor.id,
@@ -262,9 +268,7 @@ async def test_activity_combines_expenses_and_settlements_with_person_filtering(
     assert second.next_cursor is None
 
     creditor_text = activity_text(first.items, creditor.id, Language.ENGLISH)
-    debtor_page = await activities.list_for_person(
-        debtor.id, other_person_id=creditor.id
-    )
+    debtor_page = await activities.list_for_person(debtor.id, other_person_id=creditor.id)
     debtor_text = activity_text(debtor_page.items[:1], debtor.id, Language.ENGLISH)
     assert "📅 <b>2026-09-02</b>" in creditor_text
     assert "12:00" not in creditor_text
@@ -284,8 +288,6 @@ async def test_activity_combines_expenses_and_settlements_with_person_filtering(
     assert all(callback is not None and len(callback) <= 64 for callback in callbacks)
 
     assert await expenses.delete(creditor.id, expense.id)
-    remaining = await activities.list_for_person(
-        creditor.id, other_person_id=debtor.id
-    )
+    remaining = await activities.list_for_person(creditor.id, other_person_id=debtor.id)
     assert len(remaining.items) == 1
     assert isinstance(remaining.items[0], SettlementActivityDTO)

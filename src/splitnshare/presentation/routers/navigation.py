@@ -53,7 +53,9 @@ async def _members(message: Message, state: FSMContext, language: Language) -> N
     data = await state.get_data()
     names = ", ".join(m["name"] for m in data.get("members", [])[-15:])
     await show(
-        message, translate(language, "group_members_prompt") + "\n\n"
+        message,
+        translate(language, "group_members_prompt")
+        + "\n\n"
         + translate(language, "group_members_selected", names=escape(names)),
         reply_markup=participant_keyboard(language),
     )
@@ -65,11 +67,17 @@ async def _contact_parent(message: Message, state: FSMContext, language: Languag
     if step == GroupStates.members.state:
         await _members(message, state, language)
     elif step == FriendStates.choosing.state:
-        await show(message, translate(language, "add_friend_prompt"),
-                   reply_markup=add_friend_keyboard(language))
+        await show(
+            message,
+            translate(language, "add_friend_prompt"),
+            reply_markup=add_friend_keyboard(language),
+        )
     elif step == TransferGuestStates.target.state:
-        await show(message, translate(language, "choose_transfer_target"),
-                   reply_markup=transfer_target_keyboard(language))
+        await show(
+            message,
+            translate(language, "choose_transfer_target"),
+            reply_markup=transfer_target_keyboard(language),
+        )
     else:
         raise ValidationError(translate(language, "draft_expired"))
 
@@ -83,7 +91,10 @@ async def cancel_flow(callback: CallbackQuery, state: FSMContext, language: Lang
 
 @router.callback_query(F.data == "flow:back")
 async def previous_step(
-    callback: CallbackQuery, state: FSMContext, services: Services, language: Language,
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
 ) -> None:
     """Return to the actual predecessor and discard abandoned selection values."""
     step, data = await state.get_state(), await state.get_data()
@@ -92,25 +103,35 @@ async def previous_step(
         await groups.groups_menu(message, state, services, language)
     elif step == GroupStates.currency.state:
         await state.set_state(GroupStates.name)
-        await show(message, translate(language, "group_name_prompt"),
-                   reply_markup=cancel_keyboard(language))
+        await show(
+            message,
+            translate(language, "group_name_prompt"),
+            reply_markup=cancel_keyboard(language),
+        )
     elif step == GroupStates.members.state:
         if data.get("group_id"):
             await groups.group_details(
                 _callback(callback, f"g:view:{uuid_token(UUID(data['group_id']))}"),
-                state, services, language,
+                state,
+                services,
+                language,
             )
             return
         await state.set_state(GroupStates.currency)
-        await show(message, translate(language, "group_currency_prompt", currency=data["currency"]),
-                   reply_markup=cancel_keyboard(language))
+        await show(
+            message,
+            translate(language, "group_currency_prompt", currency=data["currency"]),
+            reply_markup=cancel_keyboard(language),
+        )
     elif step in (GroupStates.manual_name.state, GroupStates.confirm.state):
         await _members(message, state, language)
     elif step == GroupStates.settlement.state:
         group_id = data["group_id"]
         await state.clear()
         await groups.group_subscreen(
-            _callback(callback, f"g:settle:{uuid_token(UUID(group_id))}:0"), services, language,
+            _callback(callback, f"g:settle:{uuid_token(UUID(group_id))}:0"),
+            services,
+            language,
         )
         return
     elif step == FriendStates.manual_name.state:
@@ -123,7 +144,9 @@ async def previous_step(
     elif step == FriendStates.renaming.state:
         friend_id = data["friend_id"]
         await state.clear()
-        await people.view_friend(_callback(callback, f"friend:view:{friend_id}"), services, language)
+        await people.view_friend(
+            _callback(callback, f"friend:view:{friend_id}"), services, language
+        )
         return
     elif step == TransferGuestStates.confirm.state:
         await state.update_data(target_id=None)
@@ -141,7 +164,9 @@ async def previous_step(
     elif step == SettlementStates.amount.state:
         await balances.select_balance_to_settle(
             _callback(callback, f"settle:select:{data['other_id']}:{data['currency']}"),
-            state, services, language,
+            state,
+            services,
+            language,
         )
         return
     else:
@@ -152,28 +177,41 @@ async def previous_step(
 
 @router.callback_query(F.data.in_({"flow:contact", "flow:contact_back", "flow:members"}))
 async def contact_instructions(
-    callback: CallbackQuery, state: FSMContext, language: Language,
+    callback: CallbackQuery,
+    state: FSMContext,
+    language: Language,
 ) -> None:
     """Explain contact attachment without invoking Telegram's reply-keyboard picker."""
     step = await state.get_state()
-    if step not in (GroupStates.members.state, FriendStates.choosing.state,
-                    TransferGuestStates.target.state):
+    if step not in (
+        GroupStates.members.state,
+        FriendStates.choosing.state,
+        TransferGuestStates.target.state,
+    ):
         await callback.answer(translate(language, "draft_expired"), show_alert=True)
         return
     if callback.data != "flow:contact":
         await _contact_parent(callback_message(callback), state, language)
     else:
-        await show(callback_message(callback), translate(language, "share_contact_hint"),
-                   reply_markup=groups._keyboard([
-                       (translate(language, "back"), "flow:contact_back"),
-                       (translate(language, "cancel"), "flow:cancel"),
-                   ]))
+        await show(
+            callback_message(callback),
+            translate(language, "share_contact_hint"),
+            reply_markup=groups._keyboard(
+                [
+                    (translate(language, "back"), "flow:contact_back"),
+                    (translate(language, "cancel"), "flow:cancel"),
+                ]
+            ),
+        )
     await callback.answer()
 
 
 @router.callback_query(F.data.in_({"flow:manual", "flow:friends", "flow:remove", "flow:done"}))
 async def form_action(
-    callback: CallbackQuery, state: FSMContext, services: Services, language: Language,
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
 ) -> None:
     """Dispatch inline actions to the existing authenticated form use cases."""
     step = await state.get_state()
@@ -199,33 +237,48 @@ async def form_action(
 
 
 async def _target_friends(
-    message: Message, services: Services, language: Language, page: int,
+    message: Message,
+    services: Services,
+    language: Language,
+    page: int,
 ) -> None:
     """List registered friends as transfer candidates with bounded inline pagination."""
     owner = await current_person(message, services)
     friends = [f for f in await services.friends.list_friends(owner.id) if f.registered]
-    choices = [(f.display_name, f"flow:target:{uuid_token(f.person_id)}")
-               for f in friends[page * 20:(page + 1) * 20]]
+    choices = [
+        (f.display_name, f"flow:target:{uuid_token(f.person_id)}")
+        for f in friends[page * 20 : (page + 1) * 20]
+    ]
     if page:
         choices.append(("←", f"flow:targets:{page - 1}"))
     if len(friends) > (page + 1) * 20:
         choices.append(("→", f"flow:targets:{page + 1}"))
     choices.append((translate(language, "back"), "flow:contact_back"))
-    await show(message, translate(language, "choose_registered" if friends else "no_friends"),
-               reply_markup=groups._keyboard(choices))
+    await show(
+        message,
+        translate(language, "choose_registered" if friends else "no_friends"),
+        reply_markup=groups._keyboard(choices),
+    )
 
 
 @router.callback_query(TransferGuestStates.target, F.data.startswith("flow:targets:"))
 async def target_page(callback: CallbackQuery, services: Services, language: Language) -> None:
     """Page registered transfer candidates while retaining the target-selection state."""
-    await _target_friends(_input_message(callback), services, language,
-                          max(0, int((callback.data or "").rsplit(":", 1)[1])))
+    await _target_friends(
+        _input_message(callback),
+        services,
+        language,
+        max(0, int((callback.data or "").rsplit(":", 1)[1])),
+    )
     await callback.answer()
 
 
 @router.callback_query(TransferGuestStates.target, F.data.startswith("flow:target:"))
 async def select_target(
-    callback: CallbackQuery, state: FSMContext, services: Services, language: Language,
+    callback: CallbackQuery,
+    state: FSMContext,
+    services: Services,
+    language: Language,
 ) -> None:
     """Authorize a registered friend before previewing an identity transfer."""
     owner = await current_person(_input_message(callback), services)
@@ -239,8 +292,11 @@ async def select_target(
     )
     await state.update_data(target_id=str(person_id))
     await state.set_state(TransferGuestStates.confirm)
-    await show(callback_message(callback), transfer_preview_text(preview, language),
-               reply_markup=transfer_confirm_keyboard(language))
+    await show(
+        callback_message(callback),
+        transfer_preview_text(preview, language),
+        reply_markup=transfer_confirm_keyboard(language),
+    )
     await callback.answer()
 
 
@@ -248,16 +304,26 @@ async def select_target(
 @router.message(GroupStates.members, F.contact)
 @router.message(TransferGuestStates.target, F.contact)
 async def receive_contact(
-    message: Message, state: FSMContext, services: Services, language: Language,
+    message: Message,
+    state: FSMContext,
+    services: Services,
+    language: Language,
 ) -> None:
     """Adapt Telegram contact attachments to existing participant resolution logic."""
     contact = message.contact
     if contact is None or contact.user_id is None:
         await show(message, translate(language, "contact_requires_telegram_id"))
         return
-    shared = UsersShared(request_id=1001, users=[SharedUser(
-        user_id=contact.user_id, first_name=contact.first_name, last_name=contact.last_name,
-    )])
+    shared = UsersShared(
+        request_id=1001,
+        users=[
+            SharedUser(
+                user_id=contact.user_id,
+                first_name=contact.first_name,
+                last_name=contact.last_name,
+            )
+        ],
+    )
     adapted = message.model_copy(update={"users_shared": shared})
     step = await state.get_state()
     if step == FriendStates.choosing.state:

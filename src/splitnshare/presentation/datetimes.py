@@ -25,9 +25,7 @@ def parse_local_datetime(
             pass
     if parsed is None:
         try:
-            parsed = datetime.strptime(
-                f"{local_now.year}.{text}", "%Y.%d.%m %H:%M"
-            )
+            parsed = datetime.strptime(f"{local_now.year}.{text}", "%Y.%d.%m %H:%M")
         except ValueError as exc:
             raise ValidationError("Invalid local date and time.") from exc
 

@@ -139,12 +139,16 @@ async def test_telegram_guest_is_reused_only_within_one_owners_address_book(
     assert await guests.list_owned_guests(owner_b.id) == ()
     async with factory() as session:
         profiles = (
-            await session.execute(
-                select(GuestProfileModel).where(
-                    GuestProfileModel.person_id.in_((first.id, other_owner.id))
+            (
+                await session.execute(
+                    select(GuestProfileModel).where(
+                        GuestProfileModel.person_id.in_((first.id, other_owner.id))
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(profiles) == 2
         assert all(
             profile.status is GuestTransferStatus.TRANSFERRED
@@ -205,9 +209,7 @@ async def test_transfer_consolidates_splits_debts_and_membership(app_services) -
         )
         await session.commit()
 
-    result = await guests.transfer_guest(
-        TransferGuestCommand(owner.id, guest.id, target.id)
-    )
+    result = await guests.transfer_guest(TransferGuestCommand(owner.id, guest.id, target.id))
     assert result.affected_counts["expenses"] == 1
     assert result.affected_counts["overlapping_splits"] == 1
     assert result.affected_counts["duplicate_memberships"] == 1
@@ -229,10 +231,14 @@ async def test_transfer_consolidates_splits_debts_and_membership(app_services) -
         assert debts[0].creditor_person_id == target.id
         assert debts[0].amount_minor == 500
         memberships = (
-            await session.execute(
-                select(GroupMembershipModel).where(GroupMembershipModel.group_id == group_id)
+            (
+                await session.execute(
+                    select(GroupMembershipModel).where(GroupMembershipModel.group_id == group_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(memberships) == 1
         assert memberships[0].person_id == target.id
         assert memberships[0].role is GroupRole.ADMIN

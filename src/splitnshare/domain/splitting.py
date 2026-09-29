@@ -11,6 +11,7 @@ from splitnshare.domain.errors import ValidationError
 @dataclass(frozen=True, slots=True)
 class Allocation:
     """Associate one participant with an owed amount and stable position."""
+
     person_id: UUID
     owed_minor: int
     position: int
@@ -18,6 +19,7 @@ class Allocation:
 
 class EqualSplitStrategy:
     """Split a total evenly with deterministic remainder distribution."""
+
     method = SplitMethod.EQUAL
 
     def allocate(self, total_minor: int, participants: Sequence[UUID]) -> list[Allocation]:
@@ -34,6 +36,7 @@ class EqualSplitStrategy:
 
 class ExactSplitStrategy:
     """Validate and preserve explicitly supplied participant shares."""
+
     method = SplitMethod.EXACT
 
     def allocate(

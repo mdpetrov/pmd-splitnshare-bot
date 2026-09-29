@@ -19,6 +19,7 @@ from splitnshare.application.services import (
 @dataclass(frozen=True, slots=True)
 class Services:
     """Bundle use-case services supplied to aiogram handlers."""
+
     users: UserService
     user_settings: UserSettingsService
     guests: GuestService

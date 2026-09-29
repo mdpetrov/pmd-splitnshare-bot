@@ -53,7 +53,8 @@ async def friends(message: Message, services: Services, language: Language) -> N
     """Show the user's unified registered and guest friends list."""
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await show(message,
+    await show(
+        message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -61,9 +62,7 @@ async def friends(message: Message, services: Services, language: Language) -> N
 
 @router.callback_query(F.data == "friends:show")
 @router.callback_query(F.data == "menu:friends")
-async def friends_callback(
-    callback: CallbackQuery, services: Services, language: Language
-) -> None:
+async def friends_callback(callback: CallbackQuery, services: Services, language: Language) -> None:
     """Replace the current message with the unified friends list."""
     if callback.from_user is None:
         return
@@ -73,7 +72,8 @@ async def friends_callback(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await show(target_message,
+    await show(
+        target_message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -81,9 +81,7 @@ async def friends_callback(
 
 
 @router.callback_query(F.data.startswith("friend:view:"))
-async def view_friend(
-    callback: CallbackQuery, services: Services, language: Language
-) -> None:
+async def view_friend(callback: CallbackQuery, services: Services, language: Language) -> None:
     """Show details and available actions for one active friend."""
     if callback.from_user is None:
         return
@@ -94,14 +92,11 @@ async def view_friend(
         return
     friend_id = UUID(payload.rsplit(":", 1)[1])
     available = {
-        friend.person_id: friend
-        for friend in await services.friends.list_friends(owner.id)
+        friend.person_id: friend for friend in await services.friends.list_friends(owner.id)
     }
     friend = available.get(friend_id)
     if friend is None:
-        await callback.answer(
-            translate(language, "friend_already_removed"), show_alert=True
-        )
+        await callback.answer(translate(language, "friend_already_removed"), show_alert=True)
         return
     transfer_guest = None
     if not friend.registered:
@@ -120,7 +115,8 @@ async def view_friend(
     friend_balances = tuple(
         balance for balance in balances if balance.other_person_id == friend.person_id
     )
-    await show(target_message,
+    await show(
+        target_message,
         _friend_details_text(
             friend,
             transfer_guest,
@@ -146,21 +142,15 @@ async def registered_friends(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     registered = [
-        friend
-        for friend in await services.friends.list_friends(owner.id)
-        if friend.registered
+        friend for friend in await services.friends.list_friends(owner.id) if friend.registered
     ]
     text = _registered_friends_text(registered, language)
-    await show(target_message,
-        text, reply_markup=registered_friends_keyboard(registered, language)
-    )
+    await show(target_message, text, reply_markup=registered_friends_keyboard(registered, language))
     await callback.answer()
 
 
 @router.callback_query(F.data == "friends:guests")
-async def owned_guests(
-    callback: CallbackQuery, services: Services, language: Language
-) -> None:
+async def owned_guests(callback: CallbackQuery, services: Services, language: Language) -> None:
     """Show the legacy filtered list of active guest friends."""
     if callback.from_user is None:
         return
@@ -174,7 +164,8 @@ async def owned_guests(
         friend.person_id for friend in await services.friends.list_friends(owner.id)
     }
     text = _guests_text(guests, language)
-    await show(target_message,
+    await show(
+        target_message,
         text,
         reply_markup=guests_keyboard(guests, language, active_friend_ids),
     )
@@ -196,14 +187,11 @@ async def ask_remove_friend(
         return
     friend_id = UUID(friend_id_text)
     available = {
-        friend.person_id: friend
-        for friend in await services.friends.list_friends(owner.id)
+        friend.person_id: friend for friend in await services.friends.list_friends(owner.id)
     }
     friend = available.get(friend_id)
     if friend is None:
-        await callback.answer(
-            translate(language, "friend_already_removed"), show_alert=True
-        )
+        await callback.answer(translate(language, "friend_already_removed"), show_alert=True)
         return
     text = "\n\n".join(
         (
@@ -215,7 +203,8 @@ async def ask_remove_friend(
             translate(language, "remove_friend_warning"),
         )
     )
-    await show(target_message,
+    await show(
+        target_message,
         text,
         reply_markup=friend_remove_confirm_keyboard(friend.person_id, origin, language),
     )
@@ -223,9 +212,7 @@ async def ask_remove_friend(
 
 
 @router.callback_query(F.data.startswith("friend:remove:"))
-async def remove_friend(
-    callback: CallbackQuery, services: Services, language: Language
-) -> None:
+async def remove_friend(callback: CallbackQuery, services: Services, language: Language) -> None:
     """Archive a friendship and return to its originating list."""
     if callback.from_user is None:
         return
@@ -237,8 +224,7 @@ async def remove_friend(
         return
     friend_id = UUID(friend_id_text)
     available = {
-        friend.person_id: friend
-        for friend in await services.friends.list_friends(owner.id)
+        friend.person_id: friend for friend in await services.friends.list_friends(owner.id)
     }
     friend = available.get(friend_id)
     changed = await services.friends.remove_friend(owner.id, friend_id)
@@ -250,9 +236,7 @@ async def remove_friend(
             "friend_removed",
             name=friend_html(friend),
         )
-    await show(target_message,
-        text, reply_markup=back_to_friends_keyboard(language)
-    )
+    await show(target_message, text, reply_markup=back_to_friends_keyboard(language))
     await callback.answer()
 
 
@@ -272,18 +256,15 @@ async def begin_rename_friend(
         await callback.answer(translate(language, "use_start"), show_alert=True)
         return
     friend_id = UUID(payload.rsplit(":", 1)[1])
-    available_ids = {
-        friend.person_id for friend in await services.friends.list_friends(owner.id)
-    }
+    available_ids = {friend.person_id for friend in await services.friends.list_friends(owner.id)}
     if friend_id not in available_ids:
-        await callback.answer(
-            translate(language, "friend_already_removed"), show_alert=True
-        )
+        await callback.answer(translate(language, "friend_already_removed"), show_alert=True)
         return
     await state.clear()
     await state.update_data(friend_id=str(friend_id))
     await state.set_state(FriendStates.renaming)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "rename_friend_prompt"),
         reply_markup=cancel_keyboard(language),
     )
@@ -298,8 +279,11 @@ async def rename_friend_back(
     await state.clear()
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await show(message, translate(language, "friends"), reply_markup=main_menu_inline_keyboard(language))
-    await show(message,
+    await show(
+        message, translate(language, "friends"), reply_markup=main_menu_inline_keyboard(language)
+    )
+    await show(
+        message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -318,7 +302,8 @@ async def rename_friend(
     friend_id_text = data.get("friend_id")
     if not isinstance(friend_id_text, str):
         await state.clear()
-        await show(message,
+        await show(
+            message,
             translate(language, "friend_already_removed"),
             reply_markup=main_menu_inline_keyboard(language),
         )
@@ -332,25 +317,26 @@ async def rename_friend(
         return
     await state.clear()
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await show(message,
+    await show(
+        message,
         translate(language, "friend_renamed", name=friend_html(renamed)),
         reply_markup=main_menu_inline_keyboard(language),
     )
-    await show(message,
+    await show(
+        message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
 
 
 @router.callback_query(F.data == "friends:add")
-async def begin_add_friend(
-    callback: CallbackQuery, state: FSMContext, language: Language
-) -> None:
+async def begin_add_friend(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
     """Start the flow for adding a Telegram or manually named friend."""
     target_message = callback_message(callback)
     await state.clear()
     await state.set_state(FriendStates.choosing)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "add_friend_prompt"),
         reply_markup=add_friend_keyboard(language),
     )
@@ -374,7 +360,8 @@ async def receive_friend_user(
     )
     if existing_friend is not None:
         await state.clear()
-        await show(message,
+        await show(
+            message,
             translate(
                 language,
                 "friend_already_added",
@@ -398,7 +385,8 @@ async def receive_friend_user(
         await show(message, str(exc))
         return
     await state.clear()
-    await show(message,
+    await show(
+        message,
         translate(
             language,
             "friend_added",
@@ -409,14 +397,10 @@ async def receive_friend_user(
 
 
 @router.message(FriendStates.choosing, F.text.in_(button_values("add_named_guest")))
-async def request_friend_name(
-    message: Message, state: FSMContext, language: Language
-) -> None:
+async def request_friend_name(message: Message, state: FSMContext, language: Language) -> None:
     """Prompt for the display name of a manually created guest friend."""
     await state.set_state(FriendStates.manual_name)
-    await show(message,
-        translate(language, "friend_name"), reply_markup=cancel_keyboard(language)
-    )
+    await show(message, translate(language, "friend_name"), reply_markup=cancel_keyboard(language))
 
 
 @router.message(FriendStates.choosing, F.text.in_(button_values("back")))
@@ -428,8 +412,11 @@ async def add_friend_back(
     await state.clear()
     owner = await current_person(message, services)
     friendships = tuple(await services.friends.list_friends(owner.id))
-    await show(message, translate(language, "friends"), reply_markup=back_to_friends_keyboard(language))
-    await show(message,
+    await show(
+        message, translate(language, "friends"), reply_markup=back_to_friends_keyboard(language)
+    )
+    await show(
+        message,
         _friends_text(friendships, language),
         reply_markup=friends_list_keyboard(friendships, language),
     )
@@ -450,7 +437,8 @@ async def receive_friend_name(
         await show(message, str(exc))
         return
     await state.clear()
-    await show(message,
+    await show(
+        message,
         translate(
             language,
             "friend_added",
@@ -477,8 +465,7 @@ async def choose_suggested_transfer(
         return
     guest_id = UUID(payload.rsplit(":", 1)[1])
     owned_guests = {
-        guest.person_id: guest
-        for guest in await services.guests.list_owned_guests(owner.id)
+        guest.person_id: guest for guest in await services.guests.list_owned_guests(owner.id)
     }
     guest = owned_guests.get(guest_id)
     if guest is None or guest.suggested_target_person_id is None:
@@ -504,7 +491,8 @@ async def choose_suggested_transfer(
         target_id=str(guest.suggested_target_person_id),
     )
     await state.set_state(TransferGuestStates.confirm)
-    await show(target_message,
+    await show(
+        target_message,
         transfer_preview_text(preview, language),
         reply_markup=transfer_confirm_keyboard(language),
     )
@@ -530,7 +518,8 @@ async def choose_guest(
     await state.clear()
     await state.update_data(owner_id=str(owner.id), guest_id=str(guest_id))
     await state.set_state(TransferGuestStates.target)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "choose_transfer_target"),
         reply_markup=transfer_target_keyboard(language),
     )
@@ -551,9 +540,7 @@ async def receive_target(
     shared = message.users_shared.users[0]
     target = await services.users.find_registered_target(shared.user_id)
     if target is None:
-        await show(message,
-            translate(language, "target_not_registered")
-        )
+        await show(message, translate(language, "target_not_registered"))
         return
     command = TransferGuestCommand(
         actor_person_id=UUID(data["owner_id"]),
@@ -568,10 +555,11 @@ async def receive_target(
         return
     await state.update_data(target_id=str(target.id))
     await state.set_state(TransferGuestStates.confirm)
-    await show(message,
-        translate(language, "main_menu"), reply_markup=main_menu_inline_keyboard(language)
+    await show(
+        message, translate(language, "main_menu"), reply_markup=main_menu_inline_keyboard(language)
     )
-    await show(message,
+    await show(
+        message,
         transfer_preview_text(preview, language),
         reply_markup=transfer_confirm_keyboard(language),
     )
@@ -602,7 +590,8 @@ async def confirm_transfer(
         await callback.answer(str(exc), show_alert=True)
         return
     await state.clear()
-    await show(target_message,
+    await show(
+        target_message,
         translate(
             language,
             "transfer_completed",
@@ -635,14 +624,14 @@ async def confirm_transfer(
 
 
 @router.callback_query(F.data == "guest:cancel")
-async def cancel_transfer(
-    callback: CallbackQuery, state: FSMContext, language: Language
-) -> None:
+async def cancel_transfer(callback: CallbackQuery, state: FSMContext, language: Language) -> None:
     """Clear the transfer draft and report cancellation."""
     target_message = callback_message(callback)
     await state.clear()
-    await show(target_message,
-        translate(language, "transfer_cancelled"), reply_markup=main_menu_inline_keyboard(language)
+    await show(
+        target_message,
+        translate(language, "transfer_cancelled"),
+        reply_markup=main_menu_inline_keyboard(language),
     )
     await callback.answer()
 
@@ -663,11 +652,7 @@ def _find_telegram_friend(
 ) -> FriendDTO | None:
     """Find an active friend by registered or suggested Telegram user ID."""
     return next(
-        (
-            friend
-            for friend in friendships
-            if friend.telegram_user_id == telegram_user_id
-        ),
+        (friend for friend in friendships if friend.telegram_user_id == telegram_user_id),
         None,
     )
 
@@ -742,10 +727,7 @@ def _registered_friends_text(
     if not friends:
         return translate(language, "no_registered_friends")
     lines = [translate(language, "registered_friends_intro")]
-    lines.extend(
-        f"• {friend_html(friend)}"
-        for friend in friends
-    )
+    lines.extend(f"• {friend_html(friend)}" for friend in friends)
     return "\n".join(lines)
 
 
@@ -766,10 +748,7 @@ def _guests_text(guests: tuple[GuestDTO, ...], language: Language) -> str:
                 f"• {participant_html(guest.display_name, guest.person_id, guest.username)}",
             )
         )
-        if (
-            guest.suggested_target_person_id is not None
-            and guest.suggested_target_name is not None
-        ):
+        if guest.suggested_target_person_id is not None and guest.suggested_target_name is not None:
             lines.append(
                 translate(
                     language,

@@ -28,8 +28,7 @@ _SUPPORTED = frozenset(
     "NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF "
     "SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SVC SYP SZL THB "
     "TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VED VES VND "
-    "VUV WST XAD XAF XCD XCG XOF XPF YER ZAR ZMW ZWG "
-    .split()
+    "VUV WST XAD XAF XCD XCG XOF XPF YER ZAR ZMW ZWG ".split()
 )
 # All these currencies previously used the two-decimal fallback.
 _CHANGED_EXPONENTS = {
@@ -59,13 +58,9 @@ def _amount_columns() -> list[tuple]:
     expenses = sa.table(
         "expenses", sa.column("id"), sa.column("currency"), sa.column("total_minor")
     )
-    splits = sa.table(
-        "expense_splits", sa.column("expense_id"), sa.column("owed_minor")
-    )
+    splits = sa.table("expense_splits", sa.column("expense_id"), sa.column("owed_minor"))
     split_currency = (
-        sa.select(expenses.c.currency)
-        .where(expenses.c.id == splits.c.expense_id)
-        .scalar_subquery()
+        sa.select(expenses.c.currency).where(expenses.c.id == splits.c.expense_id).scalar_subquery()
     )
     columns = [
         (expenses, expenses.c.total_minor, expenses.c.currency),
@@ -88,10 +83,16 @@ def _rescale(*, reverse: bool) -> None:
     currency_columns.append((settings, settings.c.default_currency))
     if not reverse:
         for table, currency in currency_columns:
-            unsupported = connection.execute(
-                sa.select(currency).select_from(table)
-                .where(currency.not_in(sorted(_SUPPORTED))).distinct()
-            ).scalars().all()
+            unsupported = (
+                connection.execute(
+                    sa.select(currency)
+                    .select_from(table)
+                    .where(currency.not_in(sorted(_SUPPORTED)))
+                    .distinct()
+                )
+                .scalars()
+                .all()
+            )
             if unsupported:
                 raise RuntimeError(
                     f"Unsupported currencies in {table.name}: {unsupported}. "
@@ -105,8 +106,7 @@ def _rescale(*, reverse: bool) -> None:
         for table, amount, currency in columns:
             invalid = amount % factor != 0 if difference < 0 else amount > _MAX_MINOR // factor
             found = connection.scalar(
-                sa.select(sa.func.count()).select_from(table)
-                .where(currency == code, invalid)
+                sa.select(sa.func.count()).select_from(table).where(currency == code, invalid)
             )
             if found:
                 raise RuntimeError(
@@ -121,11 +121,10 @@ def _rescale(*, reverse: bool) -> None:
         for table, amount, currency in columns:
             scaled = (
                 sa.cast(amount.op("/")(factor), sa.BigInteger)
-                if difference < 0 else amount * factor
+                if difference < 0
+                else amount * factor
             )
-            connection.execute(
-                table.update().where(currency == code).values({amount.name: scaled})
-            )
+            connection.execute(table.update().where(currency == code).values({amount.name: scaled}))
 
 
 def upgrade() -> None:
@@ -136,4 +135,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Restore legacy scales only when every amount can be represented exactly."""
     _rescale(reverse=True)
-

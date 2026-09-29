@@ -22,10 +22,12 @@ def upgrade() -> None:
         sa.Column("telegram_user_id", sa.BigInteger(), nullable=False),
         sa.Column("state", sa.String(100), nullable=True),
         sa.Column("data", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True),
-                  server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True),
-                  server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
     op.create_index(
         "ix_conversation_states_telegram_user_id", "conversation_states", ["telegram_user_id"]
@@ -33,14 +35,20 @@ def upgrade() -> None:
     op.create_table(
         "expense_drafts",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("conversation_key", sa.String(512),
-                  sa.ForeignKey("conversation_states.key", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "conversation_key",
+            sa.String(512),
+            sa.ForeignKey("conversation_states.key", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("state", sa.String(100), nullable=False),
         sa.Column("data", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True),
-                  server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True),
-                  server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
     op.create_index("ix_expense_drafts_conversation_key", "expense_drafts", ["conversation_key"])
 

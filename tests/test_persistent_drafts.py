@@ -34,7 +34,10 @@ async def draft_backend(tmp_path):
         await connection.run_sync(Base.metadata.create_all)
     factory = create_session_factory(engine)
     yield SimpleNamespace(
-        url=url, engine=engine, factory=factory, storage=SqlAlchemyFSMStorage(factory),
+        url=url,
+        engine=engine,
+        factory=factory,
+        storage=SqlAlchemyFSMStorage(factory),
     )
     await engine.dispose()
 
@@ -50,9 +53,14 @@ async def _seed(storage, key, description="Dinner", creator_id=None, other_id=No
     state = FSMContext(storage=storage, key=key)
     await state.clear()
     await state.update_data(
-        draft_id=str(identifier), creator_id=str(owner), description=description,
-        total_minor=1000, currency="EUR", timezone="UTC",
-        occurred_at=datetime(2026, 9, 11, tzinfo=UTC).isoformat(), payer_id=str(owner),
+        draft_id=str(identifier),
+        creator_id=str(owner),
+        description=description,
+        total_minor=1000,
+        currency="EUR",
+        timezone="UTC",
+        occurred_at=datetime(2026, 9, 11, tzinfo=UTC).isoformat(),
+        payer_id=str(owner),
         participants=[{"id": str(owner), "name": "Owner"}, {"id": str(other), "name": "Friend"}],
         split_method="equal",
     )
@@ -124,7 +132,9 @@ async def test_expense_draft_is_saved_only_after_description(draft_backend):
 async def test_group_expense_context_survives_pausing_and_restarting(draft_backend):
     identifier, state = await _seed(draft_backend.storage, _key())
     group_data = {
-        "group_id": str(uuid4()), "group_name": "Trip", "group_currency": "JPY",
+        "group_id": str(uuid4()),
+        "group_name": "Trip",
+        "group_currency": "JPY",
         "group_members": (await state.get_data())["participants"],
     }
     await state.update_data(**group_data)
@@ -182,12 +192,19 @@ async def test_save_consumes_draft_atomically_and_prevents_retry(draft_backend):
         TelegramIdentity(telegram_user_id=102, first_name="Friend")
     )
     identifier, state = await _seed(
-        draft_backend.storage, _key(), creator_id=owner.id, other_id=friend.id,
+        draft_backend.storage,
+        _key(),
+        creator_id=owner.id,
+        other_id=friend.id,
     )
     command = CreateExpenseCommand(
-        creator_person_id=owner.id, description="Dinner", total=Money(1000, "EUR"),
-        participant_ids=(owner.id, friend.id), split_method=SplitMethod.EQUAL,
-        context=DirectExpenseContext(), draft_id=identifier,
+        creator_person_id=owner.id,
+        description="Dinner",
+        total=Money(1000, "EUR"),
+        participant_ids=(owner.id, friend.id),
+        split_method=SplitMethod.EQUAL,
+        context=DirectExpenseContext(),
+        draft_id=identifier,
     )
     expense = await expenses.create(command)
     assert expense.total == Money(1000, "EUR")
@@ -207,14 +224,23 @@ async def test_failed_save_keeps_the_draft(draft_backend):
     )
     missing_person = uuid4()
     identifier, state = await _seed(
-        draft_backend.storage, _key(), creator_id=owner.id, other_id=missing_person,
+        draft_backend.storage,
+        _key(),
+        creator_id=owner.id,
+        other_id=missing_person,
     )
     with pytest.raises(NotFoundError):
-        await expenses.create(CreateExpenseCommand(
-            creator_person_id=owner.id, description="Dinner", total=Money(1000, "EUR"),
-            participant_ids=(owner.id, missing_person), split_method=SplitMethod.EQUAL,
-            context=DirectExpenseContext(), draft_id=identifier,
-        ))
+        await expenses.create(
+            CreateExpenseCommand(
+                creator_person_id=owner.id,
+                description="Dinner",
+                total=Money(1000, "EUR"),
+                participant_ids=(owner.id, missing_person),
+                split_method=SplitMethod.EQUAL,
+                context=DirectExpenseContext(),
+                draft_id=identifier,
+            )
+        )
     assert await state.get_state() == AddExpenseStates.confirm.state
     assert (await draft_backend.storage.list_drafts(_key()))[0].id == identifier
 
@@ -231,17 +257,21 @@ async def test_account_deletion_purges_drafts_without_recreating_identity(draft_
     assert await draft_backend.storage.list_drafts(_key()) == ()
 
 
-async def test_navigation_does_not_overwrite_expense_description(
-    draft_backend, monkeypatch
-):
+async def test_navigation_does_not_overwrite_expense_description(draft_backend, monkeypatch):
     answer = AsyncMock()
     monkeypatch.setattr(Message, "answer", answer)
     identifier, state = await _seed(draft_backend.storage, _key())
     await state.set_state(AddExpenseStates.description)
-    event = Update(update_id=1, message=Message(
-        message_id=1, date=datetime.now(UTC), chat=Chat(id=101, type="private"),
-        from_user=User(id=101, is_bot=False, first_name="Owner"), text="👥 Friends",
-    ))
+    event = Update(
+        update_id=1,
+        message=Message(
+            message_id=1,
+            date=datetime.now(UTC),
+            chat=Chat(id=101, type="private"),
+            from_user=User(id=101, is_bot=False, first_name="Owner"),
+            text="👥 Friends",
+        ),
+    )
     handler = AsyncMock()
     data = {"state": state, "raw_state": AddExpenseStates.description.state}
     await DraftNavigationMiddleware()(handler, event, data)
@@ -257,7 +287,8 @@ async def test_last_share_checkpoint_recovers_review_without_reentry(draft_backe
     participants = (await state.get_data())["participants"]
     await state.set_state(AddExpenseStates.exact_amount)
     await state.update_data(
-        split_method="exact", exact_index=2,
+        split_method="exact",
+        exact_index=2,
         exact_amounts={participants[0]["id"]: 400, participants[1]["id"]: 600},
     )
     message = SimpleNamespace(answer=AsyncMock())

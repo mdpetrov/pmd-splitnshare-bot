@@ -39,13 +39,15 @@ async def request_account_deletion(
     await state.clear()
     balances = await services.balances.get_balances(person.id)
     if any(balance.net_minor != 0 for balance in balances):
-        await show(message,
+        await show(
+            message,
             translate(language, "delete_account_unsettled"),
             reply_markup=main_menu_inline_keyboard(language),
         )
         return
     await state.set_state(DeleteAccountStates.confirm)
-    await show(message,
+    await show(
+        message,
         translate(language, "delete_account_warning"),
         reply_markup=delete_account_confirm_keyboard(language),
     )
@@ -60,9 +62,7 @@ async def confirm_account_deletion(
 ) -> None:
     """Anonymize the authenticated account and update its confirmation message."""
     if await state.get_state() != DeleteAccountStates.confirm.state:
-        await callback.answer(
-            translate(language, "delete_account_expired"), show_alert=True
-        )
+        await callback.answer(translate(language, "delete_account_expired"), show_alert=True)
         return
     if callback.from_user is None:
         return
@@ -70,16 +70,15 @@ async def confirm_account_deletion(
     person = await services.users.find_registered_target(callback.from_user.id)
     if person is None:
         await state.clear()
-        await callback.answer(
-            translate(language, "delete_account_expired"), show_alert=True
-        )
+        await callback.answer(translate(language, "delete_account_expired"), show_alert=True)
         return
     try:
         deleted = await services.users.delete_account(person.id)
     except UnsettledAccountError:
         await state.clear()
         await show_markup(target_message, reply_markup=None)
-        await show(target_message,
+        await show(
+            target_message,
             translate(language, "delete_account_unsettled"),
             reply_markup=main_menu_inline_keyboard(language),
         )
@@ -87,13 +86,12 @@ async def confirm_account_deletion(
         return
     await state.clear()
     if not deleted:
-        await callback.answer(
-            translate(language, "delete_account_expired"), show_alert=True
-        )
+        await callback.answer(translate(language, "delete_account_expired"), show_alert=True)
         return
     forget_flow()
     await show_markup(target_message, reply_markup=None)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "delete_account_complete"),
     )
     await callback.answer()
@@ -109,7 +107,8 @@ async def cancel_account_deletion(
     target_message = callback_message(callback)
     await state.clear()
     await show(target_message, translate(language, "delete_account_cancelled"))
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "main_menu_prompt"),
         reply_markup=main_menu_inline_keyboard(language),
     )

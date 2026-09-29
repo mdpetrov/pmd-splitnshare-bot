@@ -24,9 +24,7 @@ def test_friendship_migration_backfills_existing_expense_participants(
     friend_id = uuid4().hex
     expense_id = uuid4().hex
     with sqlite3.connect(database_path) as connection:
-        initial_group_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(groups)")
-        }
+        initial_group_columns = {row[1] for row in connection.execute("PRAGMA table_info(groups)")}
         assert "default_currency" not in initial_group_columns
         guest_columns_before = {
             row[1] for row in connection.execute("PRAGMA table_info(guest_profiles)")
@@ -88,24 +86,16 @@ def test_friendship_migration_backfills_existing_expense_participants(
         rows = connection.execute(
             "SELECT owner_person_id, friend_person_id, source FROM friendships"
         ).fetchall()
-        revision = connection.execute(
-            "SELECT version_num FROM alembic_version"
-        ).fetchone()
-        guest_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(guest_profiles)")
-        }
+        revision = connection.execute("SELECT version_num FROM alembic_version").fetchone()
+        guest_columns = {row[1] for row in connection.execute("PRAGMA table_info(guest_profiles)")}
         friendship_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(friendships)")
         }
         settings_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(user_settings)")
         }
-        expense_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(expenses)")
-        }
-        expense_indexes = {
-            row[1] for row in connection.execute("PRAGMA index_list(expenses)")
-        }
+        expense_columns = {row[1] for row in connection.execute("PRAGMA table_info(expenses)")}
+        expense_indexes = {row[1] for row in connection.execute("PRAGMA index_list(expenses)")}
         existing_timezone = connection.execute(
             "SELECT timezone FROM user_settings WHERE person_id = ?", (owner_id,)
         ).fetchone()
@@ -113,8 +103,7 @@ def test_friendship_migration_backfills_existing_expense_participants(
             row[1] for row in connection.execute("PRAGMA table_info(settlements)")
         }
         account_columns = {
-            row[1]: row
-            for row in connection.execute("PRAGMA table_info(user_accounts)")
+            row[1]: row for row in connection.execute("PRAGMA table_info(user_accounts)")
         }
         group_currency = connection.execute("SELECT default_currency FROM groups").fetchone()
 
@@ -139,7 +128,8 @@ def test_friendship_migration_backfills_existing_expense_participants(
 
 
 def test_group_currency_migration_resumes_without_overwriting_existing_values(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     """Recover a partially added SQLite column and preserve populated currencies."""
     project_root = Path(__file__).parents[1]
@@ -156,23 +146,27 @@ def test_group_currency_migration_resumes_without_overwriting_existing_values(
         )
         connection.execute(
             "INSERT INTO user_accounts (person_id, telegram_user_id, first_name) "
-            "VALUES (?, 9001, 'Owner')", (owner_id,),
+            "VALUES (?, 9001, 'Owner')",
+            (owner_id,),
         )
         connection.execute(
             "INSERT INTO user_settings (person_id, default_currency, language) "
-            "VALUES (?, 'EUR', 'en')", (owner_id,),
+            "VALUES (?, 'EUR', 'en')",
+            (owner_id,),
         )
         for name, currency in (("Pending", None), ("Configured", "JPY")):
             connection.execute(
                 "INSERT INTO groups (id, name, creator_person_id, status, default_currency) "
-                "VALUES (?, ?, ?, 'active', ?)", (uuid4().hex, name, owner_id, currency),
+                "VALUES (?, ?, ?, 'active', ?)",
+                (uuid4().hex, name, owner_id, currency),
             )
 
     command.upgrade(config, "head")
 
     with sqlite3.connect(database_path) as connection:
         assert dict(connection.execute("SELECT name, default_currency FROM groups")) == {
-            "Pending": "EUR", "Configured": "JPY",
+            "Pending": "EUR",
+            "Configured": "JPY",
         }
         columns = {row[1]: row for row in connection.execute("PRAGMA table_info(groups)")}
         assert columns["default_currency"][3] == 1

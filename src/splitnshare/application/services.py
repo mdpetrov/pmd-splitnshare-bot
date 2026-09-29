@@ -58,9 +58,7 @@ class UserService:
         async with self._uow_factory() as uow:
             return await uow.users.find_registered_by_telegram_id(telegram_user_id)
 
-    async def list_registered(
-        self, person_ids: Sequence[UUID]
-    ) -> Sequence[PersonDTO]:
+    async def list_registered(self, person_ids: Sequence[UUID]) -> Sequence[PersonDTO]:
         """Return only Telegram-registered people from participant IDs."""
         async with self._uow_factory() as uow:
             return await uow.users.list_registered(person_ids)
@@ -87,9 +85,7 @@ class UserSettingsService:
         self._uow_factory = uow_factory
         self._default_currency = normalize_currency(default_currency)
         self._default_language = (
-            default_language
-            if default_language in SELECTABLE_LANGUAGES
-            else Language.ENGLISH
+            default_language if default_language in SELECTABLE_LANGUAGES else Language.ENGLISH
         )
 
     async def get_or_create(
@@ -125,15 +121,8 @@ class UserSettingsService:
             if command.default_currency is not None
             else None
         )
-        timezone = (
-            _normalize_timezone(command.timezone)
-            if command.timezone is not None
-            else None
-        )
-        if (
-            command.language is not None
-            and command.language not in SELECTABLE_LANGUAGES
-        ):
+        timezone = _normalize_timezone(command.timezone) if command.timezone is not None else None
+        if command.language is not None and command.language not in SELECTABLE_LANGUAGES:
             raise ValidationError("This interface language is temporarily unavailable.")
         async with self._uow_factory() as uow:
             if await uow.user_settings.get(command.person_id) is None:
@@ -160,9 +149,7 @@ class GuestService:
     ) -> PersonDTO:
         """Reuse an active hint or resolve its already-registered Telegram account."""
         async with self._uow_factory() as uow:
-            existing = await uow.guests.find_active_telegram_guest(
-                owner_person_id, shared
-            )
+            existing = await uow.guests.find_active_telegram_guest(owner_person_id, shared)
             if existing is not None:
                 await uow.commit()
                 return existing
@@ -212,40 +199,26 @@ class FriendService:
         """Initialize the service with a transactional unit-of-work factory."""
         self._uow_factory = uow_factory
 
-    async def add_shared_user(
-        self, owner_person_id: UUID, shared: SharedTelegramUser
-    ) -> FriendDTO:
+    async def add_shared_user(self, owner_person_id: UUID, shared: SharedTelegramUser) -> FriendDTO:
         """Add a Telegram friend while safely reusing any still-active profile."""
         async with self._uow_factory() as uow:
-            person = await uow.guests.find_active_telegram_guest(
-                owner_person_id, shared
-            )
+            person = await uow.guests.find_active_telegram_guest(owner_person_id, shared)
             if person is None:
-                person = await uow.users.find_registered_by_telegram_id(
-                    shared.telegram_user_id
-                )
+                person = await uow.users.find_registered_by_telegram_id(shared.telegram_user_id)
             if person is None:
-                person = await uow.guests.get_or_create_telegram_guest(
-                    owner_person_id, shared
-                )
-            friend = await uow.friends.add(
-                owner_person_id, person.id, FriendSource.DIRECT
-            )
+                person = await uow.guests.get_or_create_telegram_guest(owner_person_id, shared)
+            friend = await uow.friends.add(owner_person_id, person.id, FriendSource.DIRECT)
             await uow.commit()
             return friend
 
-    async def add_manual_guest(
-        self, owner_person_id: UUID, display_name: str
-    ) -> FriendDTO:
+    async def add_manual_guest(self, owner_person_id: UUID, display_name: str) -> FriendDTO:
         """Create a named guest and add it to the owner's friend list."""
         display_name = " ".join(display_name.split())
         if not 1 <= len(display_name) <= 160:
             raise ValidationError("Friend name must contain between 1 and 160 characters.")
         async with self._uow_factory() as uow:
             guest = await uow.guests.create_manual_guest(owner_person_id, display_name)
-            friend = await uow.friends.add(
-                owner_person_id, guest.id, FriendSource.DIRECT
-            )
+            friend = await uow.friends.add(owner_person_id, guest.id, FriendSource.DIRECT)
             await uow.commit()
             return friend
 
@@ -254,9 +227,7 @@ class FriendService:
         async with self._uow_factory() as uow:
             return await uow.friends.list_active(owner_person_id)
 
-    async def remove_friend(
-        self, owner_person_id: UUID, friend_person_id: UUID
-    ) -> bool:
+    async def remove_friend(self, owner_person_id: UUID, friend_person_id: UUID) -> bool:
         """Archive a friend entry while preserving expenses and balances."""
         async with self._uow_factory() as uow:
             changed = await uow.friends.archive(owner_person_id, friend_person_id)
@@ -271,9 +242,7 @@ class FriendService:
         if not 1 <= len(alias) <= 160:
             raise ValidationError("Friend name must contain between 1 and 160 characters.")
         async with self._uow_factory() as uow:
-            friend = await uow.friends.rename(
-                owner_person_id, friend_person_id, alias
-            )
+            friend = await uow.friends.rename(owner_person_id, friend_person_id, alias)
             await uow.commit()
             return friend
 
@@ -403,9 +372,7 @@ class ExpenseQueryService:
         if person_id == other_person_id:
             raise ValidationError("Shared expense count requires two different people.")
         async with self._uow_factory() as uow:
-            return await uow.expenses.count_shared(
-                person_id, other_person_id, context
-            )
+            return await uow.expenses.count_shared(person_id, other_person_id, context)
 
     async def list_recent_people(self, person_id: UUID, limit: int = 10) -> Sequence[PersonDTO]:
         """Return active people recently sharing expenses with the person."""

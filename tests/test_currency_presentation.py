@@ -37,16 +37,22 @@ def test_currency_presets_are_all_supported():
 async def test_unsupported_currency_callback_reports_error_without_editing():
     user = User(id=123, is_bot=False, first_name="Person")
     callback = CallbackQuery(
-        id="test", from_user=user, chat_instance="test",
+        id="test",
+        from_user=user,
+        chat_instance="test",
         message=Message(
-            message_id=1, date=datetime.now(UTC), chat=Chat(id=123, type="private"),
+            message_id=1,
+            date=datetime.now(UTC),
+            chat=Chat(id=123, type="private"),
         ),
         data="settings:set_currency:ZZZ",
     )
     services = SimpleNamespace(
-        users=SimpleNamespace(find_registered_target=AsyncMock(
-            return_value=SimpleNamespace(id=uuid4()),
-        )),
+        users=SimpleNamespace(
+            find_registered_target=AsyncMock(
+                return_value=SimpleNamespace(id=uuid4()),
+            )
+        ),
         user_settings=SimpleNamespace(update=AsyncMock(side_effect=ValidationError("Unsupported"))),
     )
     with patch.object(CallbackQuery, "answer", new_callable=AsyncMock) as answer:

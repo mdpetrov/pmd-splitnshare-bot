@@ -40,12 +40,8 @@ async def show_supported_currencies(message: Message, language: Language) -> Non
     """List accepted currency codes and precision without interrupting a draft."""
     sections = [translate(language, "supported_currencies")]
     for exponent in sorted(set(CURRENCY_EXPONENTS.values())):
-        codes = ", ".join(
-            code for code, digits in CURRENCY_EXPONENTS.items() if digits == exponent
-        )
-        sections.append(
-            translate(language, "currency_precision", digits=exponent) + "\n" + codes
-        )
+        codes = ", ".join(code for code, digits in CURRENCY_EXPONENTS.items() if digits == exponent)
+        sections.append(translate(language, "currency_precision", digits=exponent) + "\n" + codes)
     await show(message, "\n\n".join(sections))
 
 
@@ -65,12 +61,14 @@ async def show_settings(
     )
     if settings.timezone is None:
         await state.set_state(OnboardingStates.timezone)
-        await show(message,
+        await show(
+            message,
             translate(language, "onboarding_timezone_required"),
             reply_markup=timezone_keyboard(language, include_back=False),
         )
         return
-    await show(message,
+    await show(
+        message,
         _settings_text(settings, language),
         reply_markup=settings_keyboard(language),
     )
@@ -95,13 +93,15 @@ async def show_settings_callback(
     settings = await services.user_settings.get_or_create(person.id)
     if settings.timezone is None:
         await state.set_state(OnboardingStates.timezone)
-        await show(target_message,
+        await show(
+            target_message,
             translate(language, "onboarding_timezone_required"),
             reply_markup=timezone_keyboard(language, include_back=False),
         )
         await callback.answer()
         return
-    await show(target_message,
+    await show(
+        target_message,
         _settings_text(settings, language),
         reply_markup=settings_keyboard(language),
     )
@@ -112,7 +112,8 @@ async def show_settings_callback(
 async def choose_currency(callback: CallbackQuery, language: Language) -> None:
     """Show preset and custom currency choices."""
     target_message = callback_message(callback)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "choose_currency"),
         reply_markup=currency_keyboard(language),
     )
@@ -120,9 +121,7 @@ async def choose_currency(callback: CallbackQuery, language: Language) -> None:
 
 
 @router.callback_query(F.data.startswith("settings:set_currency:"))
-async def set_currency(
-    callback: CallbackQuery, services: Services, language: Language
-) -> None:
+async def set_currency(callback: CallbackQuery, services: Services, language: Language) -> None:
     """Validate a currency callback and persist the selected default."""
     if callback.from_user is None:
         return
@@ -139,7 +138,8 @@ async def set_currency(
     except DomainError:
         await callback.answer(translate(language, "invalid_currency"), show_alert=True)
         return
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "currency_saved", currency=escape(updated.default_currency)),
         reply_markup=settings_keyboard(language),
     )
@@ -153,8 +153,10 @@ async def request_custom_currency(
     """Enter the state that accepts a custom ISO currency code."""
     target_message = callback_message(callback)
     await state.set_state(UserSettingsStates.custom_currency)
-    await show(target_message,
-        translate(language, "enter_currency"), reply_markup=cancel_keyboard(language)
+    await show(
+        target_message,
+        translate(language, "enter_currency"),
+        reply_markup=cancel_keyboard(language),
     )
     await callback.answer()
 
@@ -170,8 +172,11 @@ async def custom_currency_back(
     await state.clear()
     person = await current_person(message, services)
     settings = await services.user_settings.get_or_create(person.id)
-    await show(message, translate(language, "settings"), reply_markup=main_menu_inline_keyboard(language))
-    await show(message,
+    await show(
+        message, translate(language, "settings"), reply_markup=main_menu_inline_keyboard(language)
+    )
+    await show(
+        message,
         _settings_text(settings, language),
         reply_markup=settings_keyboard(language),
     )
@@ -194,7 +199,8 @@ async def receive_custom_currency(
         await show(message, translate(language, "invalid_currency"))
         return
     await state.clear()
-    await show(message,
+    await show(
+        message,
         translate(language, "currency_saved", currency=escape(updated.default_currency)),
         reply_markup=settings_keyboard(language),
     )
@@ -204,7 +210,8 @@ async def receive_custom_currency(
 async def choose_language(callback: CallbackQuery, language: Language) -> None:
     """Show supported interface-language choices."""
     target_message = callback_message(callback)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "choose_language"),
         reply_markup=language_keyboard(language),
     )
@@ -215,7 +222,8 @@ async def choose_language(callback: CallbackQuery, language: Language) -> None:
 async def choose_timezone(callback: CallbackQuery, language: Language) -> None:
     """Show localized timezone choices from the settings panel."""
     target_message = callback_message(callback)
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "choose_timezone"),
         reply_markup=timezone_keyboard(language),
     )
@@ -248,20 +256,21 @@ async def set_timezone(
     onboarding = await state.get_state() == OnboardingStates.timezone.state
     if onboarding:
         await state.clear()
-        await show(target_message,
-            translate(language, "timezone_saved", timezone=label)
-        )
+        await show(target_message, translate(language, "timezone_saved", timezone=label))
         balances = await services.balances.get_balances(person.id)
-        await show(target_message,
+        await show(
+            target_message,
             welcome_text(person.display_name, balances, language),
             reply_markup=main_menu_inline_keyboard(language),
         )
-        await show(target_message,
+        await show(
+            target_message,
             translate(language, "main_menu_prompt"),
             reply_markup=main_menu_inline_keyboard(language),
         )
     else:
-        await show(target_message,
+        await show(
+            target_message,
             translate(language, "timezone_saved", timezone=label),
             reply_markup=settings_keyboard(language),
         )
@@ -285,19 +294,16 @@ async def set_language(
     try:
         selected = Language(payload.rsplit(":", 1)[1])
     except ValueError:
-        await callback.answer(
-            translate(language, "language_unavailable"), show_alert=True
-        )
+        await callback.answer(translate(language, "language_unavailable"), show_alert=True)
         return
     if selected not in SELECTABLE_LANGUAGES:
-        await callback.answer(
-            translate(language, "language_unavailable"), show_alert=True
-        )
+        await callback.answer(translate(language, "language_unavailable"), show_alert=True)
         return
     await services.user_settings.update(
         UpdateUserSettingsCommand(person_id=person.id, language=selected)
     )
-    await show(target_message,
+    await show(
+        target_message,
         translate(selected, "language_saved"),
         reply_markup=settings_keyboard(selected),
     )
@@ -318,14 +324,16 @@ async def close_settings(
     settings = await services.user_settings.find_by_telegram_id(callback.from_user.id)
     if settings is None or settings.timezone is None:
         await state.set_state(OnboardingStates.timezone)
-        await show(target_message,
+        await show(
+            target_message,
             translate(language, "onboarding_timezone_required"),
             reply_markup=timezone_keyboard(language, include_back=False),
         )
         await callback.answer()
         return
     await state.clear()
-    await show(target_message,
+    await show(
+        target_message,
         translate(language, "main_menu_prompt"),
         reply_markup=main_menu_inline_keyboard(language),
     )

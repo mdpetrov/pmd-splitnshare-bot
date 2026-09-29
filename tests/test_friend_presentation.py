@@ -51,12 +51,8 @@ def test_friends_screen_unifies_registered_and_unregistered_friends() -> None:
     assert "• Alice &amp; Bob (@alice&lt;)" in text
     assert "• Work Alex (@work_alex · #" in text
     assert "guest" not in text.casefold()
-    assert keyboard.inline_keyboard[0][0].callback_data == (
-        f"friend:view:{registered.person_id}"
-    )
-    assert keyboard.inline_keyboard[1][0].callback_data == (
-        f"friend:view:{unregistered.person_id}"
-    )
+    assert keyboard.inline_keyboard[0][0].callback_data == (f"friend:view:{registered.person_id}")
+    assert keyboard.inline_keyboard[1][0].callback_data == (f"friend:view:{unregistered.person_id}")
     assert keyboard.inline_keyboard[-1][0].callback_data == "menu:show"
 
 
@@ -78,9 +74,7 @@ def test_active_telegram_friend_is_detected_before_readding() -> None:
         source=FriendSource.DIRECT,
     )
 
-    assert _find_telegram_friend((manual_friend, telegram_friend), telegram_id) == (
-        telegram_friend
-    )
+    assert _find_telegram_friend((manual_friend, telegram_friend), telegram_id) == (telegram_friend)
     assert _find_telegram_friend((manual_friend,), telegram_id) is None
 
 
@@ -109,12 +103,8 @@ def test_friend_detail_menu_offers_rename_and_removal() -> None:
     )
     details = friend_detail_keyboard(friend, Language.ENGLISH)
 
-    assert details.inline_keyboard[0][0].callback_data == (
-        f"friend:rename:{person_id}"
-    )
-    assert details.inline_keyboard[0][1].callback_data == (
-        f"friend:remove_ask:d:{person_id}"
-    )
+    assert details.inline_keyboard[0][0].callback_data == (f"friend:rename:{person_id}")
+    assert details.inline_keyboard[0][1].callback_data == (f"friend:remove_ask:d:{person_id}")
 
 
 def test_friend_details_show_transaction_count_and_currency_balances() -> None:
@@ -187,12 +177,8 @@ def test_unregistered_friend_detail_restores_explicit_transfer() -> None:
 
     assert "temporary participant profile" in text
     assert "Registered Alice (@alice)" in text
-    assert details.inline_keyboard[1][0].callback_data == (
-        f"guest:transfer_hint:{guest_id}"
-    )
-    assert "Transfer history to Registered Alice (@alice)" in (
-        details.inline_keyboard[1][0].text
-    )
+    assert details.inline_keyboard[1][0].callback_data == (f"guest:transfer_hint:{guest_id}")
+    assert "Transfer history to Registered Alice (@alice)" in (details.inline_keyboard[1][0].text)
 
     manual_guest = GuestDTO(
         person_id=guest_id,
@@ -200,12 +186,8 @@ def test_unregistered_friend_detail_restores_explicit_transfer() -> None:
         creation_method=GuestCreationMethod.MANUAL,
         suggested_telegram_user_id=None,
     )
-    manual_details = friend_detail_keyboard(
-        friend, Language.ENGLISH, manual_guest
-    )
-    assert manual_details.inline_keyboard[1][0].callback_data == (
-        f"guest:transfer:{guest_id}"
-    )
+    manual_details = friend_detail_keyboard(friend, Language.ENGLISH, manual_guest)
+    assert manual_details.inline_keyboard[1][0].callback_data == (f"guest:transfer:{guest_id}")
 
 
 def test_guests_screen_explains_transfer_and_offers_registered_suggestion() -> None:
@@ -229,9 +211,7 @@ def test_guests_screen_explains_transfer_and_offers_registered_suggestion() -> N
     assert "transfers automatically when that account registers" in text
     assert "if its automatic transfer was not completed" in text
     assert "Registered Alice (@alice)" in text
-    assert keyboard.inline_keyboard[0][0].callback_data == (
-        f"guest:transfer_hint:{guest_id}"
-    )
+    assert keyboard.inline_keyboard[0][0].callback_data == (f"guest:transfer_hint:{guest_id}")
     assert keyboard.inline_keyboard[1][0].callback_data == f"guest:transfer:{guest_id}"
 
 

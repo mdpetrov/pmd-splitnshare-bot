@@ -44,9 +44,7 @@ class UserRepository(Protocol):
         """Load a registered person, optionally taking a database lock."""
         ...
 
-    async def list_registered(
-        self, person_ids: Sequence[UUID]
-    ) -> Sequence[PersonDTO]:
+    async def list_registered(self, person_ids: Sequence[UUID]) -> Sequence[PersonDTO]:
         """Return registered accounts among the supplied participant IDs."""
         ...
 
@@ -147,9 +145,7 @@ class FriendRepository(Protocol):
         """Archive a private friend entry without deleting shared history."""
         ...
 
-    async def rename(
-        self, owner_person_id: UUID, friend_person_id: UUID, alias: str
-    ) -> FriendDTO:
+    async def rename(self, owner_person_id: UUID, friend_person_id: UUID, alias: str) -> FriendDTO:
         """Set the owner's private display alias for a friend."""
         ...
 

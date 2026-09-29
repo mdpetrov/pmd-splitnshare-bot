@@ -32,7 +32,12 @@ class DraftNavigationMiddleware(BaseMiddleware):
         menu_values = {
             value
             for name in (
-                "add_expense", "transactions", "balances", "friends", "settings", "drafts",
+                "add_expense",
+                "transactions",
+                "balances",
+                "friends",
+                "settings",
+                "drafts",
                 "main_menu",
                 "groups",
             )
@@ -44,10 +49,19 @@ class DraftNavigationMiddleware(BaseMiddleware):
             text in menu_values
             or command in {"/start", "/settings", "/drafts", "/delete_account"}
             or (callback is not None and callback.startswith("menu:"))
-            or (callback is not None and callback.startswith((
-                "settings:show", "friends:show", "friend:view:", "balance:person:",
-                "expense:view:", "g:view:",
-            )))
+            or (
+                callback is not None
+                and callback.startswith(
+                    (
+                        "settings:show",
+                        "friends:show",
+                        "friend:view:",
+                        "balance:person:",
+                        "expense:view:",
+                        "g:view:",
+                    )
+                )
+            )
         )
         if navigate:
             await state.clear()

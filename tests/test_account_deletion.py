@@ -44,9 +44,12 @@ async def account_services():
         await connection.run_sync(Base.metadata.create_all)
     factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
     yield SimpleNamespace(
-        users=UserService(factory), expenses=ExpenseService(factory),
-        settlements=SettlementService(factory), balances=BalanceQueryService(factory),
-        settings=UserSettingsService(factory), guests=GuestService(factory),
+        users=UserService(factory),
+        expenses=ExpenseService(factory),
+        settlements=SettlementService(factory),
+        balances=BalanceQueryService(factory),
+        settings=UserSettingsService(factory),
+        guests=GuestService(factory),
         queries=ExpenseQueryService(factory),
     )
     await engine.dispose()
@@ -64,11 +67,16 @@ async def _people(services):
 
 
 async def _expense(services, payer, other, currency="EUR"):
-    return await services.expenses.create(CreateExpenseCommand(
-        creator_person_id=payer.id, description="Shared dinner", total=Money(1000, currency),
-        participant_ids=(payer.id, other.id), split_method=SplitMethod.EQUAL,
-        context=DirectExpenseContext(),
-    ))
+    return await services.expenses.create(
+        CreateExpenseCommand(
+            creator_person_id=payer.id,
+            description="Shared dinner",
+            total=Money(1000, currency),
+            participant_ids=(payer.id, other.id),
+            split_method=SplitMethod.EQUAL,
+            context=DirectExpenseContext(),
+        )
+    )
 
 
 @pytest.mark.parametrize("role", ["payer", "debtor"])
@@ -107,16 +115,24 @@ async def test_deletion_does_not_net_unrelated_balances(account_services, offset
 async def test_partial_payment_blocks_deletion_until_fully_settled(account_services):
     owner, friend = await _people(account_services)
     expense = await _expense(account_services, owner, friend)
-    await account_services.settlements.settle(SettleBalanceCommand(
-        actor_person_id=friend.id, other_person_id=owner.id,
-        amount=Money(200, "EUR"), context=DirectExpenseContext(),
-    ))
+    await account_services.settlements.settle(
+        SettleBalanceCommand(
+            actor_person_id=friend.id,
+            other_person_id=owner.id,
+            amount=Money(200, "EUR"),
+            context=DirectExpenseContext(),
+        )
+    )
     with pytest.raises(UnsettledAccountError):
         await account_services.users.delete_account(owner.id)
-    await account_services.settlements.settle(SettleBalanceCommand(
-        actor_person_id=friend.id, other_person_id=owner.id,
-        amount=Money(300, "EUR"), context=DirectExpenseContext(),
-    ))
+    await account_services.settlements.settle(
+        SettleBalanceCommand(
+            actor_person_id=friend.id,
+            other_person_id=owner.id,
+            amount=Money(300, "EUR"),
+            context=DirectExpenseContext(),
+        )
+    )
     assert await account_services.users.delete_account(owner.id)
     assert await account_services.users.find_registered_target(2101) is None
     assert await account_services.settings.find_by_telegram_id(2101) is None
@@ -148,13 +164,23 @@ async def test_request_with_balance_never_shows_confirmation(amount):
     message = SimpleNamespace(from_user=SimpleNamespace(id=2101), answer=AsyncMock())
     state = SimpleNamespace(clear=AsyncMock(), set_state=AsyncMock())
     services = SimpleNamespace(
-        users=SimpleNamespace(find_registered_target=AsyncMock(
-            return_value=SimpleNamespace(id=uuid4()),
-        )),
-        balances=SimpleNamespace(get_balances=AsyncMock(return_value=(
-            BalanceDTO(other_person_id=uuid4(), other_name="Friend", currency="EUR",
-                       net_minor=amount),
-        ))),
+        users=SimpleNamespace(
+            find_registered_target=AsyncMock(
+                return_value=SimpleNamespace(id=uuid4()),
+            )
+        ),
+        balances=SimpleNamespace(
+            get_balances=AsyncMock(
+                return_value=(
+                    BalanceDTO(
+                        other_person_id=uuid4(),
+                        other_name="Friend",
+                        currency="EUR",
+                        net_minor=amount,
+                    ),
+                )
+            )
+        ),
     )
     await request_account_deletion(message, state, services, Language.ENGLISH)
     state.set_state.assert_not_awaited()
@@ -166,15 +192,19 @@ async def test_confirmation_handles_a_balance_added_after_the_prompt(monkeypatch
     message = SimpleNamespace(edit_reply_markup=AsyncMock(), answer=AsyncMock())
     callback = SimpleNamespace(from_user=SimpleNamespace(id=2101), answer=AsyncMock())
     monkeypatch.setattr(
-        "splitnshare.presentation.routers.account.callback_message", lambda _: message,
+        "splitnshare.presentation.routers.account.callback_message",
+        lambda _: message,
     )
     state = SimpleNamespace(
-        get_state=AsyncMock(return_value=DeleteAccountStates.confirm.state), clear=AsyncMock(),
+        get_state=AsyncMock(return_value=DeleteAccountStates.confirm.state),
+        clear=AsyncMock(),
     )
-    services = SimpleNamespace(users=SimpleNamespace(
-        find_registered_target=AsyncMock(return_value=SimpleNamespace(id=uuid4())),
-        delete_account=AsyncMock(side_effect=UnsettledAccountError()),
-    ))
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            find_registered_target=AsyncMock(return_value=SimpleNamespace(id=uuid4())),
+            delete_account=AsyncMock(side_effect=UnsettledAccountError()),
+        )
+    )
     await confirm_account_deletion(callback, state, services, Language.ENGLISH)
     state.clear.assert_awaited_once()
     message.edit_reply_markup.assert_awaited_once_with(reply_markup=None)

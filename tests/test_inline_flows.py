@@ -36,20 +36,30 @@ def _state():
 
 def _message(identifier=40):
     return Message(
-        message_id=identifier, date=datetime.now(UTC), chat=Chat(id=7, type="private"),
-        from_user=User(id=7, is_bot=False, first_name="Alice"), text="Dinner",
+        message_id=identifier,
+        date=datetime.now(UTC),
+        chat=Chat(id=7, type="private"),
+        from_user=User(id=7, is_bot=False, first_name="Alice"),
+        text="Dinner",
     )
 
 
 def _bot():
     return SimpleNamespace(
-        send_message=AsyncMock(return_value=_message(81)), edit_message_text=AsyncMock(),
+        send_message=AsyncMock(return_value=_message(81)),
+        edit_message_text=AsyncMock(),
     )
 
 
-@pytest.mark.parametrize("factory", [
-    add_friend_keyboard, cancel_keyboard, participant_keyboard, transfer_target_keyboard,
-])
+@pytest.mark.parametrize(
+    "factory",
+    [
+        add_friend_keyboard,
+        cancel_keyboard,
+        participant_keyboard,
+        transfer_target_keyboard,
+    ],
+)
 def test_form_keyboards_never_replace_bottom_menu(factory):
     assert isinstance(factory(Language.ENGLISH), InlineKeyboardMarkup)
 
@@ -66,7 +76,8 @@ async def test_typed_reply_edits_original_message_after_new_middleware_instance(
         await show(event.message, "Added Alice", reply_markup=markup)
 
     await FlowMessageMiddleware()(
-        handler, Update(update_id=1, message=_message()),
+        handler,
+        Update(update_id=1, message=_message()),
         {"state": state, "bot": bot, "language": Language.ENGLISH},
     )
 
@@ -78,8 +89,11 @@ async def test_typed_reply_edits_original_message_after_new_middleware_instance(
 async def test_callback_coalesces_status_and_prompt_into_one_edit():
     state, bot = _state(), _bot()
     callback = CallbackQuery(
-        id="q", from_user=_message().from_user, chat_instance="c",
-        message=_message(81), data="menu:add_expense",
+        id="q",
+        from_user=_message().from_user,
+        chat_instance="c",
+        message=_message(81),
+        data="menu:add_expense",
     )
 
     async def handler(event, data):
@@ -88,7 +102,8 @@ async def test_callback_coalesces_status_and_prompt_into_one_edit():
         await show(event.callback_query.message, "Next step", reply_markup=cancel_keyboard())
 
     await FlowMessageMiddleware()(
-        handler, Update(update_id=1, callback_query=callback),
+        handler,
+        Update(update_id=1, callback_query=callback),
         {"state": state, "bot": bot, "language": Language.ENGLISH},
     )
 
@@ -100,7 +115,8 @@ async def test_callback_coalesces_status_and_prompt_into_one_edit():
 async def test_missing_message_is_replaced_and_new_id_persisted():
     state, bot = _state(), _bot()
     bot.edit_message_text.side_effect = TelegramBadRequest(
-        method=EditMessageText(text="Next"), message="Bad Request: message to edit not found",
+        method=EditMessageText(text="Next"),
+        message="Bad Request: message to edit not found",
     )
     view = FlowView(bot, state, 7, Language.ENGLISH, 80, {})
     await view.publish(["Next"], cancel_keyboard())
@@ -111,7 +127,8 @@ async def test_missing_message_is_replaced_and_new_id_persisted():
 async def test_repeated_identical_render_does_not_send_another_message():
     state, bot = _state(), _bot()
     bot.edit_message_text.side_effect = TelegramBadRequest(
-        method=EditMessageText(text="Next"), message="Bad Request: message is not modified",
+        method=EditMessageText(text="Next"),
+        message="Bad Request: message is not modified",
     )
     await FlowView(bot, state, 7, Language.ENGLISH, 80, {}).publish(["Next"], cancel_keyboard())
     bot.send_message.assert_not_awaited()
@@ -124,12 +141,16 @@ async def test_obsolete_button_cannot_mutate_the_current_step(monkeypatch):
     answer = AsyncMock()
     monkeypatch.setattr(CallbackQuery, "answer", answer)
     callback = CallbackQuery(
-        id="q", from_user=_message().from_user, chat_instance="c", message=_message(81),
+        id="q",
+        from_user=_message().from_user,
+        chat_instance="c",
+        message=_message(81),
         data="guest:confirm",
     )
     handler = AsyncMock()
     await FlowMessageMiddleware()(
-        handler, Update(update_id=2, callback_query=callback),
+        handler,
+        Update(update_id=2, callback_query=callback),
         {"state": state, "bot": bot, "language": Language.ENGLISH},
     )
     handler.assert_not_awaited()
@@ -150,7 +171,9 @@ async def test_exact_back_discards_previous_share_and_later_values():
     await state.set_state(AddExpenseStates.exact_amount)
     await state.update_data(
         participants=[{"id": p, "name": p} for p in ("a", "b", "c")],
-        creator_id="a", exact_index=2, exact_amounts={"a": 100, "b": 200, "c": 300},
+        creator_id="a",
+        exact_index=2,
+        exact_amounts={"a": 100, "b": 200, "c": 300},
     )
     message = SimpleNamespace(answer=AsyncMock())
     await exact_back(message, state, Language.ENGLISH)
@@ -164,11 +187,16 @@ async def test_review_back_reopens_first_share_for_automatic_two_person_split(mo
     state = _state()
     await state.set_state(AddExpenseStates.confirm)
     await state.update_data(
-        participants=[{"id": p, "name": p} for p in ("a", "b")], creator_id="a",
-        split_method="exact", exact_index=2, exact_amounts={"a": 100, "b": 200},
+        participants=[{"id": p, "name": p} for p in ("a", "b")],
+        creator_id="a",
+        split_method="exact",
+        exact_index=2,
+        exact_amounts={"a": 100, "b": 200},
     )
     message = SimpleNamespace(answer=AsyncMock())
-    monkeypatch.setattr("splitnshare.presentation.routers.expenses.callback_message", lambda _: message)
+    monkeypatch.setattr(
+        "splitnshare.presentation.routers.expenses.callback_message", lambda _: message
+    )
     await review_back(SimpleNamespace(answer=AsyncMock()), state, Language.ENGLISH)
     data = await state.get_data()
     assert data["exact_index"] == 0

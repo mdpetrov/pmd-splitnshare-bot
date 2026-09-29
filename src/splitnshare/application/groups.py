@@ -65,9 +65,12 @@ class GroupService:
         """Calculate pairwise balances for every active group participant."""
         async with self._uow_factory() as uow:
             group = await uow.groups.get(actor_id, group_id)
-            balances = {member.id: tuple(await uow.expenses.balances(
-                member.id, GroupExpenseContext(group_id)
-            )) for member in group.participants}
+            balances = {
+                member.id: tuple(
+                    await uow.expenses.balances(member.id, GroupExpenseContext(group_id))
+                )
+                for member in group.participants
+            }
             return group, balances
 
     async def settle(
@@ -81,8 +84,11 @@ class GroupService:
         async with self._uow_factory() as uow:
             await uow.groups.get(actor_id, group_id, for_update=True)
             context = GroupExpenseContext(group_id)
-            current = tuple(balance for balance in await uow.expenses.balances(actor_id, context)
-                            if other_id is None or balance.other_person_id == other_id)
+            current = tuple(
+                balance
+                for balance in await uow.expenses.balances(actor_id, context)
+                if other_id is None or balance.other_person_id == other_id
+            )
             actual_values = {(b.other_person_id, b.currency): b.net_minor for b in current}
             expected_values = {(b.other_person_id, b.currency): b.net_minor for b in expected}
             if not current or actual_values != expected_values:
@@ -91,9 +97,15 @@ class GroupService:
                 )
             settlements = []
             for balance in sorted(current, key=lambda b: (b.other_person_id, b.currency)):
-                settlements.append(await uow.settlements.create_for_balance(
-                    actor_id, balance.other_person_id, abs(balance.net_minor),
-                    balance.currency, context, datetime.now(UTC),
-                ))
+                settlements.append(
+                    await uow.settlements.create_for_balance(
+                        actor_id,
+                        balance.other_person_id,
+                        abs(balance.net_minor),
+                        balance.currency,
+                        context,
+                        datetime.now(UTC),
+                    )
+                )
             await uow.commit()
             return tuple(settlements)

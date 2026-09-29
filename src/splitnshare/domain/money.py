@@ -10,6 +10,7 @@ from splitnshare.domain.errors import ValidationError
 @dataclass(frozen=True, slots=True)
 class Money:
     """Store a non-negative monetary amount in integer minor units."""
+
     minor: int
     currency: str
 
